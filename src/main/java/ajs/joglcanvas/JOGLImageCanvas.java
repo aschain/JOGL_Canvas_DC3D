@@ -818,7 +818,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	
 	private void updateImageStackBuffer(Buffer stackBuffer, Buffer sliceBuffer, int slice) {
 		int offset=(slice-1)*imageWidth*imageHeight*((stackBuffer instanceof IntBuffer)?1:4);
-		IJ.log("stackbuffer limit-"+stackBuffer.limit()+" offset-"+offset);
 		stackBuffer.position(offset);
 		if(stackBuffer instanceof ByteBuffer) 
 			((ByteBuffer)stackBuffer).put((byte[])sliceBuffer.array());
@@ -855,7 +854,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		int chs=imp.getNChannels();
 		int size=width*height*4*(endsl-stsl)*(endfr-stfr);
 		bsize*=width*height*4;
-		//IJ.log("Size "+size);
 		if(bsize==size)sliceOffsetInBuffer=0;
 		Object outPixels;
 		if(bits==8)outPixels=new byte[size];
@@ -907,7 +905,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						}
 						for(int ci=0;ci<color.length;ci++) {
 							if(color[ci]) {
-								//IJ.log("floatPixels length "+floatPixels.length+" offset:"+offset);
 								if(chclear[ci]) {
 									addPixels(outPixels, pixels, offset, ci, "COPY",min,max); chclear[ci]=false;
 								}else {

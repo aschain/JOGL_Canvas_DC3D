@@ -128,10 +128,6 @@ public class JCP implements PlugIn {
 		String classname= imp.getWindow().getClass().getSimpleName();
 		if(classname.equals("ImageWindow") || classname.equals("StackWindow")) {
 			int bits=imp.getBitDepth();
-			//if(bits==24) {
-				//IJ.showMessage("JOGL Canvas DC3D doesn't work with RGB image - convert to Composite Image first");
-				//return;
-			//}else 
 				if((bits<16 || bits==24)&& (glCapabilities.getRedBits()>8 || glCapabilities.getGreenBits()>8 || glCapabilities.getBlueBits()>8) ) {
 				IJ.log("JCDC3D Warning:\nOriginal image is 8 bits or less and therefore \nwon't display any differently with 10 bits or higher display.");
 			}
@@ -262,7 +258,6 @@ public class JCP implements PlugIn {
 		if(defaultstr.equals("default"))defaultstr="8,8,8,8";
 		GLDrawableFactory factory=GLDrawableFactory.getFactory(glProfile);
 		List<GLCapabilitiesImmutable> glcList=factory.getAvailableCapabilities(null);
-		//IJ.log("glcListNum:"+glcList.size());
 		ArrayList<String> bitdepths=new ArrayList<String>();
 		bitdepths.add(defaultstr);
 		for(int i=0;i<glcList.size();i++) {
@@ -380,14 +375,6 @@ public class JCP implements PlugIn {
 				
 				GLUT glut=new GLUT();
 				glut.glutWireTeapot(0.5);
-				/*
-				gl2.glBegin(GL2.GL_QUADS);
-				gl2.glVertex3f(-0.6f, -0.6f, 0);
-				gl2.glVertex3f(0.6f, -0.6f, 0);
-				gl2.glVertex3f(0.6f, 0.6f, 0);
-				gl2.glVertex3f(-0.6f, 0.6f, 0);
-				gl2.glEnd();
-				*/
 				}
 			}
 			@Override

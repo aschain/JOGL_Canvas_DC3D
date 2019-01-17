@@ -12,7 +12,7 @@ public class JOGLCanvasService implements ImageListener {
 
 	
 	public void imageOpened(ImagePlus imp) {
-		do{IJ.wait(500);}while(!imp.isVisible());
+		do{IJ.wait(500);}while(imp instanceof ImagePlus && !imp.isVisible());
 		JCP.convertToJOGLCanvas(imp);
 	}
 

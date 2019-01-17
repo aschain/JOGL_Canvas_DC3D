@@ -64,7 +64,6 @@ import com.jogamp.opengl.GLAutoDrawable;
 import com.jogamp.opengl.util.texture.awt.AWTTextureIO;
 import com.jogamp.opengl.GLEventListener;
 import com.jogamp.opengl.awt.GLCanvas;
-import com.jogamp.opengl.util.Animator;
 import com.jogamp.opengl.util.awt.AWTGLReadBufferUtil;
 
 public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, ImageListener, KeyListener, ActionListener, ItemListener, WindowListener{
@@ -109,12 +108,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private double[] lutminmaxs=null;
 	private int updatingBuffers=0;
 	private int undersample=JCP.undersample;
-	enum StereoType{OFF, CARDBOARD, ANAGLYPH, QUADBUFFER, VSYNC};
-	private static String[] stereoTypeStrings=new String[] {"Stereo off", "Google Cardboard-SBS","Anaglyph (red-blue)","OpenGL Quad Buffers", "VSYNC"};
+	enum StereoType{OFF, CARDBOARD, ANAGLYPH, QUADBUFFER};
+	private static String[] stereoTypeStrings=new String[] {"Stereo off", "Google Cardboard-SBS","Anaglyph (red-blue)","OpenGL Quad Buffers"};
 	private static final float CB_MAXSIZE=4f;
 	private static final float CB_TRANSLATE=0.44f;
 	private StereoType stereoType=StereoType.OFF;
-	private boolean swap=true;
 
 	enum PixelType{BYTE, SHORT, FLOAT, INT_RGB10A2};
 	private static final String[] pixelTypeStrings=new String[] {"4 bytes (8bpc, 32bit)","4 shorts (16bpc 64bit)","4 floats (32bpc 128bit)","1 int RGB10A2 (10bpc, 32bit)"};
@@ -127,7 +125,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private AWTGLReadBufferUtil ss=null;
 	private RoiGLDrawUtility rgldu=null;
 	//private long starttime=0;
-	private final Animator animator = new Animator();
 
 	public JOGLImageCanvas(ImagePlus imp, boolean mirror) {
 		super(imp);
@@ -172,7 +169,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			updateBuffersBackground(null);
 		}
 		prevSrcRect=new Rectangle(0, 0, 0, 0);
-		animator.add(icc);
 		if(mirror)setMirror();
 		lutminmaxs=new double[imp.getNChannels()*2];
 	}
@@ -402,7 +398,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		};
 
 		//drawing
-		if(stereoType==StereoType.VSYNC) gl2es2.setSwapInterval(1);
 		if(stereoType==StereoType.ANAGLYPH) {
 			renderFunction="MAX";
 		}
@@ -412,7 +407,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		int views=1;
 		if(go3d && stereoType.ordinal()>0)views=2;
 		for(int stereoi=0;stereoi<views;stereoi++) {
-			if(stereoType==StereoType.VSYNC && !swap) stereoi=1;
 			
 			gl2.glMatrixMode(GL2.GL_MODELVIEW);
 			gl2.glLoadIdentity();
@@ -668,7 +662,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			}
 		}
 		imp.unlock();
-		if(stereoType==StereoType.VSYNC) {swap=!swap;}
 	}
 	
 	public BufferedImage grabScreen(GLAutoDrawable drawable) {
@@ -1289,11 +1282,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}
 		myImageUpdated=true;
 		repaint();
-		if(stereoType==StereoType.VSYNC){
-			animator.start();
-		}else {
-			if(animator.isAnimating())animator.stop();
-		}
 	}
 	
 	public void setMirror() {

@@ -17,7 +17,7 @@
 	<version>0.1.0-SNAPSHOT</version>
 
 	<name>JOGL_Canvas_DC3D</name>
-	<description>A Maven project implementing an ImageJ 1.x plugin.</description>
+	<description>ImageJ1 Plugin replacing the Java Canvas with an OpenGL JOGL GLCanvas.</description>
 	<url>http://sites.imagej.net/Aschain</url>
 	<inceptionYear>2018</inceptionYear>
 	<organization>
@@ -104,25 +104,4 @@
 			<artifactId>ij</artifactId>
 		</dependency>
 	</dependencies>
-	<build>
-		<plugins>
-			<plugin>
-				<groupId>org.codehaus.mojo</groupId>
-				<artifactId>exec-maven-plugin</artifactId>
-				<executions>
-				  <execution>
-				  	<id>first-execution</id>
-				    <phase>install</phase>
-				    <goals>
-				       <goal>exec</goal>
-				    </goals>
-				    <configuration>
-				      <executable>copy-over.bat</executable>
-				      <workingDirectory>${basedir}/target/</workingDirectory>
-				    </configuration>
-				  </execution>
-				</executions>
-			</plugin>
-		</plugins>
-	</build>
 </project>

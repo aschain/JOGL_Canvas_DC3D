@@ -788,13 +788,13 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			public void run() {
 				int timeout=0;
 				final int frms=imp.getNFrames();
+				Frame win=(Frame)imp.getWindow();
+				if(mirror!=null)win=mirror;
+				String title=win.getTitle();
 				while(updatingBuffers>0) {
 					if(imp==null)break;
 					int ubn=0;
 					for(boolean a : updatedBuffers) if(a)ubn++;
-					Frame win=(Frame)imp.getWindow();
-					if(mirror!=null)win=mirror;
-					String title=win.getTitle();
 					win.setTitle(title+" (Updating for 3d: "+(int)((double)ubn/frms*100)+"%...)");
 					IJ.wait(50);
 					timeout++;
@@ -802,8 +802,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						IJ.log("3d updating buffers (at "+(int)((double)ubn/frms*100)+"%) timed out for "+imp.getTitle());
 						break;
 					}
+					win.repaint();
 				}
-				if(imp!=null)imp.getWindow().setTitle(imp.getTitle());
+				if(win!=null)win.setTitle(title);
+				win.repaint();
 			}
 		}).start();
 		return false;
@@ -1303,8 +1305,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				updateMirror(); repaint();
 			}
 		});
-		updateMirror();
 		mirror.setVisible(true);
+		updateMirror();
 	}
 
 	@Override
@@ -1791,8 +1793,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	}
 
 	@Override
-	public void keyPressed(KeyEvent arg0) {
-		if(isMirror) {updateMirror(); repaint();}}
+	public void keyPressed(KeyEvent arg0) {}
 	@Override
 	public void keyReleased(KeyEvent arg0) {}
 	@Override
@@ -1800,17 +1801,20 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(arg0.getKeyChar()=='u') {
 			myImageUpdated=true;
 			repaint();
-		}
-		if(arg0.getKeyChar()=='='||arg0.getKeyChar()=='-') {
-			Point loc = getCursorLoc();
-			if (!cursorOverImage()) {
-				loc.x = srcRect.x + srcRect.width/2;
-				loc.y = srcRect.y + srcRect.height/2;
+		}else {
+			if(arg0.getKeyChar()=='='||arg0.getKeyChar()=='-') {
+				Point loc = getCursorLoc();
+				if (!cursorOverImage()) {
+					loc.x = srcRect.x + srcRect.width/2;
+					loc.y = srcRect.y + srcRect.height/2;
+				}
+				int x = screenX(loc.x);
+				int y = screenY(loc.y);
+				ImageCanvas ic=isMirror?imp.getCanvas():this;
+				if(arg0.getKeyChar()=='=')ic.zoomIn(x,y);
+				else ic.zoomOut(x,y);
 			}
-			int x = screenX(loc.x);
-			int y = screenY(loc.y);
-			if(arg0.getKeyChar()=='=')zoomIn(x,y);
-			else zoomOut(x,y);
+			if(isMirror) {updateMirror(); repaint();}
 		}
 	}
 	
@@ -1831,6 +1835,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(shouldKeep(e)) {
 			sx = e.getX();
 			sy = e.getY();
+			if(IJ.spaceBarDown()) {
+				setupScroll(offScreenX(sx),offScreenX(sy));
+			}
 		}else super.mousePressed(e);
 		if(isMirror) {updateMirror(); repaint();}
 	}
@@ -1838,18 +1845,23 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	@Override
 	public void mouseDragged(MouseEvent e) {
 		if(shouldKeep(e)) {
-			if(IJ.altKeyDown() || e.getButton()==MouseEvent.BUTTON2) {
-				dz+=(float)(e.getY()-sy)/(float)srcRect.height*90f;
-				sy=e.getY();
+			if(IJ.spaceBarDown()&&isMirror) {
+				scroll(e.getX(),e.getY());
+				imp.getCanvas().setSourceRect(srcRect);
 			}else {
-				dx+=(float)(e.getX()-sx)/(float)srcRect.width*90f;
-				sx=e.getX();
-				dy+=(float)(e.getY()-sy)/(float)srcRect.height*90f;
-				sy=e.getY();
+				if(IJ.altKeyDown() || e.getButton()==MouseEvent.BUTTON2) {
+					dz+=(float)(e.getY()-sy)/(float)srcRect.height*90f;
+					sy=e.getY();
+				}else {
+					dx+=(float)(e.getX()-sx)/(float)srcRect.width*90f;
+					sx=e.getX();
+					dy+=(float)(e.getY()-sy)/(float)srcRect.height*90f;
+					sy=e.getY();
+				}
+				if(dz<0)dz+=360; if(dz>360)dz-=360;
+				if(dx<0)dx+=360; if(dx>360)dx-=360;
+				if(dy<0)dy+=360; if(dy>360)dy-=360;
 			}
-			if(dz<0)dz+=360; if(dz>360)dz-=360;
-			if(dx<0)dx+=360; if(dx>360)dx-=360;
-			if(dy<0)dy+=360; if(dy>360)dy-=360;
 			if(isMirror)updateMirror();
 			icc.repaint();
 		}else super.mouseDragged(e);
@@ -1871,7 +1883,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	
 	@Override
 	public void mouseMoved(MouseEvent e) {
-		if(!shouldKeep(e))super.mouseMoved(e);
+		if(!shouldKeep(e) || isMirror)super.mouseMoved(e);
 	}
 	
 	@Override

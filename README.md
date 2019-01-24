@@ -14,3 +14,32 @@ Because OpenGL and graphics cards are geared towards 3D rendering, I also implem
 
 ## Installation
 Copy [JOGL_Canvas_DC3D](https://github.com/aschain/JOGL_Canvas_DC3D/releases/) to the plugins folder in your imagej1 / fiji directory. You must have the JOGL jars installed.  They will be installed if you have the fiji Java-8 update site activated. If you can run **Plugins -> Utilities -> Debugging -> Test Java3D** then you are ok.
+
+## How to use
+The first time you run, the preferences will pop up (or go to *Plugins -> JOGL Canvas DC3D -> JOGL Canvas Prefs*).  You must set The display pixel depths (8,8,8,8 for normal monitors, 10,10,10,2 for 10 bit, etc).  You can either replace the current window's ImageCanvas with the GLCanvas (*Plugins -> JOGL Canvas DC3D -> Convert to JOGL Canvas*) or create another window that is a mirror of the image window, but with the GLCanvas (*Plugins -> JOGL Canvas DC3D -> Open JOGL Canvas Mirror*). Additionally, in the preferences, there is a setting to add shortcuts to these plugins to the ImageJ popup menu, which pops up when you right-click on any image.  Once you have opened a JOGL Canvas window, right clicking in the window opens a JOGL_Canvas-specific popup menu (see below).  If you have a high-bit monitor and want to test whether an image can actually display in deep-color, choose "open test image" at the bottom of the preferences.  This image is a gradual ramp of 4096 shades of gray. On normal monitors, you can see banding about every 60 pixels.  Convert to GLCanvas or open a mirror, and the banding should not be visible.
+
+## JOGL Canvas Popup menus
+|JOGL_Canvas Popup Menu| What it does|
+|------------------|--------|
+|3d Options| Opens 3d options submenu|
+|Normal Pixel Type| Select pixel display memory type for non-3d|
+|Switch use PBO for Slices| When on, tries to store the whole image in video card memory (fast, but requires memory)|
+|Revert to Normal Window| Switches back to ImageCanvas or closes the mirror window|
+|JOGL Canvas Preferences| Opens the preferences|
+|ImageJ| Opens the original ImageJ popup menu|
+
+
+|3d Options Submenu| What it does|
+|------------------|--------|
+|Turn 3d on/off| Displays a 3d rendering of the image (if >1 slice)|
+|Rendering| MAX - all voxels are transparent, ALPHA - bright voxels are less transparent|
+|Set Undersampling| If not enough memory for 3d, undersampling can take every 2nd,4th etc. pixel|
+|3D Pixel type| Select pixel display memory type for 3d (defaults to byte, but you can use short if you really need to see the 3d render in deep color as well, but it will probably be quite slow)|
+|Start 3d Background Load| Attempts to load the entire 4D (if multiple frames) stack into memory (will make scrolling frames faster)|
+|Update 3d Image| The 3d image does not update when changes are made to the original image until you select this (or click the update button)|
+|Reset 3d view| Resets the 3D angle changes that have been made, so the view is from the top down|
+|Stereoscopic 3D| Creates a stereo image to view with google cardboard, colored glasses, or using a 3d-capable monitor|
+
+## 3D Rendering
+When in 3D mode, for the mirror window, clicking and dragging will spin the volume around its midpoint in x and y.  For the converted ImageWindow, you must control-click (command for mac) to spin the volume.  Hold down alt (option) to spin the volume around the z-axis. Shift-click to reset the 3d view. You can zoom in and out with "+" and "-" keys like with normal ImageJ windows, and pan by holding down the space bar.
+ROIs will appear as you draw them in the 3D volume, with the z determined by the current set slice. When adjusting ROIs, XY-coordinates when clicking on the screen are based on the original display, not the rotated 3d display (like you were clicking on the original image, not the 3d one). If you set multiple ROIs in the overlay, they will all be visible in the 3d render, in their correct z-position.

@@ -283,7 +283,7 @@ public class JCP implements PlugIn {
 		gd.addCheckbox("Load entire stack in background immediately (for 3d)", backgroundLoadBuffers);
 		gd.addChoice("Undersample?", new String[] {"None","2","4","6"},undersample==1?"None":(""+undersample));
 		gd.addCheckbox("Draw ROI with OpenGL (in progress)", openglroi);
-		gd.addCheckbox("Keep image of whole stack in non-3d (faster but more memory)", usePBOforSlices);
+		gd.addCheckbox("Keep image of whole stack in memory in non-3d \n(faster but more memory)", usePBOforSlices);
 		gd.addCheckbox("Stereoscopic settings", false);
 		gd.addCheckbox("Open test image", false);
 		gd.showDialog();

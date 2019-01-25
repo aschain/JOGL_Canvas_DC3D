@@ -7,6 +7,7 @@ import ij.ImagePlus;
 import ij.ImageStack;
 import ij.Menus;
 import ij.Prefs;
+import ij.WindowManager;
 import ij.gui.ImageCanvas;
 import ij.gui.Roi;
 import ij.gui.ScrollbarWithLabel;
@@ -1639,6 +1640,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				menu.add(mi);
 			}
 			threeDmenu.add(menu);
+			mi=new MenuItem("Save image or movie");
+			mi.setActionCommand("Recorder");
+			mi.addActionListener(this);
+			threeDmenu.add(mi);
 			
 			dcpopup.add(threeDmenu);
 			
@@ -1690,7 +1695,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		else if(cmd.equals("reset3d")){resetAngles();}
 		else if(cmd.equals("prefs")){JCP.preferences();}
 		else if(cmd.equals("bgload")) {if(go3d) updateBuffers(imp.getT(),true);  else updateBuffersBackground(null);}
-		else if(cmd.equals("usePBOforSlices")) {
+		else if(cmd.equals("Recorder")){
+			IJ.run("JOGL Canvas Recorder",imp.getTitle());
+		}else if(cmd.equals("usePBOforSlices")) {
 			if(usePBOforSlices) {
 				IJ.log("PBOslices off");
 				usePBOforSlices=false;

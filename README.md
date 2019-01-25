@@ -39,7 +39,13 @@ The first time you run, the preferences will pop up (or go to *Plugins -> JOGL C
 |Update 3d Image| The 3d image does not update when changes are made to the original image until you select this (or click the update button)|
 |Reset 3d view| Resets the 3D angle changes that have been made, so the view is from the top down|
 |Stereoscopic 3D| Creates a stereo image to view with google cardboard, colored glasses, or using a 3d-capable monitor|
+|Save image or movie| Runs the *JOGL Cavnas Recorder* plugin, allowing screen caps of the 3D render|
 
 ## 3D Rendering
-When in 3D mode, for the mirror window, clicking and dragging will spin the volume around its midpoint in x and y.  For the converted ImageWindow, you must control-click (command for mac) to spin the volume.  Hold down alt (option) to spin the volume around the z-axis. Shift-click to reset the 3d view. You can zoom in and out with "+" and "-" keys like with normal ImageJ windows, and pan by holding down the space bar.
-ROIs will appear as you draw them in the 3D volume, with the z determined by the current set slice. When adjusting ROIs, XY-coordinates when clicking on the screen are based on the original display, not the rotated 3d display (like you were clicking on the original image, not the 3d one). If you set multiple ROIs in the overlay, they will all be visible in the 3d render, in their correct z-position.
+-- When in 3D mode, for the mirror window, clicking and dragging will spin the volume around its midpoint in x and y.  For the converted ImageWindow, you must control-click (command for mac) to spin the volume.  Hold down alt (option) to spin the volume around the z-axis. Shift-click to reset the 3d view. You can zoom in and out with "+" and "-" keys like with normal ImageJ windows, and pan by holding down the space bar.
+
+-- ROIs will appear as you draw them in the 3D volume, with the z determined by the current set slice. When adjusting ROIs, XY-coordinates when clicking on the screen are based on the original display, not the rotated 3d display (like you were clicking on the original image, not the 3d one). If you set multiple ROIs in the overlay, they will all be visible in the 3d render, in their correct z-position.
+
+-- In ALPHA rendering mode, voxel's are less transparent (higher alpha) based on how bright the pixel is. Each pixel's alpha is calculated as the maximum of the red, green and blue channels.  
+
+-- 3D rendered images cannot be direcly saved.  You have to capture them into normal image first. I have included a simple plugin to do this: (*Plugins -> JOGL Canvas DC3D -> JOGL Canvas Recorder*). To use it, open/select a JOGL Canvas-converted image or an image with a mirror (Not the mirror but the original image), then open the *JOGL Canvas Recorder*, and hit *Start Recording*.  If you want only one image, just hit *Stop*. If you want to record a movie while rotating/zooming/panning the render, do those actions, and then hit *Stop*.

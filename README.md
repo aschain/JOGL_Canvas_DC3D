@@ -35,7 +35,7 @@ The first time you run, the preferences will pop up (or go to *Plugins -> JOGL C
 |Rendering| MAX - all voxels are transparent, ALPHA - bright voxels are less transparent|
 |Set Undersampling| If not enough memory for 3d, undersampling can take every 2nd,4th etc. pixel|
 |3D Pixel type| Select pixel display memory type for 3d (defaults to byte, but you can use short if you really need to see the 3d render in deep color as well, but it will probably be quite slow)|
-|Start 3d Background Load| Attempts to load the entire 4D (if multiple frames) stack into memory (will make scrolling frames faster)|
+|Start 3d Background Load| Attempts to load the entire 4D (if multiple frames) stack into memory (will make scrolling frames faster, but takes memory)|
 |Update 3d Image| The 3d image does not update when changes are made to the original image until you select this (or click the update button)|
 |Reset 3d view| Resets the 3D angle changes that have been made, so the view is from the top down|
 |Stereoscopic 3D| Creates a stereo image to view with google cardboard, colored glasses, or using a 3d-capable monitor|

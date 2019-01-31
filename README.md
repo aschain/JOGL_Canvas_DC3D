@@ -18,6 +18,8 @@ Copy [JOGL_Canvas_DC3D](https://github.com/aschain/JOGL_Canvas_DC3D/releases/) t
 ## How to use
 The first time you run, the preferences will pop up (or go to *Plugins -> JOGL Canvas DC3D -> JOGL Canvas Prefs*).  You must set The display pixel depths (8,8,8,8 for normal monitors, 10,10,10,2 for 10 bit, etc).  You can either replace the current window's ImageCanvas with the GLCanvas (*Plugins -> JOGL Canvas DC3D -> Convert to JOGL Canvas*) or create another window that is a mirror of the image window, but with the GLCanvas (*Plugins -> JOGL Canvas DC3D -> Open JOGL Canvas Mirror*). Additionally, in the preferences, there is a setting to add shortcuts to these plugins to the ImageJ popup menu, which pops up when you right-click on any image.  Once you have opened a JOGL Canvas window, right clicking in the window opens a JOGL_Canvas-specific popup menu (see below).  If you have a high-bit monitor and want to test whether an image can actually display in deep-color, choose "open test image" at the bottom of the preferences.  This image is a gradual ramp of 4096 shades of gray. On normal monitors, you can see banding about every 60 pixels.  Convert to GLCanvas or open a mirror, and the banding should not be visible.
 
+_Note:_ JOGL_Canvas cannot use LUTs that are more complex than a single color (Red, Green, Blue, Yellow, Gray...). This is because the LUTs are 8-bit and couldn't be used for 10-bit or higher display.  The plugin takes the color that corresponds to the brightest pixel and assumes a solid ramp LUT from that.  It will adjust for changes in max/min like normal ImageJ.
+
 ## JOGL Canvas Popup menus
 |JOGL_Canvas Popup Menu| What it does|
 |------------------|--------|
@@ -43,6 +45,8 @@ The first time you run, the preferences will pop up (or go to *Plugins -> JOGL C
 
 ## 3D Rendering
 -- When in 3D mode, for the mirror window, clicking and dragging will spin the volume around its midpoint in x and y.  For the converted ImageWindow, you must control-click (command for mac) to spin the volume.  Hold down alt (option) to spin the volume around the z-axis. Shift-click to reset the 3d view. You can zoom in and out with "+" and "-" keys like with normal ImageJ windows, and pan by holding down the space bar.
+
+-- If you update the image (change any min/max, cut/paste, etc.) it will not update the 3D render right away, you will need to press the "update" button that appears, or right click and select 3D Options - Update 3d Image.  If you change the min/max, there will be a color change "preview" but this won't update the alpha and won't look quite right until you update.
 
 -- ROIs will appear as you draw them in the 3D volume, with the z determined by the current set slice. When adjusting ROIs, XY-coordinates when clicking on the screen are based on the original display, not the rotated 3d display (like you were clicking on the original image, not the 3d one). If you set multiple ROIs in the overlay, they will all be visible in the 3d render, in their correct z-position.
 

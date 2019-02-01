@@ -7,7 +7,6 @@ import ij.ImagePlus;
 import ij.ImageStack;
 import ij.Menus;
 import ij.Prefs;
-import ij.WindowManager;
 import ij.gui.ImageCanvas;
 import ij.gui.Roi;
 import ij.gui.ScrollbarWithLabel;
@@ -64,6 +63,7 @@ import com.jogamp.opengl.GL4;
 import com.jogamp.opengl.GLAutoDrawable;
 import com.jogamp.opengl.util.texture.awt.AWTTextureIO;
 import com.jogamp.opengl.GLEventListener;
+import com.jogamp.opengl.GLException;
 import com.jogamp.opengl.awt.GLCanvas;
 import com.jogamp.opengl.util.awt.AWTGLReadBufferUtil;
 
@@ -348,12 +348,16 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 							imagePBO[fr]=updateSubRgbaPBO(gl2es2, imagePBO[fr],imageFBs[fr],offset, psize, bsize);
 							updatedBuffersSlices[fr*sls+sl]=true;
 						}catch(Exception e) {
-							IJ.log("Out of memory, switching usePBOforSlices off");
-							usePBOforSlices=false;
-							imageFBs[fr]=null; 
-							gl2es2.glDeleteBuffers(imagePBO.length, imagePBO,0);
-							imagePBO=new int[frms];
-							updatedBuffersSlices=new boolean[sls*frms];
+							if(e instanceof GLException) {
+								GLException gle=(GLException)e;
+								IJ.log(gle.getMessage());
+								IJ.log("Out of memory, switching usePBOforSlices off");
+								usePBOforSlices=false;
+								imageFBs[fr]=null; 
+								gl2es2.glDeleteBuffers(imagePBO.length, imagePBO,0);
+								imagePBO=new int[frms];
+								updatedBuffersSlices=new boolean[sls*frms];
+							}
 						}
 					}else loadtex=true;
 				}else {
@@ -1448,6 +1452,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	}
 
 	/*Called in super()*/
+	@Override
 	public void setSize(int width, int height) {
 		if(icc!=null) {
 			icc.setMinimumSize(new Dimension(10,10));
@@ -1460,11 +1465,13 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		dstWidth = width;
 		dstHeight = height;
 	}
-	
+
+	@Override
 	public void setSize(Dimension newsize) {
 		setSize(newsize.width,newsize.height);
 	}
 
+	@Override
 	public void repaint() {
 		if(icc!=null) {
 			if(isMirror)updateMirror();
@@ -1474,76 +1481,92 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		//else super.repaint();
 	}
 
+	@Override
 	public void repaint(int x,int y,int width,int height) {
 		if(icc!=null)icc.repaint(x,y,width,height);
 		else super.repaint(x,y,width,height);
 	}
 
+	@Override
 	public Point getLocation() {
 		if(icc!=null)return icc.getLocation();
 		else return super.getLocation();
 	}
 
+	@Override
 	public Rectangle getBounds() {
 		if(icc!=null)return icc.getBounds();
 		else return super.getBounds();
 	}
 
+	@Override
 	public void setCursor(Cursor cursor) {
 		if(icc!=null)icc.setCursor(cursor);
 		else super.setCursor(cursor);
 	}
 
 	/* called in super() disable so I don't have to remove them*/
+	@Override
 	public void addMouseListener(MouseListener object) {
 		if(icc!=null)icc.addMouseListener(object);
 		//else super.addMouseListener(object);
 	}
+	@Override
 	public void addMouseMotionListener(MouseMotionListener object) {
 		if(icc!=null)icc.addMouseMotionListener(object);
 		//else super.addMouseMotionListener(object);
 	}
+	@Override
 	public void addKeyListener(KeyListener object) {
 		if(icc!=null)icc.addKeyListener(object);
 		//else super.addKeyListener(object);
 	}
 	
 	/*just in case*/
+	@Override
 	public void removeMouseListener(MouseListener object) {
 		if(icc!=null)icc.removeMouseListener(object);
 		//else super.removeMouseListener(object);
 	}
+	@Override
 	public void removeMouseMotionListener(MouseMotionListener object) {
 		if(icc!=null)icc.removeMouseMotionListener(object);
 		//else super.removeMouseMotionListener(object);
 	}
+	@Override
 	public void removeKeyListener(KeyListener object) {
 		if(icc!=null)icc.removeKeyListener(object);
 		//else super.removeKeyListener(object);
 	}
 	
-	
+
+	@Override
 	public void requestFocus() {
 		if(icc!=null)icc.requestFocus();
 		else super.requestFocus();
 	}
+	@Override
 	public Container getParent() {
 		if(icc!=null)return icc.getParent();
 		else return super.getParent();
 	}
+	@Override
 	public Graphics getGraphics() {
 		if(icc!=null)return icc.getGraphics();
 		else return super.getGraphics();
 	}
+	@Override
 	public Dimension getSize() {
 		if(icc!=null)return icc.getSize();
 		else return super.getSize();
 	}
+	@Override
 	public Dimension getPreferredSize() {
 		if(icc!=null)return icc.getPreferredSize();
 		else return super.getPreferredSize();
 	}
-	
+
+	@Override
 	public boolean hideZoomIndicator(boolean hide) {
 		boolean hidden=myHZI;
 		if (!(srcRect.width<imageWidth||srcRect.height<imageHeight))
@@ -1553,12 +1576,14 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		return hidden;
 	}
 
+	@Override
 	public void add(PopupMenu popup) {
 		if(icc!=null)icc.add(popup);
 		else super.add(popup);
 	}
 	
 	/** Adapted from ImageCanvas, but shows JOGLCanvas popupmenu*/
+	@Override
 	protected void handlePopupMenu(MouseEvent e) {
 		if(icc==null)super.handlePopupMenu(e);
 		else {
@@ -1583,6 +1608,12 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				mi3d.setLabel(lbl);
 			}
 		}
+	}
+
+	/** Disable/enable popup menu. */
+	@Override
+	public void disablePopupMenu(boolean status) {
+		disablePopupMenu = status;
 	}
 	
 	public void createPopupMenu() {
@@ -1674,11 +1705,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		cmi.addItemListener(this);
 		cmi.setState(state);
 		menu.add(cmi);
-	}
-
-	/** Disable/enable popup menu. */
-	public void disablePopupMenu(boolean status) {
-		disablePopupMenu = status;
 	}
 
 	public void actionPerformed(ActionEvent e) {

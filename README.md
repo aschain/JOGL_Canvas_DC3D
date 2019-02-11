@@ -10,7 +10,7 @@ The GLCanvas can display to the monitor in these higher bits. Java represents ea
 
 ### 3D --  JOGL makes it easier to render in 3D.
 
-Because OpenGL and graphics cards are geared towards 3D rendering, I also implemented a fairly simple 3d renderer for image stacks.  Image stacks are rendered in 3d directly on the canvas, and you can zoom, and rotate but not translate or move the "camera".
+Because OpenGL and graphics cards are geared towards 3D rendering, I also implemented a fairly simple 3d renderer for image stacks.  Image stacks are rendered in 3d directly on the canvas, and you can zoom, pan, and rotate but not translate or move the "camera".
 
 ## Installation
 Copy [JOGL_Canvas_DC3D](https://github.com/aschain/JOGL_Canvas_DC3D/releases/) to the plugins folder in your imagej1 / fiji directory. You must have the JOGL jars installed.  They will be installed if you have the fiji Java-8 update site activated. If you can run **Plugins -> Utilities -> Debugging -> Test Java3D** then you are ok.

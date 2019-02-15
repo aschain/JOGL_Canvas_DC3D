@@ -100,6 +100,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 
 	private int imageTexture;
 	private int roiTexture;
+	private int globalmatrix,modelmatrix;
+	private ByteBuffer globalMatricesPointer, modelMatrixPointer;
 	private FloatBuffer vertb=null;
 	private int[] imagePBO=new int[] {0};
 	private int[] overlayTextures;
@@ -114,6 +116,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private static final float CB_MAXSIZE=4f;
 	private static final float CB_TRANSLATE=0.44f;
 	private StereoType stereoType=StereoType.OFF;
+	private boolean dubois=false;
 
 	enum PixelType{BYTE, SHORT, FLOAT, INT_RGB10A2};
 	private static final String[] pixelTypeStrings=new String[] {"4 bytes (8bpc, 32bit)","4 shorts (16bpc 64bit)","4 floats (32bpc 128bit)","1 int RGB10A2 (10bpc, 32bit)"};
@@ -187,6 +190,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	//GLEventListener methods
 	@Override
 	public void reshape(GLAutoDrawable drawable, int x, int y, int width, int height) {
+		GL4 gl4 = drawable.getGL().getGL4();
+		
 		GL2 gl2 = drawable.getGL().getGL2();
 		gl2.glMatrixMode(GL2.GL_PROJECTION);
 		gl2.glLoadIdentity();
@@ -527,7 +532,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					gl2.glBlendFunc(GL2.GL_SRC_ALPHA, GL2.GL_ONE_MINUS_SRC_ALPHA);
 				}
 				
-				if(stereoType==StereoType.ANAGLYPH) {
+				if(stereoType==StereoType.ANAGLYPH && !dubois) {
 					if(stereoi==0)gl2.glColor4fv(RoiGLDrawUtility.getFloatColor(JCP.leftAnaglyphColor),0);
 					else gl2.glColor4fv(RoiGLDrawUtility.getFloatColor(JCP.rightAnaglyphColor),0);
 				}else gl2.glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
@@ -541,7 +546,13 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					for(int i=0;i<initVerts.length/6;i++)vertb.put(i*6+5,0.5f);
 				}				
 			}
-			drawTexGL6f(gl2, vertb, GL2.GL_QUADS);
+			if(dubois) {
+				//int smask[]= {GL2.GL_RED,GL2.GL_RED,GL2.GL_RED,GL2.GL_ALPHA};
+				//gl2es2.glTexParameterIiv(GL2ES2.GL_TEXTURE_3D, GL4.GL_TEXTURE_SWIZZLE_RGBA, smask, 0);
+				drawTexGL6f(gl2, vertb, GL2.GL_QUADS);
+				
+			}
+			else drawTexGL6f(gl2, vertb, GL2.GL_QUADS);
 			gl2es2.glDisable(GL2ES2.GL_TEXTURE_3D);
 
 			//brighten
@@ -550,7 +561,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			for(int i=0;i<luts.length;i++) {
 				if(luts[i].min!=lutminmaxs[i*2] || luts[i].max!=lutminmaxs[i*2+1])dobr=true;
 			}
-			if(go3d && dobr) {
+			if(go3d && dobr && !dubois) {
 				gl2.glEnable(GL2.GL_BLEND);
 				gl2.glPushMatrix();
 				gl2.glLoadIdentity();
@@ -649,9 +660,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				gl2.glDisable(GL2.GL_MULTISAMPLE);
 				drawMyZoomIndicator(drawable);
 			}
-			//IJ.log("\\Update0:Display took: "+(System.nanoTime()-starttime)/1000000L+"ms");
+			//IJ.log("\\Update0:Display took: "+(System.nanoTime()-starttime)/1000000L+"ms");		
 			gl2es2.glFlush();
-		}
+		} //stereoi for
 		//IJ.log("\\Update1:Display took: "+(System.nanoTime()-starttime)/1000000L+"ms");
 		
 		if(imageUpdated) {imageUpdated=false;} //ImageCanvas imageupdated only for single ImagePlus
@@ -1282,7 +1293,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	public void setStereo(StereoType stereoTypeChoice) {
 		stereoType=stereoTypeChoice;
 		if(stereoType.ordinal()>0 && !go3d) {set3d(true); return;}//return because set3d calls setStereo
-		if(stereoType==StereoType.ANAGLYPH) {
+		if(JCP.leftAnaglyphColor.equals(Color.red) && JCP.rightAnaglyphColor.equals(Color.cyan))dubois=true;
+		if(stereoType==StereoType.ANAGLYPH && !dubois) {
 			imp.setDisplayMode(IJ.GRAYSCALE);
 		}else {
 			imp.setDisplayMode(IJ.COMPOSITE);

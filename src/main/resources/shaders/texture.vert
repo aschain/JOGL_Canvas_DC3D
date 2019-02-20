@@ -1,5 +1,11 @@
 #version 450 core
 
+precision highp float;
+precision highp int;
+
+layout(std140, column_major) uniform;
+layout(std430, column_major) buffer;
+
 //position in model space
 layout (location = 0) in vec3 aPos;
 //texture position
@@ -17,6 +23,6 @@ layout (location = 0) out Block{
 };
 
 void main(){
-	gl_Position = vec4(aPos,1.0);
+	gl_Position = proj * (view * (model * vec4(aPos.x, aPos.y, aPos.z, 1)));
 	texCoord = aTex;
 }

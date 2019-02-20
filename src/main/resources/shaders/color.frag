@@ -5,8 +5,6 @@ in Block{
 	vec3 texCoord;
 };
 
-layout (binding = 0) uniform sampler3D mytex;
-
 void main(){
-	FragColor = texture(mytex, texCoord);
+	FragColor = vec4(texCoord.x, texCoord.y, texCoord.z, 1.0);
 }

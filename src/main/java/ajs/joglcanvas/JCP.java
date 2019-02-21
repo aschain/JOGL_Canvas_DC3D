@@ -214,7 +214,7 @@ public class JCP implements PlugIn {
 			GLProfile.initSingleton();
 		}
 
-		GLProfile glProfile = GLProfile.getDefault();
+		GLProfile glProfile = GLProfile.getMaxProgrammable(true);
 		if(!glProfile.isGL2ES2()) {
 			IJ.showMessage("Deep Color requires at least OpenGL 2 ES2");
 			return false;

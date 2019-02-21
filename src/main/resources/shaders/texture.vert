@@ -18,9 +18,7 @@ layout (binding = 1) uniform Transform0{
 layout (binding = 2) uniform Transform1{
 	mat4 model;
 };
-layout (location = 0) out Block{
-	vec3 texCoord;
-};
+out vec3 texCoord;
 
 void main(){
 	gl_Position = proj * (view * (model * vec4(aPos.x, aPos.y, aPos.z, 1)));

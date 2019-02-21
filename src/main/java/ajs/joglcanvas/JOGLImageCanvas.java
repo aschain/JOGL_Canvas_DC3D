@@ -658,7 +658,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					vertb.asFloatBuffer().put(initVerts);
 					for(int i=0;i<initVerts.length/6;i++)vertb.asFloatBuffer().put(i*6+5,0.5f);
 				}
-				gl4.glUseProgram(programs[1].name);
+				gl4.glUseProgram(programs[0].name);
 			}
 
 			
@@ -1351,20 +1351,21 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	}
 	
 	protected void loadTexFromPBO(GL4 gl, int pboHandle, int texHandle, int width, int height, int depth, int offsetSlice, PixelType type) {
-		
-		int internalFormat=GL.GL_RGBA32F;
-		int pixelType=GL.GL_FLOAT;
-		int size=Buffers.SIZEOF_FLOAT;
+
+		//BYTE
+		int internalFormat=GL.GL_RGBA8;
+		int pixelType=GL.GL_UNSIGNED_BYTE;
+		int size=Buffers.SIZEOF_BYTE;
 		int components=4;
 		
 		if(type==PixelType.SHORT) {
 			internalFormat=GL4.GL_RGBA16;
 			pixelType=GL4.GL_UNSIGNED_SHORT;
 			size=Buffers.SIZEOF_SHORT;
-		}else if(type==PixelType.BYTE) {
-			internalFormat=GL.GL_RGBA8;
-			pixelType=GL.GL_UNSIGNED_BYTE;
-			size=Buffers.SIZEOF_BYTE;
+		}else if(type==PixelType.FLOAT) {
+			internalFormat=GL.GL_RGBA32F;
+			pixelType=GL.GL_FLOAT;
+			size=Buffers.SIZEOF_FLOAT;
 		}else if(type==PixelType.INT_RGB10A2) {
 			internalFormat=intinternalformat;
 			pixelType=intpformat;
@@ -1373,6 +1374,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}
 		
 		gl.glEnable(GL4.GL_TEXTURE_3D);
+		gl.glActiveTexture(GL_TEXTURE0);
 		gl.glBindBuffer(GL4.GL_PIXEL_UNPACK_BUFFER, pboHandle);
 		gl.glBindTexture(GL4.GL_TEXTURE_3D, texHandle); 
 		gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT);

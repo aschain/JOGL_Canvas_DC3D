@@ -108,6 +108,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private ShortBuffer elementBuffer;
 	private Program[] programs;
 	private ByteBuffer vertb=null;
+	private int lim;
 	private int[] imagePBO=new int[] {0};
 	private int[] overlayTextures;
 	private Buffer[] imageFBs;
@@ -196,9 +197,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	@Override
 	public void reshape(GLAutoDrawable drawable, int x, int y, int width, int height) {
 		GL4 gl4 = drawable.getGL().getGL4();
-		loadIdentity(globalMatricesPointer,16*4);
-		float[] ortho = FloatUtil.makeOrtho(new float[16], 0, false, -1f, 1f, -(float)srcRect.height/srcRect.width, (float)srcRect.height/srcRect.width, 1f, -1f);
+		globalMatricesPointer.rewind();globalMatricesPointer.asFloatBuffer().rewind();
+		float[] ortho = FloatUtil.makeOrtho(new float[16], 0, false, -1f, 1f, -(float)srcRect.height/srcRect.width, (float)srcRect.height/srcRect.width, -1f, 1f);
 		globalMatricesPointer.asFloatBuffer().put(ortho);
+		loadIdentity(globalMatricesPointer,16*4);
 		gl4.glViewport(x, y, width, height);
 	}
 
@@ -237,6 +239,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			elementBuffer.put((short)(i*4+0)).put((short)(i*4+1)).put((short)(i*4+2));
 			elementBuffer.put((short)(i*4+2)).put((short)(i*4+3)).put((short)(i*4+0));
 		}
+		elementBuffer.rewind();
 
 		gl4.glBindBuffer(GL_ARRAY_BUFFER, vtbo);
 		gl4.glBufferStorage(GL_ARRAY_BUFFER, maxsize*4*Buffers.SIZEOF_FLOAT, null,  GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
@@ -258,11 +261,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
                 0,
                 maxsize*4*Buffers.SIZEOF_FLOAT,
                 GL4.GL_MAP_WRITE_BIT | GL4.GL_MAP_PERSISTENT_BIT | GL4.GL_MAP_COHERENT_BIT | GL_MAP_INVALIDATE_RANGE_BIT | GL4.GL_MAP_INVALIDATE_BUFFER_BIT); // flags
-		if(vertb==null)IJ.log("NULL_______________________");
-		else {
-			IJ.log("vertb "+vertb.capacity());
-			IJ.log("vertf "+vertb.asFloatBuffer().capacity());
-		}
 		
 		globalMatricesPointer=gl4.glMapNamedBufferRange(
                 globalmatrix,
@@ -324,6 +322,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
         for (int i = 0; i < 16; i++) {
             matrix.putFloat(offset + i * 4, view[i]);
         }
+        matrix.rewind();
 	}
 
 	@Override
@@ -368,8 +367,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		float yrat=(float)srcRect.height/srcRect.width;
 		
 		GL4 gl4 = drawable.getGL().getGL4();
-		gl4.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT);
-		//gl4.glColor4f(1f, 1f, 1f,1f);
 		
 		int srcRectWidthMag = (int)(srcRect.width*magnification+0.5);
 		int srcRectHeightMag = (int)(srcRect.height*magnification+0.5);
@@ -519,22 +516,15 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				-1f-offx+vwidth, 	(-1f-offy+vheight)*yrat, 	(zmax-zmax/2f)*(float)magnification,	1, 0, 0,
 				-1f-offx, 			(-1f-offy+vheight)*yrat, 	0f-zmax/2*(float)magnification,			0, 0, go3d?1f:0
 		};
-		int lim=initVerts.length;
 
 		//drawing
 		if(stereoType==StereoType.ANAGLYPH) {
 			renderFunction="MAX";
 		}
-		gl4.glDrawBuffers(1, new int[] {GL4.GL_BACK}, 0);
-
-		gl4.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT);
-		//gl4.glClearBufferfv(GL4.GL_COLOR, 0, new float[] {0f,0f,0f,0f},0);
-        //gl4.glClearBufferfv(GL4.GL_DEPTH, 0, new float[] {0f},0);
+		
 		int views=1;
 		if(go3d && stereoType.ordinal()>0)views=2;
 		for(int stereoi=0;stereoi<views;stereoi++) {
-			
-			loadIdentity(modelMatrixPointer, 0);
 			if(go3d) {
 				gl4.glEnable(GL4.GL_BLEND);
 				if(stereoType==StereoType.QUADBUFFER) {
@@ -549,13 +539,15 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					ortho=FloatUtil.multMatrix(ortho, translate);
 				}
 				else ortho = FloatUtil.makeOrtho(new float[16], 0, false, -1f, 1f, -yrat, yrat, -1f, 1f);
+				globalMatricesPointer.rewind();globalMatricesPointer.asFloatBuffer().rewind();
 				globalMatricesPointer.asFloatBuffer().put(ortho);
 				
 				//Rotate
 				float dxst=(float)dx;
 				if(stereoi>0) {dxst-=(float)JCP.stereoSep; if(dxst<0)dxst+=360f;}
-				float[] matrix=FloatUtil.makeRotationEuler(new float[16], 0, dxst*FloatUtil.PI/180f, (float)dy*FloatUtil.PI/180f, (float)dz*FloatUtil.PI/180f);
+				float[] matrix=FloatUtil.makeRotationEuler(new float[16], 0, dy*FloatUtil.PI/180f, (float)dxst*FloatUtil.PI/180f, (float)dz*FloatUtil.PI/180f);
 				modelMatrixPointer.asFloatBuffer().put(matrix);
+				modelMatrixPointer.rewind(); modelMatrixPointer.asFloatBuffer().rewind();
 				//IJ.log("\\Update0:X x"+Math.round(100.0*matrix[0])/100.0+" y"+Math.round(100.0*matrix[1])/100.0+" z"+Math.round(100.0*matrix[2])/100.0);
 				//IJ.log("\\Update1:Y x"+Math.round(100.0*matrix[4])/100.0+" y"+Math.round(100.0*matrix[5])/100.0+" z"+Math.round(100.0*matrix[6])/100.0);
 				//IJ.log("\\Update2:Z x"+Math.round(100.0*matrix[8])/100.0+" y"+Math.round(100.0*matrix[9])/100.0+" z"+Math.round(100.0*matrix[10])/100.0);
@@ -570,11 +562,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				if(top)reverse=Yza==-matrix[6];
 				
 				if(ltr==null || !(ltr[0]==left && ltr[1]==top && ltr[2]==reverse) || !srcRect.equals(prevSrcRect)) {
-					vertb.asFloatBuffer().rewind();
 					vertb.rewind();
 					if(left) { //left or right
 						lim=imageWidth*4*6;
-						//if(vertb==null ||vertb.limit()!=lim) {vertb=GLBuffers.newDirectFloatBuffer(lim);}
 						for(float p=0;p<imageWidth;p+=1.0f) {
 							float xt,xv;
 							if(reverse) {
@@ -585,13 +575,12 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 								xv=((imageWidth-p)*2f-srcRect.width-2f*srcRect.x)/srcRect.width;
 							}
 							for(int i=0;i<4;i++) {
-								vertb.asFloatBuffer().put(xv); vertb.asFloatBuffer().put(initVerts[i*6+1]); vertb.asFloatBuffer().put(initVerts[i*6+2]);
-								vertb.asFloatBuffer().put(xt); vertb.asFloatBuffer().put(initVerts[i*6+4]); vertb.asFloatBuffer().put(initVerts[i*6+5]);
+								vertb.putFloat(xv); vertb.putFloat(initVerts[i*6+1]); vertb.putFloat(initVerts[i*6+2]);
+								vertb.putFloat(xt); vertb.putFloat(initVerts[i*6+4]); vertb.putFloat(initVerts[i*6+5]);
 							}
 						}
 					} else if(top) { //top or bottom
 						lim=imageHeight*4*6;
-						//if(vertb==null ||vertb.limit()!=lim) {vertb=GLBuffers.newDirectFloatBuffer(lim);}
 						for(float p=0;p<imageHeight;p+=1.0f) {
 							float yt,yv;
 							if(reverse) {
@@ -606,19 +595,18 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 								float zt=initVerts[i*6+5];
 								if(i==1) {zv=0-zmax/2*(float)magnification; zt=1f;}
 								else if(i==3) {zv=(zmax-zmax/2)*(float)magnification; zt=0f;}
-								vertb.asFloatBuffer().put(initVerts[i*6]); vertb.asFloatBuffer().put(yv); vertb.asFloatBuffer().put(zv);
-								vertb.asFloatBuffer().put(initVerts[i*6+3]); vertb.asFloatBuffer().put(yt); vertb.asFloatBuffer().put(zt);
+								vertb.putFloat(initVerts[i*6]); vertb.putFloat(yv); vertb.putFloat(zv);
+								vertb.putFloat(initVerts[i*6+3]); vertb.putFloat(yt); vertb.putFloat(zt);
 							}
 						}
 					}else { //front or back
 						lim=zmaxsls*4*6;
-						//if(vertb==null ||vertb.limit()!=lim) {vertb=GLBuffers.newDirectFloatBuffer(lim);}
 						for(float csl=0;csl<zmaxsls;csl+=1.0f) {
 							float z=csl;
 							if(!reverse) z=((float)zmaxsls-csl);
 							for(int i=0;i<4;i++) {
-								vertb.asFloatBuffer().put(initVerts[i*6]); vertb.asFloatBuffer().put(initVerts[i*6+1]); vertb.asFloatBuffer().put(((float)zmaxsls/2-z)/imageWidth*(float)magnification); 
-								vertb.asFloatBuffer().put(initVerts[i*6+3]); vertb.asFloatBuffer().put(initVerts[i*6+4]); vertb.asFloatBuffer().put((z+0.5f)/zmaxsls); 
+								vertb.putFloat(initVerts[i*6]); vertb.putFloat(initVerts[i*6+1]); vertb.putFloat(((float)zmaxsls/2-z)/imageWidth*(float)magnification); 
+								vertb.putFloat(initVerts[i*6+3]); vertb.putFloat(initVerts[i*6+4]); vertb.putFloat((z+0.5f)/zmaxsls); 
 							}
 						}
 					}
@@ -648,25 +636,28 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					//else gl4.glColor4fv(RoiGLDrawUtility.getFloatColor(JCP.rightAnaglyphColor),0);
 				}//else gl4.glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
 			}else {
+				loadIdentity(modelMatrixPointer, 0);
 				//gl4.glDisable(GL4.GL_BLEND);
-				boolean push=false;
 				lim=initVerts.length;
-				//if(vertb==null || vertb.limit()!=lim) {vertb=GLBuffers.newDirectFloatBuffer(lim); push=true;}
-				vertb.asFloatBuffer().rewind();
+				boolean push=false;
 				if(!srcRect.equals(prevSrcRect))push=true;
 				if(push) {
+					vertb.rewind(); vertb.asFloatBuffer().rewind();
 					vertb.asFloatBuffer().put(initVerts);
 					for(int i=0;i<initVerts.length/6;i++)vertb.asFloatBuffer().put(i*6+5,0.5f);
 				}
 				gl4.glUseProgram(programs[0].name);
 			}
 
+			gl4.glDrawBuffers(1, new int[] {GL4.GL_BACK}, 0);
+			gl4.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT);
+			//gl4.glClearBufferfv(GL4.GL_COLOR, 0, new float[] {0f,0f,0f,0f},0);
+	        //gl4.glClearBufferfv(GL4.GL_DEPTH, 0, new float[] {0f},0);
 			
-			//gl4.glEnable(GL4.GL_TEXTURE_3D);
+			gl4.glEnable(GL4.GL_TEXTURE_3D);
 			gl4.glActiveTexture(GL_TEXTURE0);
 			gl4.glBindTexture(GL4.GL_TEXTURE_3D, imageTexture);
-			//gl4.glBindSampler(0, sampler0);
-			drawTexGL6f(gl4, vtao, lim);
+			drawTexGL6f(gl4, vtao, lim/4);
 			gl4.glDisable(GL4.GL_TEXTURE_3D);
 
 			//brighten
@@ -762,13 +753,12 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					}
 					if(!go3d)gl4.glDisable(GL4.GL_BLEND);
 					else gl4.glEnable(GL4.GL_BLEND);
-					//gl4.glEnable(GL4.GL_LINE_SMOOTH);
 					drawRoiGL(drawable, roi, z, true, anacolor);
 				}
 			}
 			boolean nzi=(!myHZI && (srcRect.width<imageWidth || srcRect.height<imageHeight));
 			//NOTE reloading ID matrix don't opengl draw anything after this!
-			loadIdentity(modelMatrixPointer,0);
+			//loadIdentity(modelMatrixPointer,0);
 			
 			if(nzi) {
 				gl4.glDisable(GL4.GL_BLEND);
@@ -1250,23 +1240,12 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	
 	private void drawTexGL6f(GL4 gl4, int vao, int count) {
 		//vb.rewind();
-		//gl4.glBindBuffersBase(GL_UNIFORM_BUFFER, 1, 2, new int[] {globalmatrix,modelmatrix}, 0);
 		gl4.glBindVertexArray(vao);
 		gl4.glBindBufferBase(GL_UNIFORM_BUFFER, 1, globalmatrix);
 		gl4.glBindBufferBase(GL_UNIFORM_BUFFER, 2, modelmatrix);
-		//gl4.glBindBuffer(GL_ARRAY_BUFFER, vbo);
-		//gl4.glBufferStorage(GL_ARRAY_BUFFER, vb.limit()*Buffers.SIZEOF_FLOAT, vb, 0);
-		/*
-		gl4.glVertexArrayAttribBinding(vao, 0, 0);//modelcoords
-		gl4.glVertexArrayAttribBinding(vao, 1, 1);//texcoords
-		gl4.glVertexArrayAttribFormat(vao, 0, 3, GL4.GL_FLOAT, false, 0);//modelcoords
-        gl4.glVertexArrayAttribFormat(vao, 1, 3, GL4.GL_FLOAT, false, 3 * Buffers.SIZEOF_FLOAT);//texcoords or color
-        gl4.glEnableVertexArrayAttrib(vao, 0);
-        gl4.glEnableVertexArrayAttrib(vao, 1);
-        gl4.glVertexArrayVertexBuffer(vao, 0, vbo, 0, 6 * Buffers.SIZEOF_FLOAT);
-        */
+		
 		//gl4.glDrawArrays(GL_TRIANGLES, 0, count/6);
-        gl4.glDrawElements(GL_TRIANGLES, count/6/4*6, GL_UNSIGNED_SHORT, 0);
+        gl4.glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_SHORT, 0);
 		gl4.glBindVertexArray(0);
 		//gl4.glBindBuffer(GL_ARRAY_BUFFER, 0);
 		//vb.rewind();
@@ -1275,6 +1254,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	//Based on jogamp forum user Moa's code, http://forum.jogamp.org/GL-RGBA32F-with-glTexImage2D-td4035766.html
 	protected void createRgbaTexture(GL4 gl, int glTextureHandle, Buffer buffer, int width, int height, int depth) { 
 
+		
 		int internalFormat=GL.GL_RGBA32F;
 		int pixelType=GL.GL_FLOAT;
 		if(buffer instanceof ShortBuffer) {
@@ -1288,7 +1268,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			internalFormat=intinternalformat;
 			pixelType=intpformat;
 		}
-		
+
+		gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT);
 		gl.glEnable(GL4.GL_TEXTURE_3D);
 		gl.glBindTexture(GL4.GL_TEXTURE_3D, glTextureHandle); 
 		//gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT);

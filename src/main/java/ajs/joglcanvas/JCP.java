@@ -74,6 +74,11 @@ public class JCP implements PlugIn {
 	@Override
 	public void run(String arg) {
 		
+		if(arg.equals("HelloTriangle")) {
+			HelloTriangleSimple.main(null);
+			return;
+		}
+		
 		if(arg.equals("setprefs")) {
 			preferences();
 			return;

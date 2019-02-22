@@ -58,6 +58,7 @@ public class RoiGLDrawUtility {
 		updateSrcRect(drawable);
 		
 		gl2.glDisable(GL2.GL_MULTISAMPLE);
+		gl2.glColor4f(1f, 1f, 1f, 1f);
 		//gl2.glEnable(GL2.GL_LINE_SMOOTH);
 		//gl2.glHint(GL2.GL_LINE_SMOOTH_HINT, GL2.GL_NICEST);
 		//gl2.glEnable(GL2.GL_BLEND);

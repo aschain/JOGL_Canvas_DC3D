@@ -103,8 +103,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 
 	private int imageTexture;
 	private int roiTexture;
-	private int sampler0,vtbo,vtao,vgao,vgbo,ebo,globalmatrix,modelmatrix;
-	private ByteBuffer globalMatricesPointer, modelMatrixPointer;
+	private int vtbo,vtao,vgao,vgbo,ebo,globalmatrix,modelmatrix,lutmatrix;
+	private ByteBuffer globalMatricesPointer, modelMatrixPointer,lutMatrixPointer;
 	private ShortBuffer elementBuffer;
 	private Program[] programs;
 	private ByteBuffer vertb=null;
@@ -114,7 +114,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private Buffer[] imageFBs;
 	private boolean[] updatedBuffers;
 	private boolean[] updatedBuffersSlices;
-	private double[] lutminmaxs=null;
 	private int updatingBuffers=0;
 	private int undersample=JCP.undersample;
 	enum StereoType{OFF, CARDBOARD, ANAGLYPH, QUADBUFFER};
@@ -144,7 +143,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		updateLastPosition();
 		initBuffers(imp.getNFrames(),imp.getNSlices());
 		prevSrcRect=new Rectangle(0, 0, 0, 0);
-		lutminmaxs=new double[imp.getNChannels()*2];
+		//lutminmaxs=new double[imp.getNChannels()*2];
 		if(JCP.glCapabilities==null && !JCP.setGLCapabilities()) IJ.showMessage("error in GL Capabilities");
 		int[] bits=new int[] {JCP.glCapabilities.getAlphaBits(),JCP.glCapabilities.getRedBits(),JCP.glCapabilities.getGreenBits(),JCP.glCapabilities.getBlueBits()};
 		if(imp.getBitDepth()>8 && imp.getBitDepth()!=24) {
@@ -223,7 +222,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		imageTexture = textureHandles[0];
 		roiTexture=textureHandles[1];
 		
-		int numBuffers=5;
+		int numBuffers=6;
 		int[] buffers=new int[numBuffers];
 		gl4.glCreateBuffers(numBuffers,buffers,0);
 		vtbo=buffers[0];
@@ -231,6 +230,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		globalmatrix=buffers[2];
 		modelmatrix=buffers[3];
 		ebo=buffers[4];
+		lutmatrix=buffers[5];
 		
 		long maxsize=Math.max((long)imp.getWidth(), Math.max((long)imp.getHeight(), (long)((double)imp.getNSlices()*imp.getCalibration().pixelDepth/imp.getCalibration().pixelWidth)))*6;
 		elementBuffer=GLBuffers.newDirectShortBuffer((int)maxsize);
@@ -249,10 +249,13 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		gl4.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,  0);
 		
 		gl4.glBindBuffer(GL_UNIFORM_BUFFER, globalmatrix);
-		gl4.glBufferStorage(GL_UNIFORM_BUFFER, 16*2 * Float.BYTES, null, GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
+		gl4.glBufferStorage(GL_UNIFORM_BUFFER, 16*2 * Buffers.SIZEOF_FLOAT, null, GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
 		gl4.glBindBuffer(GL_UNIFORM_BUFFER, 0);
 		gl4.glBindBuffer(GL_UNIFORM_BUFFER, modelmatrix);
-		gl4.glBufferStorage(GL_UNIFORM_BUFFER, 16 * Float.BYTES, null, GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
+		gl4.glBufferStorage(GL_UNIFORM_BUFFER, 16 * Buffers.SIZEOF_FLOAT, null, GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
+		gl4.glBindBuffer(GL_UNIFORM_BUFFER, 0);
+		gl4.glBindBuffer(GL_UNIFORM_BUFFER, lutmatrix);
+		gl4.glBufferStorage(GL_UNIFORM_BUFFER, 16 * Buffers.SIZEOF_FLOAT, null, GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
 		gl4.glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
 		vertb=gl4.glMapNamedBufferRange(
@@ -268,6 +271,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
                 GL4.GL_MAP_WRITE_BIT | GL4.GL_MAP_PERSISTENT_BIT | GL4.GL_MAP_COHERENT_BIT | GL_MAP_INVALIDATE_RANGE_BIT | GL4.GL_MAP_INVALIDATE_BUFFER_BIT); // flags
 		modelMatrixPointer=gl4.glMapNamedBufferRange(
                 modelmatrix,
+                0,
+                16 * Buffers.SIZEOF_FLOAT,
+                GL4.GL_MAP_WRITE_BIT | GL4.GL_MAP_PERSISTENT_BIT | GL4.GL_MAP_COHERENT_BIT | GL_MAP_INVALIDATE_RANGE_BIT | GL4.GL_MAP_INVALIDATE_BUFFER_BIT);
+		lutMatrixPointer=gl4.glMapNamedBufferRange(
+                lutmatrix,
                 0,
                 16 * Buffers.SIZEOF_FLOAT,
                 GL4.GL_MAP_WRITE_BIT | GL4.GL_MAP_PERSISTENT_BIT | GL4.GL_MAP_COHERENT_BIT | GL_MAP_INVALIDATE_RANGE_BIT | GL4.GL_MAP_INVALIDATE_BUFFER_BIT);
@@ -959,8 +967,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		int[] lutrgbs=new int[luts.length];
 		for(int i=0;i<luts.length;i++) {
 			lutrgbs[i]=luts[i].getRGB(255);
-			lutminmaxs[i*2+0]=luts[i].min;
-			lutminmaxs[i*2+1]=luts[i].max;
+			//lutminmaxs[i*2+0]=luts[i].min;
+			//lutminmaxs[i*2+1]=luts[i].max;
 		}
 		ImageStack imst=imp.getStack();
 		boolean[] color=new boolean[] {true,true,true};
@@ -1151,15 +1159,17 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		boolean doshort=(pixels instanceof short[]);
 		boolean doint=(pixels instanceof int[]);
 		int length=dobyte?((byte[])newpixels).length:(doshort?((short[])newpixels).length:(doint?((int[])newpixels).length:((float[])newpixels).length));
-		double scale = (max-min);
+		//double scale = (max-min);
 		for(int i=0;i<length;i++) {
 			byte bvalue=0;
 			short svalue=0;
 			float fvalue=0;
-			if(dobyte) {bvalue =(byte)(Math.max(0,Math.min(255,(int)(255.0*(((double)((int)((byte[])newpixels)[i]&0xff)-min)/scale)))));
+			if(dobyte) {
+				bvalue =((byte[])newpixels)[i];//(byte)(Math.max(0,Math.min(255,(int)(255.0*(((double)((int)((byte[])newpixels)[i]&0xff)-min)/scale)))));
 			}else if(doshort) {
-				svalue = (short)(Math.max(0,Math.min(65535,(int)(65535.0*((double)(((short[])newpixels)[i]&0xffff)-min)/scale))));
-			}else if(!doint) {fvalue = (float)Math.max(0.0,Math.min(1.0,(((double)((float[])newpixels)[i]-min)/scale)));
+				svalue = ((short[])newpixels)[i];//(short)(Math.max(0,Math.min(65535,(int)(65535.0*((double)(((short[])newpixels)[i]&0xffff)-min)/scale))));
+			}else if(!doint) {
+				fvalue = ((float[])newpixels)[i];//(float)Math.max(0.0,Math.min(1.0,(((double)((float[])newpixels)[i]-min)/scale)));
 			}
 			if(type=="ADD") {
 				if(dobyte) {

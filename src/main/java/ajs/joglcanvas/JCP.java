@@ -133,8 +133,12 @@ public class JCP implements PlugIn {
 		String classname= imp.getWindow().getClass().getSimpleName();
 		if(classname.equals("ImageWindow") || classname.equals("StackWindow")) {
 			int bits=imp.getBitDepth();
-				if((bits<16 || bits==24)&& (glCapabilities.getRedBits()>8 || glCapabilities.getGreenBits()>8 || glCapabilities.getBlueBits()>8) ) {
+			if((bits<16 || bits==24)&& (glCapabilities.getRedBits()>8 || glCapabilities.getGreenBits()>8 || glCapabilities.getBlueBits()>8) ) {
 				IJ.log("JCDC3D Warning:\nOriginal image is 8 bits or less and therefore \nwon't display any differently with 10 bits or higher display.");
+			}
+			if(imp.getNChannels()>4) {
+				IJ.error("JOGL Canvas currently limited to 4 channels");
+				return;
 			}
 			if(doMirror) {
 				new JOGLImageCanvas(imp, true);

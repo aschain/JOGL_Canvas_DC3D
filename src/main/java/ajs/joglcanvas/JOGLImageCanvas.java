@@ -129,7 +129,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	protected static final int intpformat=GL4.GL_UNSIGNED_INT_2_10_10_10_REV;
 	private PixelType pixelType=PixelType.BYTE;
 	private PixelType pixelType3d=PixelType.BYTE;
-	private static final int COMPS=4;
+	private int COMPS=0;
 	
 	private BIScreenGrabber myscreengrabber=null;
 	private AWTGLReadBufferUtil ss=null;
@@ -138,6 +138,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 
 	public JOGLImageCanvas(ImagePlus imp, boolean mirror) {
 		super(imp);
+		int bitDepth=imp.getBitDepth();
+		COMPS=bitDepth==24?3:imp.getNChannels();
 		if(!mirror) {setOverlay(imp.getCanvas().getOverlay());}
 		createPopupMenu();
 		updateLastPosition();
@@ -146,7 +148,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		//lutminmaxs=new double[imp.getNChannels()*2];
 		if(JCP.glCapabilities==null && !JCP.setGLCapabilities()) IJ.showMessage("error in GL Capabilities");
 		int[] bits=new int[] {JCP.glCapabilities.getAlphaBits(),JCP.glCapabilities.getRedBits(),JCP.glCapabilities.getGreenBits(),JCP.glCapabilities.getBlueBits()};
-		if(imp.getBitDepth()>8 && imp.getBitDepth()!=24) {
+		if(imp.getBitDepth()>8 && bitDepth!=24) {
 			if(bits[0]>8||bits[1]>8||bits[2]>8||bits[3]>8 && JCP.glCapabilities.getGLProfile().isGL4()) {
 				pixelType=PixelType.SHORT;
 			}
@@ -635,7 +637,33 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				}
 				gl4.glUseProgram(programs[0].name);
 			}
-
+			
+			//setluts
+			lutMatrixPointer.rewind();
+			LUT[] luts=imp.getLuts();
+			boolean[] active=new boolean[COMPS];
+			for(int i=0;i<COMPS;i++)active[i]=true;
+			if(imp.isComposite())active=((CompositeImage)imp).getActiveChannels();
+			int cmode=imp.getCompositeMode();
+			int bitd=imp.getBitDepth();
+			double topmax=Math.pow(2, bitd==24?8:bitd)-1.0;
+			for(int i=0;i<4;i++) {
+				float min=0,max=0,color=0;
+				if(i<luts.length) {
+					int rgb=luts[i].getRGB(255);
+					if(active[i] && !(cmode!=IJ.COMPOSITE && imp.getC()!=(i+1))) {
+						if(cmode==IJ.GRAYSCALE)color=7;
+						else color=(((rgb & 0x00ff0000)==0x00ff0000)?1:0) + (((rgb & 0x0000ff00)==0x0000ff00)?2:0) + (((rgb & 0x000000ff)==0x000000ff)?4:0);
+					}
+					min=(float)(luts[i].min/topmax);
+					max=(float)(luts[i].max/topmax);
+				}
+				lutMatrixPointer.putFloat(min);
+				lutMatrixPointer.putFloat(max);
+				lutMatrixPointer.putFloat(color);
+				lutMatrixPointer.putFloat(0f);
+				
+			}
 			gl4.glDrawBuffers(1, new int[] {GL4.GL_BACK}, 0);
 			gl4.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT);
 			//gl4.glClearBufferfv(GL4.GL_COLOR, 0, new float[] {0f,0f,0f,0f},0);
@@ -646,66 +674,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			gl4.glBindTexture(GL4.GL_TEXTURE_3D, imageTexture);
 			drawTexGL6f(gl4, vtao, lim/4);
 			gl4.glDisable(GL4.GL_TEXTURE_3D);
-
-			//brighten
-			/*
-			LUT[] luts=imp.getLuts();
-			boolean dobr=false;
-			for(int i=0;i<luts.length;i++) {
-				if(luts[i].min!=lutminmaxs[i*2] || luts[i].max!=lutminmaxs[i*2+1])dobr=true;
-			}
-			if(go3d && dobr) {
-				gl4.glEnable(GL4.GL_BLEND);
-				gl4.glPushMatrix();
-				gl4.glLoadIdentity();
-				//int bits=imp.getBitDepth();
-				//float omax=(bits==32)?(1.0f):(bits==16)?(4095f):(255f);
-				FloatBuffer vb=Buffers.newDirectFloatBuffer(new float[] {
-						-1,	-yrat,	0f,
-						1,	-yrat,	0f,
-						1,	yrat,	0f,
-						-1,	yrat,	0f,
-				});
-				gl4.glEnableClientState(GL4.GL_VERTEX_ARRAY);
-				gl4.glVertexPointer(3, GL4.GL_FLOAT, 3*Buffers.SIZEOF_FLOAT, vb);
-				for(int i=0;i<luts.length;i++) {
-					if(luts[i].min!=luts[i].max) {
-						float omax=(float)lutminmaxs[i*2+1];
-						float omin=(float)lutminmaxs[i*2];
-						
-						int rgb=luts[i].getRGB(255);
-						float[] color=new float[] {((rgb & 0x00ff0000)==0x00ff0000)?1f:0f, ((rgb & 0x0000ff00)==0x0000ff00)?1f:0f, ((rgb & 0x000000ff)==0x000000ff)?1f:0f}; //alpha would be (rgb & 0xff000000)==0xff000000
-						float min=0;
-						float maxm=(omax-omin)/(float)(luts[i].max-luts[i].min);
-						if(luts[i].min>omin) {
-							min=((float)luts[i].min-omin)/omax;
-							gl4.glColor3f(color[0]*min, color[1]*min, color[2]*min);
-							gl4.glBlendEquation(GL4.GL_FUNC_REVERSE_SUBTRACT);
-							gl4.glBlendFunc(GL4.GL_ONE, GL4.GL_ONE);
-							gl4.glDrawArrays(GL4.GL_QUADS, 0, vb.limit()/3);
-						}
-						if((float)luts[i].max<omax) {
-							gl4.glBlendEquation(GL4.GL_FUNC_ADD);
-							gl4.glBlendFunc(GL4.GL_DST_COLOR, GL4.GL_ONE);
-							while(maxm>2f) {
-								gl4.glColor3f(color[0], color[1], color[2]);
-								gl4.glDrawArrays(GL4.GL_QUADS, 0, vb.limit()/3);
-								maxm/=2f;
-							}
-							gl4.glColor3f(color[0]*(maxm-1f), color[1]*(maxm-1f), color[2]*(maxm-1f));
-							gl4.glDrawArrays(GL4.GL_QUADS, 0, vb.limit()/3);
-						}
-						if((float)luts[i].max>omax) {
-							gl4.glBlendEquation(GL4.GL_FUNC_ADD);
-							gl4.glBlendFunc(GL4.GL_DST_COLOR, GL4.GL_ZERO);
-							gl4.glColor3f((color[0]==1f)?maxm:1f, (color[1]==1f)?maxm:1f, (color[2]==1f)?maxm:1f);
-							gl4.glDrawArrays(GL4.GL_QUADS, 0, vb.limit()/3);
-						}
-					}
-				}
-				gl4.glPopMatrix();
-			}
-			*/
+			
 			if(roi!=null || overlay!=null) { 
 				float z=0f;
 				if(go3d) z=-((float)sl/(float)(sls)*zmax-zmax/2)*(float)magnification;
@@ -795,7 +764,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(bits==24)bits=8;
 		if(newtype==PixelType.FLOAT && bits<32) {IJ.error("Not enough image bits for float display pixel");return;}
 		if((newtype==PixelType.SHORT || newtype==PixelType.INT_RGB10A2) && (bits<16)) {IJ.error("Not enough image bits for high bit display pixel");return;}
-		
+
 		if(for3d) {
 			while(updatingBuffers>0)IJ.wait(50);
 			pixelType3d=newtype;
@@ -803,6 +772,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}
 		else {
 			pixelType=newtype;
+			myImageUpdated=true;
 			repaint();
 		}
 	}
@@ -955,6 +925,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			type=this.pixelType3d;
 		}
 		int chs=imp.getNChannels();
+		COMPS=bits==24?3:chs;
 		int size=width*height*COMPS*(endsl-stsl)*(endfr-stfr);
 		bsize*=width*height*COMPS;
 		if(bsize==size)sliceOffsetInBuffer=0;
@@ -963,73 +934,19 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		else if(bits==16)outPixels=new short[size];
 		else if(bits==24) {size/=COMPS; outPixels=new int[size];}
 		else outPixels=new float[size];
-		LUT[] luts=imp.getLuts();
-		int[] lutrgbs=new int[luts.length];
-		for(int i=0;i<luts.length;i++) {
-			lutrgbs[i]=luts[i].getRGB(255);
-			//lutminmaxs[i*2+0]=luts[i].min;
-			//lutminmaxs[i*2+1]=luts[i].max;
-		}
 		ImageStack imst=imp.getStack();
-		boolean[] color=new boolean[] {true,true,true};
-		if(bits==24)color=new boolean[] {true};
-		boolean switchcolor=false;
-		int endch=imp.getChannel(),stch=endch-1;
-		boolean[] active=new boolean[chs];
-		for(int i=0;i<chs;i++)active[i]=true;
-		if(imp.isComposite()){
-			int cmode=imp.getCompositeMode();
-			if(cmode==IJ.COMPOSITE){
-				stch=0;endch=chs;
-				active=((CompositeImage)imp).getActiveChannels();
-				switchcolor=true;
-			}else if(cmode==IJ.GRAYSCALE)switchcolor=false;
-		}
 		for(int fr=stfr;fr<endfr; fr++) {
 			for(int csl=stsl;csl<endsl;csl++) {
-				//int offset=(csl-offsetter)*imageWidth*imageHeight*COMPS+(fr-stfr)*(endsl-stsl)*imageWidth*imageHeight*COMPS;
 				int offset=((csl-stsl))*width*height+(fr-stfr)*(endsl-stsl)*width*height;
-				//if first time rewriting to floatPixels channel, write over previous:
-				boolean[] chclear=new boolean[]{true,true,true};
-				for(int i=stch;i<endch;i++) {
-					if(active[i]) {
-						ImageProcessor ip=imst.getProcessor(imp.getStackIndex(i+1, csl+1, fr+1));
-						Object pixels=ip.getPixels();
-						
-						if(is3d) {
-							pixels=convertForUndersample(pixels,imageWidth,imageHeight);
-						}
-						double min=0,max=0;
-						if(bits!=24) {
-							min=luts[i].min; max=luts[i].max;
-							//lutScaleImage(pixels,luts[i].min,luts[i].max);
-							int rgb=lutrgbs[i];
-							if(switchcolor)color=new boolean[] {(rgb & 0x00ff0000)==0x00ff0000, (rgb & 0x0000ff00)==0x0000ff00, (rgb & 0x000000ff)==0x000000ff}; //alpha would be (rgb & 0xff000000)==0xff000000
-						}
-						for(int ci=0;ci<color.length;ci++) {
-							if(color[ci]) {
-								if(chclear[ci]) {
-									addPixels(outPixels, pixels, offset, ci, "COPY",min,max); chclear[ci]=false;
-								}else {
-									addPixels(outPixels, pixels, offset, ci, "MAX",min,max);
-								}
-							}
-						}
+				for(int i=0;i<chs;i++) {
+					ImageProcessor ip=imst.getProcessor(imp.getStackIndex(i+1, csl+1, fr+1));
+					Object pixels=ip.getPixels();
+					
+					if(is3d) {
+						pixels=convertForUndersample(pixels,imageWidth,imageHeight);
 					}
-				}
-				if(COMPS==4) {
-					for(int i=0;i<(width*height);i++){
-						if(bits==8) ((byte[])outPixels)[offset*4+3+i*4]=is3d?(byte)Math.max(((byte[])outPixels)[offset*4+i*4]&0xff, Math.max(((byte[])outPixels)[offset*4+1+i*4]&0xff,((byte[])outPixels)[offset*4+2+i*4]&0xff)):(byte)255;
-						else if(bits==16)((short[])outPixels)[offset*4+3+i*4]=is3d?(short)Math.max(((short[])outPixels)[offset*4+i*4]&0xffff, Math.max(((short[])outPixels)[offset*4+1+i*4]&0xffff,((short[])outPixels)[offset*4+2+i*4]&0xffff)):(short)65535;
-						else if(bits==32)((float[])outPixels)[offset*4+3+i*4]=is3d?Math.max(((float[])outPixels)[offset*4+i*4], Math.max(((float[])outPixels)[offset*4+1+i*4],((float[])outPixels)[offset*4+2+i*4])):1f;
-						else {
-							if(!is3d)((int[])outPixels)[offset+i]|=0xff000000;
-							else {
-								int iv=((int[])outPixels)[offset+i];
-								((int[])outPixels)[offset+i] |= (((iv&0xff0000)<<8) | ((iv&0xff00)<<16) | ((iv&0xff)<<24));
-							}
-						}
-					}
+					addPixels(outPixels, pixels, offset, i, chs);
+					
 				}
 			}
 		}
@@ -1059,7 +976,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					else {
 						int rgb=((int[])outPixels)[i];
 						((ByteBuffer)buffer).put((byte)((rgb&0xff0000)>>16)).put((byte)((rgb&0xff00)>>8)).put((byte)(rgb&0xff));
-						if(COMPS==4)((ByteBuffer)buffer).put((byte)((rgb&0xff000000)>>24));
+						//if(COMPS==4)((ByteBuffer)buffer).put((byte)((rgb&0xff000000)>>24));
 					}
 				}
 			}
@@ -1076,20 +993,20 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				float[] floatPixels=((float[])outPixels);
 				for(int i=0;i<size;i+=COMPS) {
 					int red=(((int)(floatPixels[i]*1023f))&0x3ff);
-					int green=(((int)(floatPixels[i+1]*1023f))&0x3ff);
-					int blue=(((int)(floatPixels[i+2]*1023f))&0x3ff);
+					int green=(COMPS<2)?0:(((int)(floatPixels[i+1]*1023f))&0x3ff);
+					int blue=(COMPS<3)?0:(((int)(floatPixels[i+2]*1023f))&0x3ff);
 					int alpha=1;
-					if(COMPS==4) alpha=(((int)(floatPixels[i+3]*0x3))&0x3);
+					//if(COMPS==4) alpha=(((int)(floatPixels[i+3]*0x3))&0x3);
 					((IntBuffer)buffer).put(alpha<<30 | blue <<20 | green<<10 | red);
 				}
 			}else if(bits==16) {
 				short[] shortPixels=((short[])outPixels);
 				for(int i=0;i<size;i+=COMPS) {
 					int red=(((int)((shortPixels[i]&0xffff)/65535f*1023f))&0x3ff);
-					int green=(((int)((shortPixels[i+1]&0xffff)/65535f*1023f))&0x3ff);
-					int blue=(((int)((shortPixels[i+2]&0xffff)/65535f*1023f))&0x3ff);
+					int green=(COMPS<2)?0:(((int)((shortPixels[i+1]&0xffff)/65535f*1023f))&0x3ff);
+					int blue=(COMPS<3)?0:(((int)((shortPixels[i+2]&0xffff)/65535f*1023f))&0x3ff);
 					int alpha=1;
-					if(COMPS==4) alpha=(((int)((shortPixels[i+3]&0xffff)/65535f*0x3))&0x3);
+					//if(COMPS==4) alpha=(((int)((shortPixels[i+3]&0xffff)/65535f*0x3))&0x3);
 					((IntBuffer)buffer).put(alpha<<30 | blue <<20 | green<<10 | red);
 				}
 			}else IJ.error("Don't use 10bit INT for 8 bit images");
@@ -1099,19 +1016,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}
 		buffer.rewind();
 		return buffer;
-	}
-
-
-	protected void lutScaleImage(Object pixels, double min, double max) {
-		boolean dobyte=pixels instanceof byte[];
-		boolean doshort=pixels instanceof short[];
-		int size = dobyte?((byte[])pixels).length:(doshort?((short[])pixels).length:((float[])pixels).length);
-		double scale = (max-min);
-		for (int i=0; i<size; i++) {
-			if(dobyte)((byte[])pixels)[i] = (byte)Math.max(255,Math.min(0,(int)(((double)(((byte[])pixels)[i]&0xff)-min)/scale)));
-			else if(doshort)((short[])pixels)[i] = (short)Math.max(65535,Math.min(0,(int)(((double)(((short[])pixels)[i]&0xffff)-min)/scale)));
-			else ((float[])pixels)[i] = Math.max(1f,Math.min(0f,(float)(((double)((float[])pixels)[i]-min)/scale)));
-		}
 	}
 
 	protected Object convertForUndersample(Object pixels, int width, int height) {
@@ -1135,86 +1039,28 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}
 		return tpixels;
 	}
-
-	/*
-	protected void addPixels(float[] pixels, float[] newpixels, int offset, int bands, int c, String type) {
-		for(int i=0;i<newpixels.length;i++) {
-			if(type=="ADD") {
-				pixels[i*bands+c+offset*bands]+=newpixels[i];
-				if(pixels[i*bands+c+offset*bands]>1f)pixels[i*bands+c+offset*bands]=1f;
-			}else if(type=="COPY_TRANSPARENT_ZERO") {
-				if(newpixels[i]>0)pixels[i*bands+c+offset*bands]=newpixels[i];
-			}else if(type=="COPY") {
-				pixels[i*bands+c+offset*bands]=newpixels[i];
-			}else if(type=="MAX") {
-				if(newpixels[i]>pixels[i*bands+c+offset*bands])pixels[i*bands+c+offset*bands]=newpixels[i];
-			}
-		}
-	}
-*/
 	
-	protected void addPixels(Object pixels, Object newpixels, int offset, int c, String type, double min, double max) {
-		int bands=COMPS;
+	protected void addPixels(Object pixels, Object newpixels, int offset, int c, int bands) {
 		boolean dobyte=(pixels instanceof byte[]);
 		boolean doshort=(pixels instanceof short[]);
 		boolean doint=(pixels instanceof int[]);
 		int length=dobyte?((byte[])newpixels).length:(doshort?((short[])newpixels).length:(doint?((int[])newpixels).length:((float[])newpixels).length));
-		//double scale = (max-min);
 		for(int i=0;i<length;i++) {
-			byte bvalue=0;
-			short svalue=0;
-			float fvalue=0;
-			if(dobyte) {
-				bvalue =((byte[])newpixels)[i];//(byte)(Math.max(0,Math.min(255,(int)(255.0*(((double)((int)((byte[])newpixels)[i]&0xff)-min)/scale)))));
-			}else if(doshort) {
-				svalue = ((short[])newpixels)[i];//(short)(Math.max(0,Math.min(65535,(int)(65535.0*((double)(((short[])newpixels)[i]&0xffff)-min)/scale))));
-			}else if(!doint) {
-				fvalue = ((float[])newpixels)[i];//(float)Math.max(0.0,Math.min(1.0,(((double)((float[])newpixels)[i]-min)/scale)));
-			}
-			if(type=="ADD") {
-				if(dobyte) {
-					if((bvalue&0xff)>(255-(((byte[])pixels)[i*bands+c+offset*bands]&0xff))) ((byte[])pixels)[i*bands+c+offset*bands]=(byte)255;
-					else ((byte[])pixels)[i*bands+c+offset*bands]+=bvalue;
-				} else if(doshort) {
-					if((svalue&0xffff)>(65535-(((short[])pixels)[i*bands+c+offset*bands]&0xffff))) ((short[])pixels)[i*bands+c+offset*bands]=(short)65535;
-					else ((short[])pixels)[i*bands+c+offset*bands]+=svalue;
-				} else if(doint) {
-					IJ.log("addPixels RGB add pixels not implemented");
-				} else {
-					if(fvalue>(1f-(((float[])pixels)[i*bands+c+offset*bands]))) ((float[])pixels)[i*bands+c+offset*bands]=1f;
-					else ((float[])pixels)[i*bands+c+offset*bands]+=fvalue;
-				}
-			}else if(type=="COPY_TRANSPARENT_ZERO") {
-				if(dobyte) {if(bvalue!=0)((byte[])pixels)[i*bands+c+offset*bands]=bvalue;}
-				else if(doshort) {if(svalue!=0)((short[])pixels)[i*bands+c+offset*bands]=svalue;}
-				else if(doint){IJ.log("addPixels RGB copy transparent zero not implemented");}
-				else {if(fvalue!=0)((float[])pixels)[i*bands+c+offset*bands]=fvalue;}
-			}else if(type=="COPY") {
-				if(dobyte)((byte[])pixels)[i*bands+c+offset*bands]=bvalue;
-				else if(doshort)((short[])pixels)[i*bands+c+offset*bands]=svalue;
-				else if(doint)((int[])pixels)[i+c+offset]=((int[])newpixels)[i];
-				else ((float[])pixels)[i*bands+c+offset*bands]=fvalue;
-			}else if(type=="MAX") {
-				if(dobyte) {
-					if((((byte[])newpixels)[i]&0xff)>(((byte[])pixels)[i*bands+c+offset*bands]&0xff))((byte[])pixels)[i*bands+c+offset*bands]=bvalue;
-				}else if(doshort) {
-					if((((short[])newpixels)[i]&0xffff)>(((short[])pixels)[i*bands+c+offset*bands]&0xffff))((short[])pixels)[i*bands+c+offset*bands]=svalue;
-				}else if(doint) {
-					IJ.log("RGB addPixels MAX not implemented");
-				}else {
-					if((((float[])newpixels)[i])>(((float[])pixels)[i*bands+c+offset*bands]))((float[])pixels)[i*bands+c+offset*bands]=fvalue;
-				}
-			}
+			if(dobyte)((byte[])pixels)[i*bands+c+offset*bands]=((byte[])newpixels)[i];
+			else if(doshort)((short[])pixels)[i*bands+c+offset*bands]=((short[])newpixels)[i];
+			else if(doint)((int[])pixels)[i+c+offset]=((int[])newpixels)[i];
+			else ((float[])pixels)[i*bands+c+offset*bands]=((float[])newpixels)[i];
+			
 		}
 	}
 	
 	private void drawGraphics(GL4 gl4, float z, int texture) {
 		float yrat=(float)srcRect.height/srcRect.width;
 		FloatBuffer vb=GLBuffers.newDirectFloatBuffer(new float[] {
-				-1,	-yrat,	z, 	0,1,0,
-				1,	-yrat,	z, 	1,1,0,
-				1,	yrat,	z, 	1,0,0,
-				-1,	yrat,	z,	0,0,0
+				-1,	-yrat,	z, 	0,1,0.5f,
+				1,	-yrat,	z, 	1,1,0.5f,
+				1,	yrat,	z, 	1,0,0.5f,
+				-1,	yrat,	z,	0,0,0.5f
 		});
 		drawGraphics(gl4, vb, texture);
 	}
@@ -1233,29 +1079,26 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	}
 	
 	private void drawTexGL6f(GL4 gl4, int vao, int count) {
-		//vb.rewind();
 		gl4.glBindVertexArray(vao);
 		gl4.glBindBufferBase(GL_UNIFORM_BUFFER, 1, globalmatrix);
 		gl4.glBindBufferBase(GL_UNIFORM_BUFFER, 2, modelmatrix);
+		gl4.glBindBufferBase(GL_UNIFORM_BUFFER, 3, lutmatrix);
 		
-		//gl4.glDrawArrays(GL_TRIANGLES, 0, count/6);
         gl4.glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_SHORT, 0);
 		gl4.glBindVertexArray(0);
-		//gl4.glBindBuffer(GL_ARRAY_BUFFER, 0);
-		//vb.rewind();
 	}
 
 	//Based on jogamp forum user Moa's code, http://forum.jogamp.org/GL-RGBA32F-with-glTexImage2D-td4035766.html
 	protected void createRgbaTexture(GL4 gl, int glTextureHandle, Buffer buffer, int width, int height, int depth) { 
 
 		
-		int internalFormat=COMPS==4?GL_RGBA32F:GL_RGB32F;
+		int internalFormat=COMPS==4?GL_RGBA32F:COMPS==3?GL_RGB32F:COMPS==2?GL_RG32F:GL_R32F;
 		int pixelType=GL.GL_FLOAT;
 		if(buffer instanceof ShortBuffer) {
-			internalFormat=COMPS==4?GL_RGBA16:GL_RGB16;
+			internalFormat=COMPS==4?GL_RGBA16:COMPS==3?GL_RGB16:COMPS==2?GL_RG16:GL_R16;
 			pixelType=GL4.GL_UNSIGNED_SHORT;
 		}else if(buffer instanceof ByteBuffer) {
-			internalFormat=COMPS==4?GL_RGBA8:GL_RGB8;
+			internalFormat=COMPS==4?GL_RGBA8:COMPS==3?GL_RGB8:COMPS==2?GL_RG8:GL_R8;
 			pixelType=GL.GL_UNSIGNED_BYTE;
 		}else if(buffer instanceof IntBuffer) {
 			//if pixelType=PixelType.RGB10_A2_INT
@@ -1267,7 +1110,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		gl.glEnable(GL4.GL_TEXTURE_3D);
 		gl.glBindTexture(GL4.GL_TEXTURE_3D, glTextureHandle); 
 		//gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT);
-		gl.glTexImage3D(GL4.GL_TEXTURE_3D, 0, internalFormat, width, height, depth, 0, (COMPS==4||pixelType==intpformat)?GL_RGBA:GL_RGB, pixelType, buffer); 
+		gl.glTexImage3D(GL4.GL_TEXTURE_3D, 0, internalFormat, width, height, depth, 0, (COMPS==4||pixelType==intpformat)?GL_RGBA:COMPS==3?GL_RGB:COMPS==2?GL_RG:GL_LUMINANCE, pixelType, buffer); 
 		//gl.glTexImage3D(GL.GL_TEXTURE_2D, mipmapLevel, internalFormat, width, height, depth, numBorderPixels, pixelFormat, pixelType, buffer); 
 		
 		int magtype=GL.GL_LINEAR;
@@ -1327,20 +1170,20 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	
 	protected void loadTexFromPBO(GL4 gl, int pboHandle, int texHandle, int width, int height, int depth, int offsetSlice, PixelType type) {
 
-		//BYTE
-		int internalFormat=COMPS==4?GL_RGBA8:GL_RGB8;
-		int pixelType=GL.GL_UNSIGNED_BYTE;
-		int size=Buffers.SIZEOF_BYTE;
+
+		int internalFormat=COMPS==4?GL_RGBA32F:COMPS==3?GL_RGB32F:COMPS==2?GL_RG32F:GL_R32F;
+		int pixelType=GL.GL_FLOAT;
+		int size=Buffers.SIZEOF_FLOAT;
 		int components=COMPS;
 		
 		if(type==PixelType.SHORT) {
-			internalFormat=COMPS==4?GL_RGBA16:GL_RGB16;
+			internalFormat=COMPS==4?GL_RGBA16:COMPS==3?GL_RGB16:COMPS==2?GL_RG16:GL_R16;
 			pixelType=GL4.GL_UNSIGNED_SHORT;
 			size=Buffers.SIZEOF_SHORT;
-		}else if(type==PixelType.FLOAT) {
-			internalFormat=COMPS==4?GL_RGBA32F:GL_RGB32F;
-			pixelType=GL.GL_FLOAT;
-			size=Buffers.SIZEOF_FLOAT;
+		}else if(type==PixelType.BYTE) {
+			internalFormat=COMPS==4?GL_RGBA8:COMPS==3?GL_RGB8:COMPS==2?GL_RG8:GL_R8;
+			pixelType=GL.GL_UNSIGNED_BYTE;
+			size=Buffers.SIZEOF_BYTE;
 		}else if(type==PixelType.INT_RGB10A2) {
 			internalFormat=intinternalformat;
 			pixelType=intpformat;
@@ -1355,7 +1198,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT);
 		gl.glTexParameteri(GL4.GL_TEXTURE_3D, GL4.GL_TEXTURE_BASE_LEVEL, 0);
 		gl.glTexParameteri(GL4.GL_TEXTURE_3D, GL4.GL_TEXTURE_MAX_LEVEL, 0);
-		gl.glTexImage3D(GL4.GL_TEXTURE_3D, 0, internalFormat, width, height, depth, 0, (COMPS==4||components==1)?GL_RGBA:GL_RGB, pixelType, offsetSlice*components*width*height*size);
+		gl.glTexImage3D(GL4.GL_TEXTURE_3D, 0, internalFormat, width, height, depth, 0, (COMPS==4||components==1)?GL_RGBA:COMPS==3?GL_RGB:COMPS==2?GL_RG:GL_LUMINANCE, pixelType, offsetSlice*components*width*height*size);
 		int magtype=GL.GL_LINEAR;
 		if(!Prefs.interpolateScaledImages)magtype=GL.GL_NEAREST;
 		gl.glTexParameteri(GL4.GL_TEXTURE_3D, GL.GL_TEXTURE_MAG_FILTER, magtype); 

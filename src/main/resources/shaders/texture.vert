@@ -18,13 +18,18 @@ layout (binding = 1) uniform Transform0{
 layout (binding = 2) uniform Transform1{
 	mat4 model;
 };
+layout (binding = 3) uniform Transform2{
+	mat4 aluts;
+};
 //layout (location = 0) out Block
 //{
 //    vec3 texCoord;
 //};
 out vec3 texCoord;
+out mat4 luts;
 
 void main(){
 	gl_Position = proj * (view * (model * vec4(aPos.x, aPos.y, aPos.z, 1.0)));
 	texCoord = aTex;
+	luts=aluts;
 }

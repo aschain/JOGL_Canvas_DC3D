@@ -1,8 +1,12 @@
 #version 450 core
-layout (location = 0, index = 0) out vec4 FragColor;
 
-in vec3 texCoord;
+precision highp float;
+precision highp int;
+
+layout (location = 0) out vec4 outputColor;
+
+in vec4 fragColor;
 
 void main(){
-	FragColor = vec4(texCoord.x, texCoord.y, texCoord.z, 1.0);
+	outputColor = fragColor;
 }

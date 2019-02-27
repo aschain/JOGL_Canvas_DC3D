@@ -1,11 +1,5 @@
 package ajs.joglcanvas;
 
-import static com.jogamp.opengl.GL.GL_ARRAY_BUFFER;
-import static com.jogamp.opengl.GL.GL_DYNAMIC_DRAW;
-import static com.jogamp.opengl.GL.GL_ELEMENT_ARRAY_BUFFER;
-import static com.jogamp.opengl.GL.GL_LINE_LOOP;
-import static com.jogamp.opengl.GL.GL_UNSIGNED_BYTE;
-
 import java.awt.Color;
 import java.awt.Font;
 import java.awt.FontMetrics;
@@ -17,7 +11,7 @@ import com.jogamp.common.nio.Buffers;
 import com.jogamp.opengl.GL4;
 import com.jogamp.opengl.GLAutoDrawable;
 import com.jogamp.opengl.util.GLBuffers;
-import com.jogamp.opengl.util.awt.TextRenderer;
+//import com.jogamp.opengl.util.awt.TextRenderer;
 
 import ij.ImagePlus;
 import ij.gui.Arrow;
@@ -28,7 +22,7 @@ import ij.gui.TextRoi;
 import ij.process.FloatPolygon;
 
 public class RoiGLDrawUtility {
-	private TextRenderer textRenderer;
+	//private TextRenderer textRenderer;
 	private ImagePlus imp;
 	float px=2f/1024f;
 	float yrat=1f;
@@ -634,6 +628,8 @@ public class RoiGLDrawUtility {
 	}
 	
 	protected void drawTextRoi(TextRoi troi, float z) {
+		return;
+		/*
 		if(textRenderer==null || !textRenderer.getFont().equals(troi.getCurrentFont())) textRenderer = new TextRenderer(troi.getCurrentFont(),troi.getAntialiased(),false);
 		int just=troi.getJustification();
 		String[] text=troi.getText().split("\n");
@@ -654,6 +650,7 @@ public class RoiGLDrawUtility {
 			textRenderer.draw3D(text[i], x, y, z, px*(float)imp.getCanvas().getMagnification()); 
 		}
 		textRenderer.end3DRendering();
+		*/
 	}
 	
 	/** x,y,z are in opengl float positions
@@ -664,12 +661,15 @@ public class RoiGLDrawUtility {
 	 * @param color Text color
 	 */
 	protected void drawString(GL4 gl4, String text, int just, Color color, float x, float y, float z) {
+		return;
+		/*
 		Font font=new Font("SansSerif", Font.PLAIN, 9);
 		if(textRenderer==null || !textRenderer.getFont().equals(font))textRenderer =new TextRenderer(font,false,false);
 		textRenderer.begin3DRendering();
 		textRenderer.setColor(color);
 		textRenderer.draw3D(text, x, y, z, px); 
 		textRenderer.end3DRendering();
+		*/
 	}
 
 }

@@ -535,10 +535,19 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					ortho = FloatUtil.makeOrtho(new float[16], 0, false, -CB_MAXSIZE, CB_MAXSIZE, -CB_MAXSIZE*yrat, CB_MAXSIZE*yrat, -CB_MAXSIZE, CB_MAXSIZE);
 					float[] translate=FloatUtil.makeTranslation(new float[16], 0, false, (stereoi==0?(-CB_MAXSIZE*CB_TRANSLATE):(CB_MAXSIZE*CB_TRANSLATE)), 0f, 0f);
 					ortho=FloatUtil.multMatrix(ortho, translate);
+					gl4.glEnable(GL_SCISSOR_TEST);
+					int height=drawable.getSurfaceHeight();
+					int y=(int)((1f-(1f/CB_MAXSIZE))*yrat/2f*(float)height);
+					height/=CB_MAXSIZE;
+					gl4.glScissor((drawable.getSurfaceWidth()/2)-(int)(drawable.getSurfaceWidth()/CB_MAXSIZE/2f) + (int)(CB_TRANSLATE*drawable.getSurfaceWidth()/2f*(stereoi==0?-1:1)), y, (int)(drawable.getSurfaceWidth()/CB_MAXSIZE), height);
+				}else {
+					gl4.glDisable(GL_SCISSOR_TEST);
+					//ortho = FloatUtil.makeOrtho(new float[16], 0, false, -1f, 1f, -yrat, yrat, -1f, 1f);
+					ortho=FloatUtil.makeIdentity(new float[16]);
 				}
-				else ortho = FloatUtil.makeOrtho(new float[16], 0, false, -1f, 1f, -yrat, yrat, -1f, 1f);
 				globalMatricesPointer.rewind();globalMatricesPointer.asFloatBuffer().rewind();
 				globalMatricesPointer.asFloatBuffer().put(ortho);
+				globalMatricesPointer.rewind();globalMatricesPointer.asFloatBuffer().rewind();
 				
 				//Rotate
 				float dxst=(float)dx;

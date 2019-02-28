@@ -63,6 +63,7 @@ public class JCP implements PlugIn {
 	public static boolean usePBOforSlices=Prefs.get("ajs.joglcanvas.usePBOforSlices", false);
 	public static Color leftAnaglyphColor=new Color((int) Prefs.get("ajs.joglcanvas.leftAnaglyphColor",Color.RED.getRGB()));
 	public static Color rightAnaglyphColor=new Color((int) Prefs.get("ajs.joglcanvas.rightAnaglyphColor",Color.CYAN.getRGB()));
+	public static boolean dubois=Prefs.get("ajs.joglcanvas.dubois", false);
 	public static int stereoSep=5;
 	
 	/**
@@ -73,11 +74,6 @@ public class JCP implements PlugIn {
 	 */
 	@Override
 	public void run(String arg) {
-		
-		if(arg.equals("HelloTriangle")) {
-			HelloTriangleSimple.main(null);
-			return;
-		}
 		
 		if(arg.equals("setprefs")) {
 			preferences();

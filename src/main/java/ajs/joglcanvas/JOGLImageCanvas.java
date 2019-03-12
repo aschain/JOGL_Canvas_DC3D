@@ -237,16 +237,63 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		idm=buffers[6];
 		gebo=buffers[7];
 		
-		long maxsize=Math.max((long)imp.getWidth(), Math.max((long)imp.getHeight(), (long)((double)imp.getNSlices()*imp.getCalibration().pixelDepth/imp.getCalibration().pixelWidth)))*6;
+		Calibration cal=imp.getCalibration();
+		long zmaxsls=(long)((double)imp.getNSlices()*cal.pixelDepth/cal.pixelWidth);
+		long maxsize=Math.max((long)imp.getWidth(), Math.max((long)imp.getHeight(), zmaxsls))*6;
 		elementBuffer=GLBuffers.newDirectShortBuffer((int)maxsize);
 		for(int i=0; i<(maxsize/6);i++) {
 			elementBuffer.put((short)(i*4+0)).put((short)(i*4+1)).put((short)(i*4+2));
 			elementBuffer.put((short)(i*4+2)).put((short)(i*4+3)).put((short)(i*4+0));
 		}
 		elementBuffer.rewind();
+		
+		long vbms=(imageWidth*4L*6L + imageHeight*4L*6L + zmaxsls*4L*6L)*2;
+		float zmax=(float)zmaxsls/(float)imageWidth;
+		vertb=GLBuffers.newDirectByteBuffer((int)vbms);
+		float yrat=imageHeight/imageWidth;
+		float[] initVerts=new float[] {
+				-1f, 	-yrat, 	0f-zmax/2f,			0, 1, go3d?1f:0,
+				 1f, 	-yrat, 	(zmax-zmax/2f),		1, 1, 0,
+				 1f, 	yrat, 	(zmax-zmax/2f),		1, 0, 0,
+				-1f, 	yrat, 	0f-zmax/2f,			0, 0, go3d?1f:0
+		};
+		for(int r=0;r<2;r++) {
+			boolean reverse=(r==1);
+			for(float p=0;p<imageWidth;p+=1.0f) {
+				float xt,xv;
+				if(reverse)p=imageWidth-p;
+				xt=1f-(p+0.5f)/imageWidth;
+				xv=((1-p/imageWidth)*2f-1f);
+				for(int i=0;i<4;i++) {
+					vertb.putFloat(xv); vertb.putFloat(initVerts[i*6+1]); vertb.putFloat(initVerts[i*6+2]);
+					vertb.putFloat(xt); vertb.putFloat(initVerts[i*6+4]); vertb.putFloat(initVerts[i*6+5]);
+				}
+			}
+			for(float p=0;p<imageHeight;p+=1.0f) {
+				float yt,yv;
+				if(reverse)p=imageHeight-p;
+				yt=1f-(p+0.5f)/imageHeight;
+				yv=p/imageHeight*2f-1f;
+				for(int i=0;i<4;i++) {
+					float zv=initVerts[i*6+2];
+					float zt=initVerts[i*6+5];
+					if(i==1) {zv=0-zmax/2f; zt=1f;}
+					else if(i==3) {zv=(zmax-zmax/2f); zt=0f;}
+					vertb.putFloat(initVerts[i*6]); vertb.putFloat(yv); vertb.putFloat(zv);
+					vertb.putFloat(initVerts[i*6+3]); vertb.putFloat(yt); vertb.putFloat(zt);
+				}
+			}
+			for(float z=0;z<zmaxsls;z+=1.0f) {
+				if(!reverse) z=((float)zmaxsls-z);
+				for(int i=0;i<4;i++) {
+					vertb.putFloat(initVerts[i*6]); vertb.putFloat(initVerts[i*6+1]); vertb.putFloat(((float)zmaxsls/2-z)/imageWidth); 
+					vertb.putFloat(initVerts[i*6+3]); vertb.putFloat(initVerts[i*6+4]); vertb.putFloat((z+0.5f)/zmaxsls); 
+				}
+			}
+		}
 
 		gl4.glBindBuffer(GL_ARRAY_BUFFER, vtbo);
-		gl4.glBufferStorage(GL_ARRAY_BUFFER, maxsize*4*Buffers.SIZEOF_FLOAT, null,  GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
+		gl4.glBufferStorage(GL_ARRAY_BUFFER, maxsize*4*Buffers.SIZEOF_FLOAT, vertb,  0);
 		gl4.glBindBuffer(GL_ARRAY_BUFFER,  0);
 
 		gl4.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
@@ -268,11 +315,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		gl4.glBufferStorage(GL_UNIFORM_BUFFER, 16 * Buffers.SIZEOF_FLOAT, ifb, 0);
 		gl4.glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
-		vertb=gl4.glMapNamedBufferRange(
-                vtbo,
-                0,
-                maxsize*4*Buffers.SIZEOF_FLOAT,
-                GL4.GL_MAP_WRITE_BIT | GL4.GL_MAP_PERSISTENT_BIT | GL4.GL_MAP_COHERENT_BIT | GL_MAP_INVALIDATE_RANGE_BIT | GL4.GL_MAP_INVALIDATE_BUFFER_BIT); // flags
+		//vertb=gl4.glMapNamedBufferRange(
+        //        vtbo,
+        //        0,
+        //        maxsize*4*Buffers.SIZEOF_FLOAT,
+        //        GL4.GL_MAP_WRITE_BIT | GL4.GL_MAP_PERSISTENT_BIT | GL4.GL_MAP_COHERENT_BIT | GL_MAP_INVALIDATE_RANGE_BIT | GL4.GL_MAP_INVALIDATE_BUFFER_BIT); // flags
 		
 		globalMatricesPointer=gl4.glMapNamedBufferRange(
                 globalmatrix,

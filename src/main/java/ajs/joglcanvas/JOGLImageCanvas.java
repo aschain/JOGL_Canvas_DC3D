@@ -488,7 +488,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						for(float z=0;z<zmaxsls;z+=1.0f) {
 							if(!reverse) z=((float)zmaxsls-z);
 							for(int i=0;i<4;i++) {
-								vertb.put(initVerts[i*6]); vertb.put(initVerts[i*6+1]); vertb.put(((float)z/(float)zmaxsls*2f-1f)*-zmax); 
+								vertb.put(initVerts[i*6]); vertb.put(initVerts[i*6+1]); vertb.put(((float)z/(float)zmaxsls*2f-1f)*zmax); 
 								vertb.put(initVerts[i*6+3]); vertb.put(initVerts[i*6+4]); vertb.put((z+0.5f)/zmaxsls);
 							}
 						}

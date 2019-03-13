@@ -88,7 +88,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private Rectangle prevSrcRect=null;
 	private boolean[] ltr=null;
 
-	protected boolean go3d=false;
+	protected boolean go3d=true;
 	public String renderFunction=JCP.renderFunction;
 	public boolean usePBOforSlices=JCP.usePBOforSlices;
 	protected int sx,sy;
@@ -389,17 +389,17 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		Calibration cal=imp.getCalibration();
 		float zmax=0f;
 		int zmaxsls=(int)((cal.pixelDepth*(double)sls)/(cal.pixelWidth));
-		if(go3d)zmax=(float)(zmaxsls)/(float)imageWidth;
+		if(go3d)zmax=(float)(zmaxsls)/(float)srcRect.width;
 		
 		float 	offx=2f*(float)srcRect.x/srcRect.width, vwidth=2f*(float)imageWidth/srcRect.width,
 				offy=2f*(1f-((float)(srcRect.y+srcRect.height)/imageHeight))*(float)imageHeight/srcRect.height,
 				vheight=2f*(float)imageHeight/srcRect.height;
 		//Quad, 3 space verts, 3 texture verts per each of 4 points of a quad
 		float[] initVerts=new float[] {
-				-1f-offx, 			(-1f-offy)*yrat, 			0f-zmax/2*(float)magnification,			0, 1, go3d?1f:0,
-				-1f-offx+vwidth, 	(-1f-offy)*yrat, 			(zmax-zmax/2)*(float)magnification,		1, 1, 0,
-				-1f-offx+vwidth, 	(-1f-offy+vheight)*yrat, 	(zmax-zmax/2f)*(float)magnification,	1, 0, 0,
-				-1f-offx, 			(-1f-offy+vheight)*yrat, 	0f-zmax/2*(float)magnification,			0, 0, go3d?1f:0
+				-1f-offx, 			(-1f-offy)*yrat, 			-zmax,			0, 1, go3d?1f:0,
+				-1f-offx+vwidth, 	(-1f-offy)*yrat, 			zmax,			1, 1, 0,
+				-1f-offx+vwidth, 	(-1f-offy+vheight)*yrat, 	zmax,			1, 0, 0,
+				-1f-offx, 			(-1f-offy+vheight)*yrat, 	-zmax,			0, 0, go3d?1f:0
 		};
 
 		//drawing
@@ -451,19 +451,15 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				if(left)reverse=Xza==matrix[2];
 				if(top)reverse=Yza==-matrix[6];
 				
-				if(ltr==null || !(ltr[0]==left && ltr[1]==top && ltr[2]==reverse) || !srcRect.equals(prevSrcRect)) {
+				if(ltr==null || !(ltr[0]==left && ltr[1]==top /*&& ltr[2]==reverse*/) || !srcRect.equals(prevSrcRect)) {
 					if(left) { //left or right
 						int lim=imageWidth*3*4*2;
 						if(vertb==null ||vertb.limit()!=lim) {vertb=Buffers.newDirectFloatBuffer(lim);}
 						for(float p=0;p<imageWidth;p+=1.0f) {
 							float xt,xv;
-							if(reverse) {
-								xt=(p+0.5f)/imageWidth;
-								xv=(p*2f-srcRect.width-2f*srcRect.x)/srcRect.width;
-							} else {
-								xt=(imageWidth-(p+0.5f))/imageWidth;
-								xv=((imageWidth-p)*2f-srcRect.width-2f*srcRect.x)/srcRect.width;
-							}
+							if(!reverse)p=imageWidth-p;
+							xt=(p+0.5f)/imageWidth;
+							xv=(p*2f-srcRect.width-2f*srcRect.x)/srcRect.width;
 							for(int i=0;i<4;i++) {
 								vertb.put(xv); vertb.put(initVerts[i*6+1]); vertb.put(initVerts[i*6+2]);
 								vertb.put(xt); vertb.put(initVerts[i*6+4]); vertb.put(initVerts[i*6+5]);
@@ -474,18 +470,14 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						if(vertb==null ||vertb.limit()!=lim) {vertb=Buffers.newDirectFloatBuffer(lim);}
 						for(float p=0;p<imageHeight;p+=1.0f) {
 							float yt,yv;
-							if(reverse) {
-								yt=(p+0.5f)/imageHeight;
-								yv=(float)(imageHeight-p)/srcRect.height*2f*yrat+initVerts[1];
-							}else {
-								yt=(float)(imageHeight-(p+0.5f))/imageHeight;
-								yv=(float)p/srcRect.height*2f*yrat+initVerts[1];
-							}
+							if(!reverse)p=imageHeight-p;
+							yt=(p+0.5f)/imageHeight;
+							yv=(float)(imageHeight-p)/srcRect.height*2f*yrat+initVerts[1];
 							for(int i=0;i<4;i++) {
 								float zv=initVerts[i*6+2];
 								float zt=initVerts[i*6+5];
-								if(i==1) {zv=0-zmax/2*(float)magnification; zt=1f;}
-								else if(i==3) {zv=(zmax-zmax/2)*(float)magnification; zt=0f;}
+								if(i==1) {zv=-zmax; zt=1f;}
+								else if(i==3) {zv=zmax; zt=0f;}
 								vertb.put(initVerts[i*6]); vertb.put(yv); vertb.put(zv);
 								vertb.put(initVerts[i*6+3]); vertb.put(yt); vertb.put(zt);
 							}
@@ -493,12 +485,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					}else { //front or back
 						int lim=zmaxsls*3*4*2;
 						if(vertb==null ||vertb.limit()!=lim) {vertb=Buffers.newDirectFloatBuffer(lim);}
-						for(float csl=0;csl<zmaxsls;csl+=1.0f) {
-							float z=csl;
-							if(!reverse) z=((float)zmaxsls-csl);
+						for(float z=0;z<zmaxsls;z+=1.0f) {
+							if(!reverse) z=((float)zmaxsls-z);
 							for(int i=0;i<4;i++) {
-								vertb.put(initVerts[i*6]); vertb.put(initVerts[i*6+1]); vertb.put(((float)zmaxsls/2-z)/imageWidth*(float)magnification); 
-								vertb.put(initVerts[i*6+3]); vertb.put(initVerts[i*6+4]); vertb.put((z+0.5f)/zmaxsls); 
+								vertb.put(initVerts[i*6]); vertb.put(initVerts[i*6+1]); vertb.put(((float)z/(float)zmaxsls*2f-1f)*-zmax); 
+								vertb.put(initVerts[i*6+3]); vertb.put(initVerts[i*6+4]); vertb.put((z+0.5f)/zmaxsls);
 							}
 						}
 					}
@@ -604,7 +595,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			
 			if(roi!=null || overlay!=null) { 
 				float z=0f;
-				if(go3d) z=-((float)sl/(float)(sls)*zmax-zmax/2)*(float)magnification;
+				if(go3d) z=-((float)sl/(float)(sls)*2f-1f)*zmax;
 				gl2.glEnable(GL2.GL_MULTISAMPLE);
 				gl2.glEnable(GL2.GL_BLEND);
 				gl2.glBlendEquation(GL2.GL_FUNC_ADD);
@@ -614,7 +605,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					if(doOv!=null) {
 						for(int osl=0;osl<sls;osl++) {
 							if(doOv[osl]) {
-								drawGraphics(gl2es2, -((float)osl/(float)(sls)*zmax-zmax/2)*(float)magnification, overlayTextures[osl]);
+								drawGraphics(gl2es2, -((float)osl/(float)(sls)*2f-1f)*zmax, overlayTextures[osl]);
 							}
 						}
 					}
@@ -627,7 +618,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 							int rc=oroi.getCPosition(), rz=oroi.getZPosition(),rt=oroi.getTPosition();
 							if(go3d) {
 								if(rt==0||rt==fr) {
-									drawRoiGL(drawable, oroi, -((float)(rz-1)/(float)(sls)*zmax-zmax/2)*(float)magnification, false, anacolor);
+									drawRoiGL(drawable, oroi, -((float)(rz-1)/(float)(sls)*2f-1f)*zmax, false, anacolor);
 								}
 							}else {
 								if((rc==0||rc==imp.getC()) && (rz==0||(rz)==imp.getZ()) && (rt==0||(rt)==imp.getT()))drawRoiGL(drawable, oroi, z, false, anacolor);

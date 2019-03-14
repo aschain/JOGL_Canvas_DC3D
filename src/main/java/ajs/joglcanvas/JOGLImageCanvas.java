@@ -457,9 +457,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						if(vertb==null ||vertb.limit()!=lim) {vertb=Buffers.newDirectFloatBuffer(lim);}
 						for(float p=0;p<imageWidth;p+=1.0f) {
 							float xt,xv;
-							if(!reverse)p=imageWidth-p;
 							xt=(p+0.5f)/imageWidth;
 							xv=(p*2f-srcRect.width-2f*srcRect.x)/srcRect.width;
+							if(!reverse) {xt=1f-xt; xv=-xv;}
 							for(int i=0;i<4;i++) {
 								vertb.put(xv); vertb.put(initVerts[i*6+1]); vertb.put(initVerts[i*6+2]);
 								vertb.put(xt); vertb.put(initVerts[i*6+4]); vertb.put(initVerts[i*6+5]);
@@ -470,9 +470,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						if(vertb==null ||vertb.limit()!=lim) {vertb=Buffers.newDirectFloatBuffer(lim);}
 						for(float p=0;p<imageHeight;p+=1.0f) {
 							float yt,yv;
-							if(!reverse)p=imageHeight-p;
 							yt=(p+0.5f)/imageHeight;
 							yv=(float)(imageHeight-p)/srcRect.height*2f*yrat+initVerts[1];
+							if(!reverse) {yt=1f-yt; yv=-yv;}
 							for(int i=0;i<4;i++) {
 								float zv=initVerts[i*6+2];
 								float zt=initVerts[i*6+5];
@@ -485,10 +485,12 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					}else { //front or back
 						int lim=zmaxsls*3*4*2;
 						if(vertb==null ||vertb.limit()!=lim) {vertb=Buffers.newDirectFloatBuffer(lim);}
-						for(float z=0;z<zmaxsls;z+=1.0f) {
-							if(!reverse) z=((float)zmaxsls-z);
+						for(float zi=0;zi<zmaxsls;zi+=1.0f) {
+							float z;
+							if(reverse)z=zi;
+							else z=((float)zmaxsls-zi-1.0f);
 							for(int i=0;i<4;i++) {
-								vertb.put(initVerts[i*6]); vertb.put(initVerts[i*6+1]); vertb.put(((float)z/(float)zmaxsls*2f-1f)*zmax); 
+								vertb.put(initVerts[i*6]); vertb.put(initVerts[i*6+1]); vertb.put(((float)zmaxsls-2f*z)/srcRect.width); 
 								vertb.put(initVerts[i*6+3]); vertb.put(initVerts[i*6+4]); vertb.put((z+0.5f)/zmaxsls);
 							}
 						}

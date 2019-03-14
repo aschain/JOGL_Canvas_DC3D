@@ -597,7 +597,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			
 			if(roi!=null || overlay!=null) { 
 				float z=0f;
-				if(go3d) z=-((float)sl/(float)(sls)*2f-1f)*zmax;
+				if(go3d) z=((float)sl/(float)(sls)*2f-1f)*zmax;
 				gl2.glEnable(GL2.GL_MULTISAMPLE);
 				gl2.glEnable(GL2.GL_BLEND);
 				gl2.glBlendEquation(GL2.GL_FUNC_ADD);
@@ -607,7 +607,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					if(doOv!=null) {
 						for(int osl=0;osl<sls;osl++) {
 							if(doOv[osl]) {
-								drawGraphics(gl2es2, -((float)osl/(float)(sls)*2f-1f)*zmax, overlayTextures[osl]);
+								drawGraphics(gl2es2, ((float)osl/(float)(sls)*2f-1f)*zmax, overlayTextures[osl]);
 							}
 						}
 					}
@@ -620,7 +620,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 							int rc=oroi.getCPosition(), rz=oroi.getZPosition(),rt=oroi.getTPosition();
 							if(go3d) {
 								if(rt==0||rt==fr) {
-									drawRoiGL(drawable, oroi, -((float)(rz-1)/(float)(sls)*2f-1f)*zmax, false, anacolor);
+									drawRoiGL(drawable, oroi, ((float)(rz-1)/(float)(sls)*2f-1f)*zmax, false, anacolor);
 								}
 							}else {
 								if((rc==0||rc==imp.getC()) && (rz==0||(rz)==imp.getZ()) && (rt==0||(rt)==imp.getT()))drawRoiGL(drawable, oroi, z, false, anacolor);

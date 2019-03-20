@@ -59,6 +59,7 @@ import com.jogamp.common.nio.Buffers;
 import com.jogamp.opengl.GL;
 import com.jogamp.opengl.GL4;
 
+import static com.jogamp.opengl.GL.GL_FLOAT;
 import static com.jogamp.opengl.GL2ES3.GL_UNIFORM_BUFFER;
 import static com.jogamp.opengl.GL4.*;
 import com.jogamp.opengl.GLAutoDrawable;
@@ -213,10 +214,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		GL4 gl4 = drawable.getGL().getGL4();
 		gl4.glClearColor(0f, 0f, 0f, 0f);
 		gl4.glDisable(GL4.GL_DEPTH_TEST);
-
-		glos=new JCGLObjects(gl4);
-		glos.newTexture("image");
-		glos.newTexture("roi");
 		
 		Calibration cal=imp.getCalibration();
 		long zmaxsls=(long)((double)imp.getNSlices()*cal.pixelDepth/cal.pixelWidth);
@@ -249,24 +246,35 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		*/
 		
 
-		vertb=glos.buffers.newArrayBuffer("image", maxsize*4*Buffers.SIZEOF_FLOAT, null);
-		glos.buffers.newElementBuffer("image", maxsize*Buffers.SIZEOF_SHORT, elementBuffer);
+		glos=new JCGLObjects(gl4);
+		glos.newTexture("image");
+		vertb=glos.newBuffer(GL_ARRAY_BUFFER, "image", maxsize*4*Buffers.SIZEOF_FLOAT, null);
+		glos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "image", maxsize*Buffers.SIZEOF_SHORT, elementBuffer);
+		glos.newVao("image", 3, GL_FLOAT, 3, GL_FLOAT);
 
-		glos.buffers.newBuffer(GL_UNIFORM_BUFFER, "global", 16*2 * Buffers.SIZEOF_FLOAT, null);
-		glos.buffers.newBuffer(GL_UNIFORM_BUFFER, "model", 16 * Buffers.SIZEOF_FLOAT, null);
-		glos.buffers.newBuffer(GL_UNIFORM_BUFFER, "lut", 16 * Buffers.SIZEOF_FLOAT, null);
-		glos.buffers.newBuffer(GL_UNIFORM_BUFFER, "idm", 16 * Buffers.SIZEOF_FLOAT, GLBuffers.newDirectFloatBuffer(FloatUtil.makeIdentity(new float[16])));
+		glos.newTexture("roiGraphic");
+		glos.newBuffer(GL_ARRAY_BUFFER, "roiGraphic");
+		glos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "roiGraphic");
+		glos.newVao("roi", 3, GL_FLOAT, 3, GL_FLOAT);
+
+		glos.newBuffer(GL_ARRAY_BUFFER, "roiGL");
+		glos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "roiGL");
+		glos.newVao("roiGL", 3, GL_FLOAT, 4, GL_FLOAT);
+		
+		glos.newBuffer(GL_UNIFORM_BUFFER, "global", 16*2 * Buffers.SIZEOF_FLOAT, null);
+		glos.newBuffer(GL_UNIFORM_BUFFER, "model", 16 * Buffers.SIZEOF_FLOAT, null);
+		glos.newBuffer(GL_UNIFORM_BUFFER, "lut", 16 * Buffers.SIZEOF_FLOAT, null);
+		glos.newBuffer(GL_UNIFORM_BUFFER, "idm", 16 * Buffers.SIZEOF_FLOAT, GLBuffers.newDirectFloatBuffer(FloatUtil.makeIdentity(new float[16])));
 		
 		glos.buffers.loadIdentity("model");
 		//global written during reshape call
 
-		glos.vaos.newVao("image");
-        
-        int numProgs=3;
+        int numProgs=4;
 		programs=new Program[numProgs];
 		programs[0]=new Program(gl4, "shaders", "texture", "texture");
 		programs[1]=new Program(gl4, "shaders", "color", "color");
 		programs[2]=new Program(gl4, "shaders", "texture", "anaglyph");
+		programs[3]=new Program(gl4, "shaders", "roiTexture", "roiTexture");
 		anaSiLoc=gl4.glGetUniformLocation(programs[2].name, "stereoi");
 		
 		zoomIndVerts=GLBuffers.newDirectFloatBuffer(4*3+4*4);
@@ -342,7 +350,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					if((rc==0||rc==imp.getC()) && (rz==0||rz==(sl+1)) && (rt==0||rt==imp.getT())) {oroi.drawOverlay(g); doRoi=true;}
 				}
 			}
-			if(doRoi)glos.textures.createRgbaTexture("roi", AWTTextureIO.newTextureData(gl4.getGLProfile(), roiImage, false).getBuffer(), srcRectWidthMag, srcRectHeightMag, 1, COMPS);
+			if(doRoi)glos.textures.createRgbaTexture("roi", AWTTextureIO.newTextureData(gl4.getGLProfile(), roiImage, false).getBuffer(), srcRectWidthMag, srcRectHeightMag, 1, 4);
 		}
 		boolean[] doOv=null;
 		if(!JCP.openglroi && overlay!=null && go3d) {
@@ -365,7 +373,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					}
 				}
 				if(doOv[osl]) {
-					glos.textures.createRgbaTexture("overlay", osl, AWTTextureIO.newTextureData(gl4.getGLProfile(), roiImage, false).getBuffer(), srcRectWidthMag, srcRectHeightMag, 1, COMPS);
+					glos.textures.createRgbaTexture("overlay", osl, AWTTextureIO.newTextureData(gl4.getGLProfile(), roiImage, false).getBuffer(), srcRectWidthMag, srcRectHeightMag, 1, 4);
 				}
 			}
 		}
@@ -637,16 +645,16 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			
 			if(roi!=null || overlay!=null) { 
 				float z=0f;
-				if(go3d) z=-((float)sl/(float)(sls)*zmax-zmax/2)*(float)magnification;
+				if(go3d) z=((float)sls-2f*sl)/(float)srcRect.width;
 				gl4.glEnable(GL4.GL_MULTISAMPLE);
 				gl4.glBlendEquation(GL4.GL_FUNC_ADD);
 				gl4.glBlendFunc(GL4.GL_SRC_ALPHA, GL4.GL_ONE_MINUS_SRC_ALPHA);
 				if(!JCP.openglroi) {
-					if(doRoi)drawGraphics(gl4, z, glos.textures.get("roi"));
+					if(doRoi)drawGraphics(gl4, z, "roi", 0);
 					if(doOv!=null) {
 						for(int osl=0;osl<sls;osl++) {
 							if(doOv[osl]) {
-								drawGraphics(gl4, -((float)osl/(float)(sls)*zmax-zmax/2)*(float)magnification, glos.textures.get("overlay",osl));
+								drawGraphics(gl4, ((float)sls-2f*(float)osl)/(float)srcRect.width, "overlay", osl);
 							}
 						}
 					}
@@ -1008,7 +1016,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}
 	}
 	
-	private void drawGraphics(GL4 gl4, float z, int texture) {
+	private void drawGraphics(GL4 gl4, float z, String name, int index) {
 		float yrat=(float)srcRect.height/srcRect.width;
 		FloatBuffer vb=GLBuffers.newDirectFloatBuffer(new float[] {
 				-1,	-yrat,	z, 	0,1,0.5f,
@@ -1016,20 +1024,16 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				1,	yrat,	z, 	1,0,0.5f,
 				-1,	yrat,	z,	0,0,0.5f
 		});
-		drawGraphics(gl4, vb, texture);
-	}
-	
-	private void drawGraphics(GL4 gl4, FloatBuffer vb, int texture) {
-
-		gl4.glEnable(GL4.GL_TEXTURE_3D);
-		gl4.glActiveTexture(GL_TEXTURE1);
-		gl4.glBindTexture(GL4.GL_TEXTURE_3D, texture);
+		gl4.glUseProgram(programs[3].name);
 		gl4.glTexParameteri(GL4.GL_TEXTURE_3D, GL4.GL_TEXTURE_MAG_FILTER, GL4.GL_NEAREST);
-		
-		drawTexGL6f(gl4, vgao, vb.limit());
+		gl4.glBindBufferBase(GL_UNIFORM_BUFFER, 1, glos.buffers.get(GL_UNIFORM_BUFFER, "global"));
+		gl4.glBindBufferBase(GL_UNIFORM_BUFFER, 2, glos.buffers.get(GL_UNIFORM_BUFFER, "model"));
+		glos.drawTexVaoWithVBO(name, index, vb, 6);
+		gl4.glBindBufferBase(GL_UNIFORM_BUFFER, 1, 0);
+		gl4.glBindBufferBase(GL_UNIFORM_BUFFER, 2, 0);
 		if(Prefs.interpolateScaledImages)gl4.glTexParameteri(GL4.GL_TEXTURE_3D, GL4.GL_TEXTURE_MAG_FILTER,GL4.GL_LINEAR);
-		gl4.glBindTexture(GL4.GL_TEXTURE_3D, 0);
-		gl4.glDisable(GL4.GL_TEXTURE_3D);
+		gl4.glUseProgram(0);
+		
 	}
 	
 
@@ -1218,14 +1222,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		x2=x2/w*2f; y2=y2/h*2f*yrat;
 		w2=w2/w*2f; h2=h2/h*2f*yrat;
 
-		gl4.glUseProgram(programs[1].name);
-		gl4.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gebo);
-		gl4.glBindBuffer(GL_ARRAY_BUFFER, vgbo);
-		gl4.glBindVertexArray(vgao);
-		gl4.glBindBufferBase(GL_UNIFORM_BUFFER, 1, globalmatrix);
-		gl4.glBindBufferBase(GL_UNIFORM_BUFFER, 2, idm);
-		
-
 		zoomIndVerts.rewind();
 		float[] color=new float[] {(float)128/255, (float)128/255, 1f, 77f/255f};
 		zoomIndVerts.put(x1).put(y1).put(0f).put(color);
@@ -1234,13 +1230,13 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		zoomIndVerts.put(x1).put(y1-h1).put(0f).put(color);
 		zoomIndVerts.rewind();
 		
-		/*
-		ByteBuffer eb=GLBuffers.newDirectByteBuffer(new byte[] {0,1,2,3});
-		gl4.glBufferData(GL_ELEMENT_ARRAY_BUFFER, eb.capacity()*Buffers.SIZEOF_BYTE, eb, GL_DYNAMIC_DRAW);
-		
-		gl4.glBufferData(GL_ARRAY_BUFFER, zoomIndVerts.capacity()*Buffers.SIZEOF_FLOAT, zoomIndVerts, GL_DYNAMIC_DRAW);
-		gl4.glDrawElements(GL_LINE_LOOP, eb.capacity(), GL_UNSIGNED_BYTE, 0);
-		*/
+
+		gl4.glUseProgram(programs[1].name);
+		glos.bindUniformBuffer("global", 1);
+		glos.bindUniformBuffer("idm", 2);
+		gl4.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gebo);
+		gl4.glBindBuffer(GL_ARRAY_BUFFER, vgbo);
+		gl4.glBindVertexArray(vgao);
 		RoiGLDrawUtility.drawGLfb(gl4, zoomIndVerts, GL_LINE_LOOP);
 		zoomIndVerts.rewind();
 		zoomIndVerts.put(x1+x2).put(y1-y2).put(0f).put(color);

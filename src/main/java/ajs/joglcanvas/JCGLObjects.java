@@ -1,6 +1,7 @@
 package ajs.joglcanvas;
 
 import static com.jogamp.opengl.GL.*;
+import static com.jogamp.opengl.GL2ES3.GL_UNIFORM_BUFFER;
 import static com.jogamp.opengl.GL4.*;
 
 import java.nio.Buffer;
@@ -12,6 +13,7 @@ import java.util.Hashtable;
 
 import com.jogamp.common.nio.Buffers;
 import com.jogamp.opengl.GL4;
+import com.jogamp.opengl.math.FloatUtil;
 
 import ajs.joglcanvas.JOGLImageCanvas.PixelType;
 import ij.Prefs;
@@ -21,6 +23,7 @@ public class JCGLObjects {
 	private GL4 gl;
 	public JCTextures textures=new JCTextures();
 	public JCBuffers buffers=new JCBuffers();
+	public JCVaos vaos=new JCVaos();
 	
 	
 	public JCGLObjects(GL4 gl) {
@@ -29,6 +32,8 @@ public class JCGLObjects {
 	
 	public void dispose() {
 		textures.dispose();
+		buffers.dispose();
+		vaos.dispose();
 	}
 	
 	public void setGL(GL4 gl) {
@@ -43,6 +48,18 @@ public class JCGLObjects {
 		textures.newTexture(name, size);
 	}
 	
+	public void drawTexVao(String name, int glElementBufferType, int count) {
+		gl.glEnable(GL4.GL_TEXTURE_3D);
+		gl.glActiveTexture(GL_TEXTURE0);
+		gl.glBindTexture(GL4.GL_TEXTURE_3D, textures.get(name));
+		gl.glBindVertexArray(vaos.get(name));
+		
+        gl.glDrawElements(GL_TRIANGLES, count, glElementBufferType, 0);
+		gl.glBindVertexArray(0);
+		gl.glBindTexture(GL4.GL_TEXTURE_3D, 0);
+		gl.glDisable(GL4.GL_TEXTURE_3D);
+	}
+	
 	
 	
 	
@@ -50,18 +67,18 @@ public class JCGLObjects {
 	
 	class JCTextures{
 		
-		public Hashtable<String,int[]> textures=new Hashtable<String, int[]>();
+		public Hashtable<String,int[]> handles=new Hashtable<String, int[]>();
 		public Hashtable<String,int[]> pbos=new Hashtable<String, int[]>();
 		
 		public JCTextures() {}
 		
 		public void newTexture(String name, int size) {
-			if(textures.containsKey(name)) {
+			if(handles.containsKey(name)) {
 				dispose(name);
 			}
 			int[] textureHandles = new int[size]; 
 			gl.glGenTextures(size, textureHandles, 0);
-			textures.put(name, textureHandles);
+			handles.put(name, textureHandles);
 		}
 		
 		public void newPbo(String name, int size) {
@@ -72,24 +89,18 @@ public class JCGLObjects {
 		}
 		
 		public void dispose() {
-			int size=textures.size();
-			if(size!=0) {
-				for(Enumeration<int[]> i=textures.elements(); i.hasMoreElements();) {
-					int[] ths=i.nextElement();
-					gl.glDeleteTextures(ths.length,ths,0);
-				}
+			for(Enumeration<int[]> i=handles.elements(); i.hasMoreElements();) {
+				int[] ths=i.nextElement();
+				gl.glDeleteTextures(ths.length,ths,0);
 			}
-			size=pbos.size();
-			if(size!=0) {
-				for(Enumeration<int[]> i=pbos.elements(); i.hasMoreElements();) {
-					int[] phs=i.nextElement();
-					gl.glDeleteBuffers(phs.length,phs,0);
-				}
+			for(Enumeration<int[]> i=pbos.elements(); i.hasMoreElements();) {
+				int[] phs=i.nextElement();
+				gl.glDeleteBuffers(phs.length,phs,0);
 			}
 		}
 		
 		public void dispose(String name) {
-			int[] ths=textures.get(name);
+			int[] ths=handles.get(name);
 			gl.glDeleteTextures(ths.length,ths,0);
 		}
 		
@@ -103,12 +114,12 @@ public class JCGLObjects {
 		}
 		
 		public int get(String name, int index) {
-			return textures.get(name)[index];
+			return handles.get(name)[index];
 		}
 
 		public int getLength(String name) {
-			if(textures.get(name)==null)return 0;
-			return textures.get(name).length;
+			if(handles.get(name)==null)return 0;
+			return handles.get(name).length;
 		}
 		public int getPboLength(String name) {
 			if(pbos.get(name)==null)return 0;
@@ -116,7 +127,7 @@ public class JCGLObjects {
 		}
 		
 		public boolean containsKey(String name) {
-			return textures.containsKey(name);
+			return handles.containsKey(name);
 		}
 		
 		public boolean containsPboKey(String name) {
@@ -176,7 +187,7 @@ public class JCGLObjects {
 		public void loadTexFromPBO(String pboName, int pn, String texName, int tn, int width, int height, int depth, int offsetSlice, PixelType type, int COMPS) {
 
 			int[] phs=pbos.get(pboName);
-			int[] ths=textures.get(texName);
+			int[] ths=handles.get(texName);
 
 			int internalFormat=COMPS==4?GL_RGBA32F:COMPS==3?GL_RGB32F:COMPS==2?GL_RG32F:GL_R32F;
 			int pixelType=GL_FLOAT;
@@ -263,6 +274,9 @@ public class JCGLObjects {
 		public Hashtable<String,int[]> array=new Hashtable<String, int[]>();
 		public Hashtable<String,int[]> uniform=new Hashtable<String, int[]>();
 		public Hashtable<String,int[]> element=new Hashtable<String, int[]>();
+		public Hashtable<String,Buffer> abuffers=new Hashtable<String,Buffer>();
+		public Hashtable<String,Buffer> ubuffers=new Hashtable<String,Buffer>();
+		public Hashtable<String,Buffer> ebuffers=new Hashtable<String,Buffer>();
 		
 		
 		
@@ -270,8 +284,9 @@ public class JCGLObjects {
 
 		public ByteBuffer newBuffer(int gltype, String name, long size, Buffer buffer) {
 			Hashtable<String,int[]> dict=array;
-			if(gltype==GL_UNIFORM_BUFFER)dict=uniform;
-			else if(gltype==GL_ELEMENT_ARRAY_BUFFER)dict=element;
+			Hashtable<String,Buffer> bdict=abuffers;
+			if(gltype==GL_UNIFORM_BUFFER) {dict=uniform; bdict=ubuffers;}
+			else if(gltype==GL_ELEMENT_ARRAY_BUFFER) {dict=element;bdict=ebuffers;}
 			int[] bn=new int[1];
 			gl.glCreateBuffers(1, bn, 0);
 			dict.put(name, bn);
@@ -281,32 +296,115 @@ public class JCGLObjects {
 			gl.glBindBuffer(gltype,  0);
 			
 			if(!write)return null;
-			return gl.glMapNamedBufferRange(
+			ByteBuffer outbuffer= gl.glMapNamedBufferRange(
 					bn[0],
 	                0,
 	                size,
 	                GL4.GL_MAP_WRITE_BIT | GL4.GL_MAP_PERSISTENT_BIT | GL4.GL_MAP_COHERENT_BIT | GL_MAP_INVALIDATE_RANGE_BIT | GL4.GL_MAP_INVALIDATE_BUFFER_BIT); // flags
-			
+			bdict.put(name, outbuffer);
+			return outbuffer;
 		}
 		
 		public ByteBuffer newArrayBuffer(String name, long size, Buffer buffer) {
 			return newBuffer(GL_ARRAY_BUFFER, name, size, buffer);
 			
 		}
-		public void newUniformBuffer(String name, boolean isWritable) {
-			
+		public ByteBuffer newUniformBuffer(String name, long size, Buffer buffer) {
+			return newBuffer(GL_UNIFORM_BUFFER, name, size, buffer);
 		}
-		public void newElementBuffer(String name, boolean isWritable) {
+		public ByteBuffer newElementBuffer(String name, long size, Buffer buffer) {
+			return newBuffer(GL_ELEMENT_ARRAY_BUFFER, name, size, buffer);
+		}
+		
+		public int get(int gltype, String name) {
+			Hashtable<String, int[]> dict=array;
+			if(gltype==GL_UNIFORM_BUFFER) dict=uniform;
+			else if(gltype==GL_ELEMENT_ARRAY_BUFFER)dict=element;
+			int[] hs= dict.get(name);
+			if(hs==null)return 0;
+			return hs[0];
+		}
+		
+		public Buffer getDirectBuffer(int gltype, String name) {
+			Hashtable<String, Buffer> bdict=abuffers;
+			if(gltype==GL_UNIFORM_BUFFER) bdict=ubuffers;
+			else if(gltype==GL_ELEMENT_ARRAY_BUFFER)bdict=ebuffers;
+			return bdict.get(name);
+		}
+		
+		public void loadIdentity(String name) {
+			loadIdentity(name, 0);
+		}
+		
+		public void loadIdentity(String name, int offset) {
+			ByteBuffer matrix=(ByteBuffer)ubuffers.get(name);
+			float[] view = FloatUtil.makeIdentity(new float[16]);
+	        for (int i = 0; i < 16; i++) {
+	            matrix.putFloat(offset + i * 4, view[i]);
+	        }
+	        matrix.rewind();
+		}
+		
+		public void loadMatrix(String name, float[] matrix) {
+			ByteBuffer buffer=(ByteBuffer)ubuffers.get(name);
+			buffer.rewind(); buffer.asFloatBuffer().rewind();
+			buffer.asFloatBuffer().put(matrix);
+			buffer.rewind(); buffer.asFloatBuffer().rewind();
 			
 		}
 		
-		
+		public void dispose() {
+			for(int i=0;i<3;i++) {
+				Hashtable<String, int[]> dict=array;
+				Hashtable<String, Buffer> bdict=abuffers;
+				if(i==1) {dict=uniform; bdict=ubuffers;}
+				else if(i==2) {dict=element; bdict=ebuffers;}
+				for(Enumeration<String> j=dict.keys(); j.hasMoreElements();) {
+					String name=j.nextElement();
+					int[] phs=dict.get(name);
+					if(bdict.get(name)!=null)gl.glUnmapNamedBuffer(phs[0]);
+					gl.glDeleteBuffers(phs.length,phs,0);
+				}
+			}
+		}
 	}
 
-	class JCVao{
+	class JCVaos{
 		
-		public JCVao() {
-			
+		public Hashtable<String, int[]> handles =new Hashtable<String, int[]>();
+		
+		public JCVaos() {}
+		
+		public void newVao(String name) {
+			int[] vhs=new int[1];
+			gl.glCreateVertexArrays(vhs.length, vhs, 0);
+			handles.put(name, vhs);
+			int vao=vhs[0];
+			gl.glVertexArrayAttribBinding(vao, 0, 0);//modelcoords
+			gl.glVertexArrayAttribBinding(vao, 1, 0);//texcoords
+			gl.glVertexArrayAttribFormat(vao, 0, 3, GL_FLOAT, false, 0);//modelcoords
+	        gl.glVertexArrayAttribFormat(vao, 1, 3, GL_FLOAT, false, 3 * Buffers.SIZEOF_FLOAT);//texcoords
+	        gl.glEnableVertexArrayAttrib(vao, 0);
+	        gl.glEnableVertexArrayAttrib(vao, 1);
+			if(buffers.element.get(name)!=null) {
+		        gl.glVertexArrayElementBuffer(vao, buffers.element.get(name)[0]);
+			}
+			if(buffers.array.get(name)!=null) {
+				gl.glVertexArrayVertexBuffer(vao, 0, buffers.array.get(name)[0], 0, 6 * Buffers.SIZEOF_FLOAT);
+			}
+		}
+		
+		public int get(String name) {
+			int[] hs=handles.get(name);
+			if(hs==null)return 0;
+			return hs[0];
+		}
+		
+		public void dispose() {
+			for(Enumeration<int[]> j=handles.elements(); j.hasMoreElements();) {
+				int[] vhs=j.nextElement();
+				gl.glDeleteVertexArrays(vhs.length,vhs,0);
+			}
 		}
 	}
 	

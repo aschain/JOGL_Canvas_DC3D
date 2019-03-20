@@ -58,6 +58,8 @@ import java.nio.ByteBuffer;
 import com.jogamp.common.nio.Buffers;
 import com.jogamp.opengl.GL;
 import com.jogamp.opengl.GL4;
+
+import static com.jogamp.opengl.GL2ES3.GL_UNIFORM_BUFFER;
 import static com.jogamp.opengl.GL4.*;
 import com.jogamp.opengl.GLAutoDrawable;
 import com.jogamp.opengl.util.texture.awt.AWTTextureIO;
@@ -102,9 +104,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	protected boolean myHZI=false;
 
 	private JCGLObjects glos;
-	private int vtao,vgao,vgbo,ebo, gebo,globalmatrix,modelmatrix,lutmatrix, idm;
-	private ByteBuffer globalMatricesPointer, modelMatrixPointer,lutMatrixPointer;
-	private ShortBuffer elementBuffer;
 	private Program[] programs;
 	private ByteBuffer vertb=null;
 	private FloatBuffer zoomIndVerts=null;
@@ -188,10 +187,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	@Override
 	public void reshape(GLAutoDrawable drawable, int x, int y, int width, int height) {
 		GL4 gl4 = drawable.getGL().getGL4();
-		globalMatricesPointer.rewind();globalMatricesPointer.asFloatBuffer().rewind();
 		float[] ortho = FloatUtil.makeOrtho(new float[16], 0, false, -1f, 1f, -(float)srcRect.height/srcRect.width, (float)srcRect.height/srcRect.width, -1f, 1f);
-		globalMatricesPointer.asFloatBuffer().put(ortho);
-		loadIdentity(globalMatricesPointer,16*Buffers.SIZEOF_FLOAT);
+		glos.buffers.loadMatrix("global", ortho);
+		glos.buffers.loadIdentity("global",16*Buffers.SIZEOF_FLOAT);
 		gl4.glViewport(x, y, width, height);
 		int srcRectWidthMag = (int)(srcRect.width*magnification+0.5);
 		int srcRectHeightMag = (int)(srcRect.height*magnification+0.5);
@@ -220,23 +218,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		glos.newTexture("image");
 		glos.newTexture("roi");
 		
-		
-		int numBuffers=8;
-		int[] buffers=new int[numBuffers];
-		gl4.glCreateBuffers(numBuffers,buffers,0);
-		//vtbo=buffers[0];
-		vgbo=buffers[1];
-		globalmatrix=buffers[2];
-		modelmatrix=buffers[3];
-		ebo=buffers[4];
-		lutmatrix=buffers[5];
-		idm=buffers[6];
-		gebo=buffers[7];
-		
 		Calibration cal=imp.getCalibration();
 		long zmaxsls=(long)((double)imp.getNSlices()*cal.pixelDepth/cal.pixelWidth);
 		long maxsize=Math.max((long)imp.getWidth(), Math.max((long)imp.getHeight(), zmaxsls))*6;
-		elementBuffer=GLBuffers.newDirectShortBuffer((int)maxsize);
+		ShortBuffer elementBuffer=GLBuffers.newDirectShortBuffer((int)maxsize);
 		for(int i=0; i<(maxsize/6);i++) {
 			elementBuffer.put((short)(i*4+0)).put((short)(i*4+1)).put((short)(i*4+2));
 			elementBuffer.put((short)(i*4+2)).put((short)(i*4+3)).put((short)(i*4+0));
@@ -265,79 +250,17 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		
 
 		vertb=glos.buffers.newArrayBuffer("image", maxsize*4*Buffers.SIZEOF_FLOAT, null);
-		
-		gl4.glBindBuffer(GL_ARRAY_BUFFER, vtbo);
-		gl4.glBufferStorage(GL_ARRAY_BUFFER, maxsize*4*Buffers.SIZEOF_FLOAT, vertb,  GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
-		gl4.glBindBuffer(GL_ARRAY_BUFFER,  0);
-
 		glos.buffers.newElementBuffer("image", maxsize*Buffers.SIZEOF_SHORT, elementBuffer);
-		gl4.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-		gl4.glBufferStorage(GL_ELEMENT_ARRAY_BUFFER, maxsize*Buffers.SIZEOF_SHORT, elementBuffer,  0);
-		gl4.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,  0);
-		
-		gl4.glBindBuffer(GL_UNIFORM_BUFFER, globalmatrix);
-		gl4.glBufferStorage(GL_UNIFORM_BUFFER, 16*2 * Buffers.SIZEOF_FLOAT, null, GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
-		gl4.glBindBuffer(GL_UNIFORM_BUFFER, 0);
-		gl4.glBindBuffer(GL_UNIFORM_BUFFER, modelmatrix);
-		gl4.glBufferStorage(GL_UNIFORM_BUFFER, 16 * Buffers.SIZEOF_FLOAT, null, GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
-		gl4.glBindBuffer(GL_UNIFORM_BUFFER, 0);
-		gl4.glBindBuffer(GL_UNIFORM_BUFFER, lutmatrix);
-		gl4.glBufferStorage(GL_UNIFORM_BUFFER, 16 * Buffers.SIZEOF_FLOAT, null, GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
-		gl4.glBindBuffer(GL_UNIFORM_BUFFER, 0);
-		
-		FloatBuffer ifb=GLBuffers.newDirectFloatBuffer(FloatUtil.makeIdentity(new float[16]));
-		gl4.glBindBuffer(GL_UNIFORM_BUFFER, idm);
-		gl4.glBufferStorage(GL_UNIFORM_BUFFER, 16 * Buffers.SIZEOF_FLOAT, ifb, 0);
-		gl4.glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
-		vertb=gl4.glMapNamedBufferRange(
-                vtbo,
-                0,
-                maxsize*4*Buffers.SIZEOF_FLOAT,
-                GL4.GL_MAP_WRITE_BIT | GL4.GL_MAP_PERSISTENT_BIT | GL4.GL_MAP_COHERENT_BIT | GL_MAP_INVALIDATE_RANGE_BIT | GL4.GL_MAP_INVALIDATE_BUFFER_BIT); // flags
+		glos.buffers.newBuffer(GL_UNIFORM_BUFFER, "global", 16*2 * Buffers.SIZEOF_FLOAT, null);
+		glos.buffers.newBuffer(GL_UNIFORM_BUFFER, "model", 16 * Buffers.SIZEOF_FLOAT, null);
+		glos.buffers.newBuffer(GL_UNIFORM_BUFFER, "lut", 16 * Buffers.SIZEOF_FLOAT, null);
+		glos.buffers.newBuffer(GL_UNIFORM_BUFFER, "idm", 16 * Buffers.SIZEOF_FLOAT, GLBuffers.newDirectFloatBuffer(FloatUtil.makeIdentity(new float[16])));
 		
-		globalMatricesPointer=gl4.glMapNamedBufferRange(
-                globalmatrix,
-                0,
-                16 * 2 * Buffers.SIZEOF_FLOAT,
-                GL4.GL_MAP_WRITE_BIT | GL4.GL_MAP_PERSISTENT_BIT | GL4.GL_MAP_COHERENT_BIT | GL_MAP_INVALIDATE_RANGE_BIT | GL4.GL_MAP_INVALIDATE_BUFFER_BIT); // flags
-		modelMatrixPointer=gl4.glMapNamedBufferRange(
-                modelmatrix,
-                0,
-                16 * Buffers.SIZEOF_FLOAT,
-                GL4.GL_MAP_WRITE_BIT | GL4.GL_MAP_PERSISTENT_BIT | GL4.GL_MAP_COHERENT_BIT | GL_MAP_INVALIDATE_RANGE_BIT | GL4.GL_MAP_INVALIDATE_BUFFER_BIT);
-		lutMatrixPointer=gl4.glMapNamedBufferRange(
-                lutmatrix,
-                0,
-                16 * Buffers.SIZEOF_FLOAT,
-                GL4.GL_MAP_WRITE_BIT | GL4.GL_MAP_PERSISTENT_BIT | GL4.GL_MAP_COHERENT_BIT | GL_MAP_INVALIDATE_RANGE_BIT | GL4.GL_MAP_INVALIDATE_BUFFER_BIT);
-		
-
-		loadIdentity(modelMatrixPointer, 0);
+		glos.buffers.loadIdentity("model");
 		//global written during reshape call
-		
-		int nvaos=1;
-		int[] vaos=new int[nvaos];
-		gl4.glCreateVertexArrays(1, vaos, 0);
-		vtao=vaos[0];
 
-		gl4.glVertexArrayAttribBinding(vtao, 0, 0);//modelcoords
-		gl4.glVertexArrayAttribBinding(vtao, 1, 0);//texcoords
-		gl4.glVertexArrayAttribFormat(vtao, 0, 3, GL4.GL_FLOAT, false, 0);//modelcoords
-        gl4.glVertexArrayAttribFormat(vtao, 1, 3, GL4.GL_FLOAT, false, 3 * Buffers.SIZEOF_FLOAT);//texcoords
-        gl4.glEnableVertexArrayAttrib(vtao, 0);
-        gl4.glEnableVertexArrayAttrib(vtao, 1);
-        gl4.glVertexArrayElementBuffer(vtao, ebo);
-        gl4.glVertexArrayVertexBuffer(vtao, 0, vtbo, 0, 6 * Buffers.SIZEOF_FLOAT);
-        
-		gl4.glVertexArrayAttribBinding(vgao, 0, 1);//modelcoords
-		gl4.glVertexArrayAttribBinding(vgao, 1, 1);//texcoords
-		gl4.glVertexArrayAttribFormat(vgao, 0, 3, GL_FLOAT, false, 0);//modelcoords
-        gl4.glVertexArrayAttribFormat(vgao, 1, 4, GL_FLOAT, false, 3 * Buffers.SIZEOF_FLOAT);//texcoords
-        gl4.glEnableVertexArrayAttrib(vgao, 0);
-        gl4.glEnableVertexArrayAttrib(vgao, 1);
-        gl4.glVertexArrayElementBuffer(vgao, gebo);
-        gl4.glVertexArrayVertexBuffer(vgao, 1, vgbo, 0, 7 * Buffers.SIZEOF_FLOAT);
+		glos.vaos.newVao("image");
         
         int numProgs=3;
 		programs=new Program[numProgs];
@@ -348,30 +271,14 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		
 		zoomIndVerts=GLBuffers.newDirectFloatBuffer(4*3+4*4);
 	}
-	
-	private void loadIdentity(ByteBuffer matrix, int offset) {
-
-		float[] view = FloatUtil.makeIdentity(new float[16]);
-        for (int i = 0; i < 16; i++) {
-            matrix.putFloat(offset + i * 4, view[i]);
-        }
-        matrix.rewind();
-	}
 
 	@Override
 	public void dispose(GLAutoDrawable drawable) {
 		GL4 gl=drawable.getGL().getGL4();
 		glos.setGL(gl);
 		glos.dispose();
-		
-		gl.glUnmapNamedBuffer(globalmatrix);
-        gl.glUnmapNamedBuffer(modelmatrix);
 
         for(int i=0;i<programs.length;i++) if(programs[i]!=null)gl.glDeleteProgram(programs[i].name);
-        int[] vaos=new int[]{vtao, vgao};
-        int[] buffers=new int[]{ebo, vtbo, vgbo, globalmatrix, modelmatrix};
-        gl.glDeleteVertexArrays(vaos.length, vaos, 0);
-        gl.glDeleteBuffers(buffers.length, buffers,0);
         
 		imp.unlock();
 	}
@@ -404,7 +311,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		
 		if(stereoUpdated) {
 			if(stereoType!=StereoType.CARDBOARD) {
-				loadIdentity(globalMatricesPointer, 0);
+				glos.buffers.loadIdentity("global", 0);
 			}
 			if(stereoType==StereoType.ANAGLYPH) {
 				
@@ -413,8 +320,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}
 		if(threeDupdated) {
 			if(!go3d) {
-				loadIdentity(modelMatrixPointer, 0);
-				loadIdentity(globalMatricesPointer, 0);
+				glos.buffers.loadIdentity("model", 0);
+				glos.buffers.loadIdentity("global", 0);
 			}
 			threeDupdated=false;
 		}
@@ -577,9 +484,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					int y=(int)((1f-(1f/CB_MAXSIZE))*yrat/2f*(float)height);
 					height/=CB_MAXSIZE;
 					gl4.glScissor((drawable.getSurfaceWidth()/2)-(int)(drawable.getSurfaceWidth()/CB_MAXSIZE/2f) + (int)(CB_TRANSLATE*drawable.getSurfaceWidth()/2f*(stereoi==0?-1:1)), y, (int)(drawable.getSurfaceWidth()/CB_MAXSIZE), height);
-					globalMatricesPointer.rewind();globalMatricesPointer.asFloatBuffer().rewind();
-					globalMatricesPointer.asFloatBuffer().put(ortho);
-					globalMatricesPointer.rewind();globalMatricesPointer.asFloatBuffer().rewind();
+					glos.buffers.loadMatrix("global", ortho);
 				}else if(stereoType==StereoType.ANAGLYPH) {
 					gl4.glUseProgram(programs[2].name);
 					gl4.glUniform1i(anaSiLoc, stereoi);
@@ -594,8 +499,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				float dxst=(float)dx;
 				if(stereoi>0) {dxst-=(float)JCP.stereoSep; if(dxst<0)dxst+=360f;}
 				float[] matrix=FloatUtil.makeRotationEuler(new float[16], 0, dy*FloatUtil.PI/180f, (float)dxst*FloatUtil.PI/180f, (float)dz*FloatUtil.PI/180f);
-				modelMatrixPointer.asFloatBuffer().put(matrix);
-				modelMatrixPointer.rewind(); modelMatrixPointer.asFloatBuffer().rewind();
+				glos.buffers.loadMatrix("model", matrix);
 				//IJ.log("\\Update0:X x"+Math.round(100.0*matrix[0])/100.0+" y"+Math.round(100.0*matrix[1])/100.0+" z"+Math.round(100.0*matrix[2])/100.0);
 				//IJ.log("\\Update1:Y x"+Math.round(100.0*matrix[4])/100.0+" y"+Math.round(100.0*matrix[5])/100.0+" z"+Math.round(100.0*matrix[6])/100.0);
 				//IJ.log("\\Update2:Z x"+Math.round(100.0*matrix[8])/100.0+" y"+Math.round(100.0*matrix[9])/100.0+" z"+Math.round(100.0*matrix[10])/100.0);
@@ -689,6 +593,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			}
 			
 			//setluts
+			ByteBuffer lutMatrixPointer=(ByteBuffer)glos.buffers.ubuffers.get("lut");
 			lutMatrixPointer.rewind();
 			LUT[] luts=imp.getLuts();
 			boolean[] active=new boolean[COMPS];
@@ -721,12 +626,14 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				}
 			}
 			
-			gl4.glEnable(GL4.GL_TEXTURE_3D);
-			gl4.glActiveTexture(GL_TEXTURE0);
-			gl4.glBindTexture(GL4.GL_TEXTURE_3D, glos.textures.get("image"));
-			drawTexGL6f(gl4, vtao, lim/4);
-			gl4.glBindTexture(GL4.GL_TEXTURE_3D, 0);
-			gl4.glDisable(GL4.GL_TEXTURE_3D);
+
+			gl4.glBindBufferBase(GL_UNIFORM_BUFFER, 1, glos.buffers.get(GL_UNIFORM_BUFFER, "global"));
+			gl4.glBindBufferBase(GL_UNIFORM_BUFFER, 2, glos.buffers.get(GL_UNIFORM_BUFFER, "model"));
+			gl4.glBindBufferBase(GL_UNIFORM_BUFFER, 3, glos.buffers.get(GL_UNIFORM_BUFFER, "lut"));
+			glos.drawTexVao("image", GL_UNSIGNED_SHORT, lim/4);
+			gl4.glBindBufferBase(GL_UNIFORM_BUFFER, 1, 0);
+			gl4.glBindBufferBase(GL_UNIFORM_BUFFER, 2, 0);
+			gl4.glBindBufferBase(GL_UNIFORM_BUFFER, 3, 0);
 			
 			if(roi!=null || overlay!=null) { 
 				float z=0f;
@@ -1125,18 +1032,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		gl4.glDisable(GL4.GL_TEXTURE_3D);
 	}
 	
-	private void drawTexGL6f(GL4 gl4, int vao, int count) {
-		gl4.glBindVertexArray(vao);
-		gl4.glBindBufferBase(GL_UNIFORM_BUFFER, 1, globalmatrix);
-		gl4.glBindBufferBase(GL_UNIFORM_BUFFER, 2, modelmatrix);
-		gl4.glBindBufferBase(GL_UNIFORM_BUFFER, 3, lutmatrix);
-		
-        gl4.glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_SHORT, 0);
-		gl4.glBindVertexArray(0);
-		gl4.glBindBufferBase(GL_UNIFORM_BUFFER, 1, 0);
-		gl4.glBindBufferBase(GL_UNIFORM_BUFFER, 2, 0);
-		gl4.glBindBufferBase(GL_UNIFORM_BUFFER, 3, 0);
-	}
+
 	
 	//from https://github.com/jvm-graphics-labs/hello-triangle/blob/master/src/main/java/gl4/HelloTriangleSimple.java
 	private class Program {

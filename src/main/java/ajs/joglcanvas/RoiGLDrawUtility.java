@@ -1,5 +1,9 @@
 package ajs.joglcanvas;
 
+import static com.jogamp.opengl.GL.GL_ARRAY_BUFFER;
+import static com.jogamp.opengl.GL.GL_ELEMENT_ARRAY_BUFFER;
+import static com.jogamp.opengl.GL.GL_FLOAT;
+
 import java.awt.Color;
 import java.awt.Font;
 import java.awt.FontMetrics;
@@ -24,6 +28,7 @@ import ij.process.FloatPolygon;
 public class RoiGLDrawUtility {
 	//private TextRenderer textRenderer;
 	private ImagePlus imp;
+	private JCGLObjects rglos=null;
 	float px=2f/1024f;
 	float yrat=1f;
 	float w=-1f,h,offx,offy;
@@ -187,11 +192,11 @@ public class RoiGLDrawUtility {
 		return getSubGLCoords(fp,0,fp.npoints,z,convert);
 	}
 	
-	public static void drawGL(GL4 gl4, float[] coords, Color color, int toDraw) {
+	public void drawGL(GL4 gl4, float[] coords, Color color, int toDraw) {
 		drawGL(gl4, coords, new float[] {(float)color.getRed()/255f,(float)color.getGreen()/255f,(float)color.getBlue()/255f,(float)color.getAlpha()/255f},toDraw);
 	}
 	
-	public static void drawGL(GL4 gl4, float[] coords, float[] color, int toDraw) {
+	public void drawGL(GL4 gl4, float[] coords, float[] color, int toDraw) {
 		if(coords.length<6)return;
 		FloatBuffer fb=GLBuffers.newDirectFloatBuffer(coords.length/3*7);
 		for(int i=0;i<coords.length;i+=3) {
@@ -205,14 +210,15 @@ public class RoiGLDrawUtility {
 	 * @param fb
 	 * @param toDraw
 	 */
-	public static void drawGLfb(GL4 gl4, FloatBuffer fb, int toDraw) {
-		fb.rewind();
-		ShortBuffer eb=GLBuffers.newDirectShortBuffer(fb.capacity()/7);
-		for(int i=0;i<fb.capacity()/7;i++)eb.put((short)i);eb.rewind();
-		gl4.glBufferData(GL4.GL_ELEMENT_ARRAY_BUFFER, eb.capacity()*Buffers.SIZEOF_SHORT, eb, GL4.GL_DYNAMIC_DRAW);
-		
-		gl4.glBufferData(GL4.GL_ARRAY_BUFFER, fb.capacity()*Buffers.SIZEOF_FLOAT, fb, GL4.GL_DYNAMIC_DRAW);
-		gl4.glDrawElements(toDraw, eb.capacity(), GL4.GL_UNSIGNED_SHORT, 0);
+	public void drawGLfb(GL4 gl4, FloatBuffer fb, int toDraw) {
+
+		if(rglos==null) {
+			rglos= new JCGLObjects(gl4);
+			rglos.newBuffer(GL_ARRAY_BUFFER, "roiGL");
+			rglos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "roiGL");
+			rglos.newVao("roiGL", 3, GL_FLOAT, 4, GL_FLOAT);
+		}else rglos.setGL(gl4);
+		rglos.drawVao(toDraw, "roiGL", fb);
 	}
 	
 	/** draws an Roi handle. x,y,z are all opengl float positions

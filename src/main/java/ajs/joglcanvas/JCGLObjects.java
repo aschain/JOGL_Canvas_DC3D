@@ -27,7 +27,7 @@ public class JCGLObjects {
 	public JCBuffers buffers=new JCBuffers();
 	public JCVaos vaos=new JCVaos();
 	
-	
+	public JCGLObjects() {}
 	public JCGLObjects(GL4 gl) {
 		setGL(gl);
 	}
@@ -62,6 +62,14 @@ public class JCGLObjects {
 		buffers.bindBuffer(GL_UNIFORM_BUFFER, name, binding);
 	}
 	
+	public void unBindBuffer(int gltype, int binding) {
+		buffers.unBindBuffer(gltype, binding);
+	}
+	
+	public void unBindBuffer(int gltype) {
+		buffers.unBindBuffer(gltype, 0);
+	}
+	
 	public void newVao(String name, int size1, int gltype1, int size2, int gltype2) {
 		vaos.newVao(name, size1, gltype1, size2, gltype2);
 	}
@@ -70,35 +78,63 @@ public class JCGLObjects {
 		drawTexVao(name, 0, glElementBufferType, count);
 	}
 	
-	public void drawTexVao(String name, int texIndex, int glElementBufferType, int count) {
-		drawVao(GL_TRIANGLES, name, texIndex, glElementBufferType, count);
-	}
-	
-	public void drawTexVaoWithVBO(String name, int index, Buffer vertexBuffer, int vertexSize) {
+	public void drawTexVao(String name, int index, Buffer vertexBuffer) {
 		vertexBuffer.rewind();
-		ShortBuffer eb=GLBuffers.newDirectShortBuffer(vertexBuffer.capacity()/vertexSize);
-		for(int i=0;i<vertexBuffer.capacity()/vertexSize;i++)eb.put((short)i);eb.rewind();
+		Buffer eb=getElementBufferFromVBO(vertexBuffer, vaos.vsizes.get(name)/getSizeofType(vertexBuffer));
+		eb.rewind();
 		drawTexVaoWithEBOVBO(name, index, eb, vertexBuffer);
 	}
 	
+	/**
+	 * Could make this more complicated
+	 * @param vertexBuffer
+	 * @param vertexSize
+	 * @return
+	 */
+	private Buffer getElementBufferFromVBO(Buffer vertexBuffer, int vertexSize) {
+		ShortBuffer eb=GLBuffers.newDirectShortBuffer(vertexBuffer.capacity()/vertexSize);
+		for(int i=0;i<vertexBuffer.capacity()/vertexSize;i++)eb.put((short)i);
+		return eb;
+	}
+	
 	public void drawTexVaoWithEBOVBO(String name, int index, Buffer elementBuffer, Buffer vertexBuffer) {
+		bindEBOVBO(name, elementBuffer, vertexBuffer);
+		drawTexVao(name, index, getGLType(elementBuffer), elementBuffer.capacity());
+		unBindEBOVBO(name);
+	}
+	
+	private void bindEBOVBO(String name, Buffer elementBuffer, Buffer vertexBuffer) {
+		elementBuffer.rewind();  vertexBuffer.rewind();
 		if(buffers.element.containsKey(name))gl.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffers.element.get(name)[0]);
 		if(buffers.array.containsKey(name))gl.glBindBuffer(GL_ARRAY_BUFFER, buffers.array.get(name)[0]);
 		gl.glBufferData(GL_ELEMENT_ARRAY_BUFFER, elementBuffer.capacity()*getSizeofType(elementBuffer), elementBuffer, GL_DYNAMIC_DRAW);
 		gl.glBufferData(GL_ARRAY_BUFFER, vertexBuffer.capacity()*getSizeofType(vertexBuffer), vertexBuffer, GL_DYNAMIC_DRAW);
-		drawTexVao(name, index, getGLType(elementBuffer), elementBuffer.capacity());
+	}
+	
+	private void unBindEBOVBO(String name) {
+		if(buffers.element.containsKey(name))gl.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+		if(buffers.array.containsKey(name))gl.glBindBuffer(GL_ARRAY_BUFFER, 0);
 	}
 	
 
-	public void drawVao(int glDraw, String name, int texIndex, int glElementBufferType, int count) {
+	public void drawTexVao(String name, int texIndex, int glElementBufferType, int count) {
 		gl.glEnable(GL4.GL_TEXTURE_3D);
 		gl.glBindTexture(GL4.GL_TEXTURE_3D, textures.get(name, texIndex));
 		gl.glBindVertexArray(vaos.get(name));
 		
-        gl.glDrawElements(glDraw, count, glElementBufferType, 0);
+        gl.glDrawElements(GL_TRIANGLES, count, glElementBufferType, 0);
 		gl.glBindVertexArray(0);
 		gl.glBindTexture(GL4.GL_TEXTURE_3D, 0);
 		gl.glDisable(GL4.GL_TEXTURE_3D);
+	}
+	
+	public void drawVao(int glDraw, String name, Buffer vertexBuffer) {
+		Buffer elementBuffer=getElementBufferFromVBO(vertexBuffer, vaos.vsizes.get(name)/getSizeofType(vertexBuffer));
+		bindEBOVBO(name, elementBuffer, vertexBuffer);
+		gl.glBindVertexArray(vaos.get(name));
+		gl.glDrawElements(glDraw, elementBuffer.capacity(), getGLType(elementBuffer), 0);
+		gl.glBindVertexArray(0);
+		unBindEBOVBO(name);
 	}
 	
 	
@@ -395,13 +431,21 @@ public class JCGLObjects {
 		public void bindBuffer(int gltype, String name, int binding) {
 			
 			if(gltype==GL_UNIFORM_BUFFER) {
-				gl.glBindBufferBase(gltype, uniform.get(name)[0],binding);
+				gl.glBindBufferBase(gltype, binding, uniform.get(name)[0]);
 				return;
 			}
 
 			Hashtable<String, int[]> dict=array;
 			if(gltype==GL_ELEMENT_ARRAY_BUFFER)dict=element;
 			gl.glBindBuffer(gltype, dict.get(name)[0]);
+		}
+		
+		public void unBindBuffer(int gltype, int binding) {
+			if(gltype==GL_UNIFORM_BUFFER) {
+				gl.glBindBufferBase(gltype, binding, 0);
+				return;
+			}
+			gl.glBindBuffer(gltype, 0);
 		}
 		
 		public void dispose() {
@@ -423,12 +467,12 @@ public class JCGLObjects {
 	class JCVaos{
 		
 		public Hashtable<String, int[]> handles =new Hashtable<String, int[]>();
+		public Hashtable<String, Integer> vsizes =new Hashtable<String, Integer>();
 		
 		public JCVaos() {}
 		
 		public void newVao(String name, int size1, int gltype1, int size2, int gltype2) {
 		
-			int gltypesize1=gltype1==GL_FLOAT?Buffers.SIZEOF_FLOAT:gltype1==GL_UNSIGNED_SHORT?Buffers.SIZEOF_SHORT:Buffers.SIZEOF_BYTE;
 			int[] vhs=new int[1];
 			gl.glCreateVertexArrays(vhs.length, vhs, 0);
 			handles.put(name, vhs);
@@ -447,6 +491,7 @@ public class JCGLObjects {
 			if(buffers.array.get(name)!=null) {
 				gl.glVertexArrayVertexBuffer(vao, 0, buffers.array.get(name)[0], 0, sizeoftype1+sizeoftype2);
 			}
+			vsizes.put(name, sizeoftype1+sizeoftype2);
 		}
 		
 		public int get(String name) {

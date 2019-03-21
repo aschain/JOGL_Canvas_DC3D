@@ -16,30 +16,11 @@ layout (location = 0) out vec4 outputColor;
 uniform sampler3D mytex;
 //uniform vec3 lrc;
 uniform int stereoi;
-uniform float aR;
-uniform float aG;
-uniform float aB;
+uniform mat3 ana[2];
 
 void main(){
-
-	//Source of below: bino, a 3d video player:  https://github.com/eile/bino/blob/master/src/video_output_render.fs.glsl
-	// Source of this matrix: http://www.site.uottawa.ca/~edubois/anaglyph/LeastSquaresHowToPhotoshop.pdf
-	mat3 m0 = mat3(
-			 0.437, -0.062, -0.048,
-			 0.449, -0.062, -0.050,
-			 0.164, -0.024, -0.017);
-	mat3 m1 = mat3(
-			-0.011,  0.377, -0.026,
-			-0.032,  0.761, -0.093,
-			-0.007,  0.009,  1.234);
-	mat3 m=mat3(
-			aR,aR,aR,
-			aG,aG,aG,
-			aB,aB,aB);
-
 	vec4 texColor=texture(mytex, texCoord);
 	vec3 anaColor=vec3(0,0,0);
-	bool dubois=(aR==0 && aG==0 && aB==0);
 	for(int i=0;i<4;i++){
 		float rgb=luts[i][2];
 		if(rgb>0.8){
@@ -55,9 +36,8 @@ void main(){
 			if(color[2])anaColor.b=clamp(anaColor.b+texColor[i],0f,1f);
 		}
 	}
-	if(dubois){
-		if(stereoi==0)m=m0;
-		else m=m1;
-	}
+    mat3 m;
+    if(stereoi==0)m=ana[0];
+    else m=ana[1];
 	outputColor = vec4(anaColor*m,1f);
 }

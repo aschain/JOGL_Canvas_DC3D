@@ -479,10 +479,10 @@ public class JCGLObjects {
 			int vao=vhs[0];
 			gl.glVertexArrayAttribBinding(vao, 0, 0);//modelcoords
 			gl.glVertexArrayAttribBinding(vao, 1, 0);//texcoords
-			int sizeoftype1=getSizeofType(gltype1);
-			int sizeoftype2=getSizeofType(gltype2);
+			int sizeoftype1=getSizeofType(gltype1)*size1;
+			int sizeoftype2=getSizeofType(gltype2)*size2;
 			gl.glVertexArrayAttribFormat(vao, 0, size1, gltype1, false, 0);//modelcoords
-	        gl.glVertexArrayAttribFormat(vao, 1, size2, gltype2, false, size1 * sizeoftype1);//texcoords
+	        gl.glVertexArrayAttribFormat(vao, 1, size2, gltype2, false, sizeoftype1);//texcoords
 	        gl.glEnableVertexArrayAttrib(vao, 0);
 	        gl.glEnableVertexArrayAttrib(vao, 1);
 			if(buffers.element.get(name)!=null) {

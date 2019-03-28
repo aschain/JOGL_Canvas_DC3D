@@ -104,6 +104,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private MenuItem mi3d=null;
 	protected boolean myHZI=false;
 
+	private GL4 gl;
 	private JCGLObjects glos;
 	private Program[] programs;
 	private float[] anaColors;
@@ -181,22 +182,26 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(updatedBuffersSlices==null || updatedBuffersSlices.length!=frms*sls) {updatedBuffersSlices=new boolean[frms*sls]; result=true;}
 		return result;
 	}
+	
+	private GL4 getGL(GLAutoDrawable drawable) {
+		return drawable.getGL().getGL4();
+	}
 
 	//GLEventListener methods
 	@Override
 	public void reshape(GLAutoDrawable drawable, int x, int y, int width, int height) {
-		GL4 gl4 = drawable.getGL().getGL4();
+		gl = getGL(drawable);
 		float[] ortho = FloatUtil.makeOrtho(new float[16], 0, false, -1f, 1f, -(float)srcRect.height/srcRect.width, (float)srcRect.height/srcRect.width, -1f, 1f);
 		glos.buffers.loadMatrix("global", ortho);
 		glos.buffers.loadIdentity("global",16*Buffers.SIZEOF_FLOAT);
-		gl4.glViewport(x, y, width, height);
+		gl.glViewport(x, y, width, height);
 		int srcRectWidthMag = (int)(srcRect.width*magnification+0.5);
 		int srcRectHeightMag = (int)(srcRect.height*magnification+0.5);
 		//int[] vps=new int[4];
-		//gl4.glGetIntegerv(GL4.GL_VIEWPORT, vps, 0);
+		//gl.glGetIntegerv(GL_VIEWPORT, vps, 0);
 		//if(dpimag>1.0)IJ.log("bef VPS: "+vps[0]+" "+vps[1]+" "+vps[2]+" "+vps[3]);
-		if(dpimag>1.0 && !IJ.isMacOSX())gl4.glViewport(0, 0, (int)(srcRectWidthMag*dpimag+0.5), (int)(srcRectHeightMag*dpimag+0.5));
-		//gl4.glGetIntegerv(GL4.GL_VIEWPORT, vps, 0);
+		if(dpimag>1.0 && !IJ.isMacOSX())gl.glViewport(0, 0, (int)(srcRectWidthMag*dpimag+0.5), (int)(srcRectHeightMag*dpimag+0.5));
+		//gl.glGetIntegerv(GL_VIEWPORT, vps, 0);
 		//if(dpimag>1.0)IJ.log("aft VPS: "+vps[0]+" "+vps[1]+" "+vps[2]+" "+vps[3]);
 	}
 
@@ -209,9 +214,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		double dpimag2=drawable.getSurfaceHeight()/dstHeight;
 		if(dpimag>1.0)IJ.log("Dpimag: "+dpimag+" "+dpimag2);
 		if(IJ.isMacOSX())icc.setLocation(4,47);
-		GL4 gl4 = drawable.getGL().getGL4();
-		gl4.glClearColor(0f, 0f, 0f, 0f);
-		gl4.glDisable(GL4.GL_DEPTH_TEST);
+		gl = getGL(drawable);
+		gl.glClearColor(0f, 0f, 0f, 0f);
+		gl.glDisable(GL4.GL_DEPTH_TEST);
 		
 		Calibration cal=imp.getCalibration();
 		long zmaxsls=(long)((double)imp.getNSlices()*cal.pixelDepth/cal.pixelWidth);
@@ -244,7 +249,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		*/
 		
 
-		glos=new JCGLObjects(gl4);
+		glos=new JCGLObjects(gl);
 		glos.newTexture("image");
 		vertb=glos.newBuffer(GL_ARRAY_BUFFER, "image", maxsize*4*Buffers.SIZEOF_FLOAT, null);
 		glos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "image", maxsize*Buffers.SIZEOF_SHORT, elementBuffer);
@@ -265,12 +270,12 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 
         int numProgs=4;
 		programs=new Program[numProgs];
-		programs[0]=new Program(gl4, "shaders", "texture", "texture");
-		programs[1]=new Program(gl4, "shaders", "color", "color");
-		programs[2]=new Program(gl4, "shaders", "texture", "anaglyph");
-		programs[3]=new Program(gl4, "shaders", "roiTexture", "roiTexture");
-		anaSiLoc=gl4.glGetUniformLocation(programs[2].name, "stereoi");
-		anaLoc=gl4.glGetUniformLocation(programs[2].name, "ana");
+		programs[0]=new Program(gl, "shaders", "texture", "texture");
+		programs[1]=new Program(gl, "shaders", "color", "color");
+		programs[2]=new Program(gl, "shaders", "texture", "anaglyph");
+		programs[3]=new Program(gl, "shaders", "roiTexture", "roiTexture");
+		anaSiLoc=gl.glGetUniformLocation(programs[2].name, "stereoi");
+		anaLoc=gl.glGetUniformLocation(programs[2].name, "ana");
 
 		if(JCP.dubois) {
 		//Source of below: bino, a 3d video player:  https://github.com/eile/bino/blob/master/src/video_output_render.fs.glsl
@@ -295,7 +300,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 
 	@Override
 	public void dispose(GLAutoDrawable drawable) {
-		GL4 gl=drawable.getGL().getGL4();
+		gl = getGL(drawable);
 		glos.setGL(gl);
 		glos.dispose();
 
@@ -327,8 +332,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		
 		int srcRectWidthMag = (int)(srcRect.width*magnification+0.5);
 		int srcRectHeightMag = (int)(srcRect.height*magnification+0.5);
-		GL4 gl4 = drawable.getGL().getGL4();
-		glos.setGL(gl4);
+		gl = getGL(drawable);
+		glos.setGL(gl);
 		
 		if(stereoUpdated) {
 			if(stereoType!=StereoType.CARDBOARD) {
@@ -363,7 +368,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					if((rc==0||rc==imp.getC()) && (rz==0||rz==(sl+1)) && (rt==0||rt==imp.getT())) {oroi.drawOverlay(g); doRoi=true;}
 				}
 			}
-			if(doRoi)glos.textures.createRgbaTexture("roi", AWTTextureIO.newTextureData(gl4.getGLProfile(), roiImage, false).getBuffer(), srcRectWidthMag, srcRectHeightMag, 1, 4);
+			if(doRoi)glos.textures.createRgbaTexture("roi", AWTTextureIO.newTextureData(gl.getGLProfile(), roiImage, false).getBuffer(), srcRectWidthMag, srcRectHeightMag, 1, 4);
 		}
 		boolean[] doOv=null;
 		if(!JCP.openglroi && overlay!=null && go3d) {
@@ -386,7 +391,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					}
 				}
 				if(doOv[osl]) {
-					glos.textures.createRgbaTexture("overlay", osl, AWTTextureIO.newTextureData(gl4.getGLProfile(), roiImage, false).getBuffer(), srcRectWidthMag, srcRectHeightMag, 1, 4);
+					glos.textures.createRgbaTexture("overlay", osl, AWTTextureIO.newTextureData(gl.getGLProfile(), roiImage, false).getBuffer(), srcRectWidthMag, srcRectHeightMag, 1, 4);
 				}
 			}
 		}
@@ -443,7 +448,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				}
 				if(loadtex)glos.textures.loadTexFromPBO("image",fr, tex4div(imageWidth), tex4div(imageHeight), 1, sl, pixelType, COMPS);
 				else {
-					gl4.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT);
+					gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT);
 					glos.textures.createRgbaTexture("image", sliceImage, tex4div(imageWidth), tex4div(imageHeight), 1, COMPS);
 				}
 			}
@@ -482,12 +487,12 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		};
 
 		//drawing
-		gl4.glUseProgram(programs[0].name);
-		gl4.glDisable(GL_SCISSOR_TEST);
-		gl4.glDrawBuffers(1, new int[] {GL4.GL_BACK}, 0);
-		gl4.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT);
-		//gl4.glClearBufferfv(GL4.GL_COLOR, 0, new float[] {0f,0f,0f,0f},0);
-        //gl4.glClearBufferfv(GL4.GL_DEPTH, 0, new float[] {0f},0);
+		gl.glUseProgram(programs[0].name);
+		gl.glDisable(GL_SCISSOR_TEST);
+		gl.glDrawBuffers(1, new int[] {GL4.GL_BACK}, 0);
+		gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT);
+		//gl.glClearBufferfv(GL4.GL_COLOR, 0, new float[] {0f,0f,0f,0f},0);
+        //gl.glClearBufferfv(GL4.GL_DEPTH, 0, new float[] {0f},0);
 		
 		int views=1;
 		if(go3d && stereoType.ordinal()>0)views=2;
@@ -495,22 +500,22 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			if(go3d) {
 				
 				if(stereoType==StereoType.QUADBUFFER) {
-					if(stereoi==0)gl4.glDrawBuffers(1, new int[] {GL4.GL_BACK_LEFT}, 0);
-					else gl4.glDrawBuffers(1, new int[] {GL4.GL_BACK_RIGHT}, 0);
+					if(stereoi==0)gl.glDrawBuffers(1, new int[] {GL4.GL_BACK_LEFT}, 0);
+					else gl.glDrawBuffers(1, new int[] {GL4.GL_BACK_RIGHT}, 0);
 				}else if(stereoType==StereoType.CARDBOARD) {
 					float[] ortho = FloatUtil.makeOrtho(new float[16], 0, false, -CB_MAXSIZE, CB_MAXSIZE, -CB_MAXSIZE*yrat, CB_MAXSIZE*yrat, -CB_MAXSIZE, CB_MAXSIZE);
 					float[] translate=FloatUtil.makeTranslation(new float[16], 0, false, (stereoi==0?(-CB_MAXSIZE*CB_TRANSLATE):(CB_MAXSIZE*CB_TRANSLATE)), 0f, 0f);
 					ortho=FloatUtil.multMatrix(ortho, translate);
-					gl4.glEnable(GL_SCISSOR_TEST);
+					gl.glEnable(GL_SCISSOR_TEST);
 					int height=drawable.getSurfaceHeight();
 					int y=(int)((1f-(1f/CB_MAXSIZE))*yrat/2f*(float)height);
 					height/=CB_MAXSIZE;
-					gl4.glScissor((drawable.getSurfaceWidth()/2)-(int)(drawable.getSurfaceWidth()/CB_MAXSIZE/2f) + (int)(CB_TRANSLATE*drawable.getSurfaceWidth()/2f*(stereoi==0?-1:1)), y, (int)(drawable.getSurfaceWidth()/CB_MAXSIZE), height);
+					gl.glScissor((drawable.getSurfaceWidth()/2)-(int)(drawable.getSurfaceWidth()/CB_MAXSIZE/2f) + (int)(CB_TRANSLATE*drawable.getSurfaceWidth()/2f*(stereoi==0?-1:1)), y, (int)(drawable.getSurfaceWidth()/CB_MAXSIZE), height);
 					glos.buffers.loadMatrix("global", ortho);
 				}else if(stereoType==StereoType.ANAGLYPH) {
-					gl4.glUseProgram(programs[2].name);
-					gl4.glUniform1i(anaSiLoc, stereoi);
-					gl4.glUniformMatrix3fv(anaLoc, 2, false, anaColors, 0);
+					gl.glUseProgram(programs[2].name);
+					gl.glUniform1i(anaSiLoc, stereoi);
+					gl.glUniformMatrix3fv(anaLoc, 2, false, anaColors, 0);
 				}
 				
 				//Rotate
@@ -589,17 +594,17 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				ltr=new boolean[] {left,top,reverse};
 				
 				//Blend
-				gl4.glEnable(GL4.GL_BLEND);
+				gl.glEnable(GL4.GL_BLEND);
 				if(renderFunction.equals("MAX")) {
-					gl4.glBlendEquation(GL4.GL_MAX);
-					gl4.glBlendFunc(GL4.GL_SRC_COLOR, GL4.GL_DST_COLOR);
+					gl.glBlendEquation(GL4.GL_MAX);
+					gl.glBlendFunc(GL4.GL_SRC_COLOR, GL4.GL_DST_COLOR);
 				}else if(renderFunction.equals("ALPHA")) {
-					gl4.glBlendEquation(GL4.GL_FUNC_ADD);
-					gl4.glBlendFunc(GL4.GL_SRC_ALPHA, GL4.GL_ONE_MINUS_SRC_ALPHA);
+					gl.glBlendEquation(GL4.GL_FUNC_ADD);
+					gl.glBlendFunc(GL4.GL_SRC_ALPHA, GL4.GL_ONE_MINUS_SRC_ALPHA);
 				}
 				
 			}else {
-				gl4.glDisable(GL4.GL_BLEND);
+				gl.glDisable(GL4.GL_BLEND);
 				lim=initVerts.length;
 				boolean push=false;
 				if(!srcRect.equals(prevSrcRect))push=true;
@@ -656,15 +661,15 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				float z=0f;
 				float zf=(float)(cal.pixelDepth/cal.pixelWidth)/srcRect.width;
 				if(go3d) z=((float)sls-2f*sl)*zf;
-				gl4.glEnable(GL4.GL_MULTISAMPLE);
-				gl4.glBlendEquation(GL4.GL_FUNC_ADD);
-				gl4.glBlendFunc(GL4.GL_SRC_ALPHA, GL4.GL_ONE_MINUS_SRC_ALPHA);
+				gl.glEnable(GL4.GL_MULTISAMPLE);
+				gl.glBlendEquation(GL4.GL_FUNC_ADD);
+				gl.glBlendFunc(GL4.GL_SRC_ALPHA, GL4.GL_ONE_MINUS_SRC_ALPHA);
 				if(!JCP.openglroi) {
-					if(doRoi)drawGraphics(gl4, z, "roi", 0);
+					if(doRoi)drawGraphics(gl, z, "roi", 0);
 					if(doOv!=null) {
 						for(int osl=0;osl<sls;osl++) {
 							if(doOv[osl]) {
-								drawGraphics(gl4, ((float)sls-2f*(float)osl)*zf, "overlay", osl);
+								drawGraphics(gl, ((float)sls-2f*(float)osl)*zf, "overlay", osl);
 							}
 						}
 					}
@@ -690,11 +695,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			boolean nzi=(!myHZI && (srcRect.width<imageWidth || srcRect.height<imageHeight));
 			
 			if(nzi) {
-				gl4.glDisable(GL4.GL_MULTISAMPLE);
+				gl.glDisable(GL4.GL_MULTISAMPLE);
 				drawMyZoomIndicator(drawable);
 			}
 			//IJ.log("\\Update0:Display took: "+(System.nanoTime()-starttime)/1000000L+"ms");		
-			gl4.glFinish();
+			gl.glFinish();
 		} //stereoi for
 		//IJ.log("\\Update1:Display took: "+(System.nanoTime()-starttime)/1000000L+"ms");
 		
@@ -1031,7 +1036,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}
 	}
 	
-	private void drawGraphics(GL4 gl4, float z, String name, int index) {
+	private void drawGraphics(GL4 gl, float z, String name, int index) {
 		float yrat=(float)srcRect.height/srcRect.width;
 		FloatBuffer vb=GLBuffers.newDirectFloatBuffer(new float[] {
 				-1,	-yrat,	z, 	0,1,0.5f,
@@ -1039,21 +1044,21 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				1,	yrat,	z, 	1,0,0.5f,
 				-1,	yrat,	z,	0,0,0.5f
 		});
-		gl4.glUseProgram(programs[3].name);
-		gl4.glTexParameteri(GL4.GL_TEXTURE_3D, GL4.GL_TEXTURE_MAG_FILTER, GL4.GL_NEAREST);
-		gl4.glBindBufferBase(GL_UNIFORM_BUFFER, 1, glos.buffers.get(GL_UNIFORM_BUFFER, "global"));
-		gl4.glBindBufferBase(GL_UNIFORM_BUFFER, 2, glos.buffers.get(GL_UNIFORM_BUFFER, "model"));
+		gl.glUseProgram(programs[3].name);
+		gl.glTexParameteri(GL4.GL_TEXTURE_3D, GL4.GL_TEXTURE_MAG_FILTER, GL4.GL_NEAREST);
+		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 1, glos.buffers.get(GL_UNIFORM_BUFFER, "global"));
+		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 2, glos.buffers.get(GL_UNIFORM_BUFFER, "model"));
 		glos.drawTexVao(name, index, vb);
-		gl4.glBindBufferBase(GL_UNIFORM_BUFFER, 1, 0);
-		gl4.glBindBufferBase(GL_UNIFORM_BUFFER, 2, 0);
-		if(Prefs.interpolateScaledImages)gl4.glTexParameteri(GL4.GL_TEXTURE_3D, GL4.GL_TEXTURE_MAG_FILTER,GL4.GL_LINEAR);
-		gl4.glUseProgram(0);
+		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 1, 0);
+		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 2, 0);
+		if(Prefs.interpolateScaledImages)gl.glTexParameteri(GL4.GL_TEXTURE_3D, GL4.GL_TEXTURE_MAG_FILTER,GL4.GL_LINEAR);
+		gl.glUseProgram(0);
 		
 	}
 	
 
 	
-	//from https://github.com/jvm-graphics-labs/hello-triangle/blob/master/src/main/java/gl4/HelloTriangleSimple.java
+	//from https://github.com/jvm-graphics-labs/hello-triangle/blob/master/src/main/java/gl/HelloTriangleSimple.java
 	private class Program {
 
         public int name = 0;
@@ -1213,7 +1218,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	//adapted from drawZoomIndicator() in ImageCanvas
 	void drawMyZoomIndicator(GLAutoDrawable drawable) {
 		if(myHZI) return;
-		GL4 gl4=drawable.getGL().getGL4();
+		GL4 gl=drawable.getGL().getGL4();
 		if(rgldu==null)rgldu=new RoiGLDrawUtility(imp);
 		float x1 = 10;
 		float y1 = 10;
@@ -1247,10 +1252,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		zoomIndVerts.rewind();
 		
 
-		gl4.glUseProgram(programs[1].name);
+		gl.glUseProgram(programs[1].name);
 		glos.bindUniformBuffer("global", 1);
 		glos.bindUniformBuffer("idm", 2);
-		rgldu.drawGLfb(gl4, zoomIndVerts, GL_LINE_LOOP);
+		rgldu.drawGLfb(gl, zoomIndVerts, GL_LINE_LOOP);
 		zoomIndVerts.rewind();
 		zoomIndVerts.put(x1+x2).put(y1-y2).put(0f).put(color);
 		zoomIndVerts.put(x1+x2+w2).put(y1-y2).put(0f).put(color);
@@ -1258,11 +1263,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		zoomIndVerts.put(x1+x2).put(y1-y2-h2).put(0f).put(color);
 		zoomIndVerts.rewind();
 		
-		rgldu.drawGLfb(gl4, zoomIndVerts, GL_LINE_LOOP);
+		rgldu.drawGLfb(gl, zoomIndVerts, GL_LINE_LOOP);
 
-		gl4.glUseProgram(0);
-		gl4.glBindBufferBase(GL_UNIFORM_BUFFER, 1, 0);
-		gl4.glBindBufferBase(GL_UNIFORM_BUFFER, 2, 0);
+		gl.glUseProgram(0);
+		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 1, 0);
+		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 2, 0);
 		
 	}
 	
@@ -1270,17 +1275,17 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(roi==null)return;
 		if(rgldu==null)rgldu=new RoiGLDrawUtility(imp);
 		
-		GL4 gl4=drawable.getGL().getGL4();
-		gl4.glUseProgram(programs[1].name);
+		GL4 gl=drawable.getGL().getGL4();
+		gl.glUseProgram(programs[1].name);
 		glos.bindUniformBuffer("global", 1);
 		glos.bindUniformBuffer("model", 2);
 		
 		rgldu.drawRoiGL(drawable, roi, z, drawHandles, anacolor);
 		
 
-		gl4.glUseProgram(0);
-		gl4.glBindBufferBase(GL_UNIFORM_BUFFER, 1, 0);
-		gl4.glBindBufferBase(GL_UNIFORM_BUFFER, 2, 0);
+		gl.glUseProgram(0);
+		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 1, 0);
+		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 2, 0);
 	}
 
 	//Create blank image for original other graphics (ROI, overlay) to draw over.

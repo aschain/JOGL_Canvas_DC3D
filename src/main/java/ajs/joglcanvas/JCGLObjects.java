@@ -1,18 +1,17 @@
 package ajs.joglcanvas;
 
 import static com.jogamp.opengl.GL.*;
-import static com.jogamp.opengl.GL2ES3.GL_UNIFORM_BUFFER;
 import static com.jogamp.opengl.GL4.*;
 
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
-import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.nio.ShortBuffer;
 import java.util.Enumeration;
 import java.util.Hashtable;
 
 import com.jogamp.common.nio.Buffers;
+import com.jogamp.opengl.GL;
 import com.jogamp.opengl.GL4;
 import com.jogamp.opengl.math.FloatUtil;
 import com.jogamp.opengl.util.GLBuffers;
@@ -28,7 +27,7 @@ public class JCGLObjects {
 	public JCVaos vaos=new JCVaos();
 	
 	public JCGLObjects() {}
-	public JCGLObjects(GL4 gl) {
+	public JCGLObjects(GL gl) {
 		setGL(gl);
 	}
 	
@@ -38,8 +37,8 @@ public class JCGLObjects {
 		vaos.dispose();
 	}
 	
-	public void setGL(GL4 gl) {
-		this.gl=gl;
+	public void setGL(GL gl) {
+		this.gl=gl.getGL4();
 	}
 	
 	public void newTexture(String name) {
@@ -118,14 +117,14 @@ public class JCGLObjects {
 	
 
 	public void drawTexVao(String name, int texIndex, int glElementBufferType, int count) {
-		gl.glEnable(GL4.GL_TEXTURE_3D);
-		gl.glBindTexture(GL4.GL_TEXTURE_3D, textures.get(name, texIndex));
+		gl.glEnable(GL_TEXTURE_3D);
+		gl.glBindTexture(GL_TEXTURE_3D, textures.get(name, texIndex));
 		gl.glBindVertexArray(vaos.get(name));
 		
         gl.glDrawElements(GL_TRIANGLES, count, glElementBufferType, 0);
 		gl.glBindVertexArray(0);
-		gl.glBindTexture(GL4.GL_TEXTURE_3D, 0);
-		gl.glDisable(GL4.GL_TEXTURE_3D);
+		gl.glBindTexture(GL_TEXTURE_3D, 0);
+		gl.glDisable(GL_TEXTURE_3D);
 	}
 	
 	public void drawVao(int glDraw, String name, Buffer vertexBuffer) {
@@ -385,7 +384,7 @@ public class JCGLObjects {
 						bn[0],
 		                0,
 		                size,
-		                GL4.GL_MAP_WRITE_BIT | GL4.GL_MAP_PERSISTENT_BIT | GL4.GL_MAP_COHERENT_BIT | GL_MAP_INVALIDATE_RANGE_BIT | GL4.GL_MAP_INVALIDATE_BUFFER_BIT); // flags
+		                GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT | GL_MAP_INVALIDATE_RANGE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT); // flags
 				bdict.put(name, outbuffer);
 				return outbuffer;
 			}else return null;

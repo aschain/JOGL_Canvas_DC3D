@@ -11,6 +11,8 @@ import javax.swing.JSlider;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 
+import static com.jogamp.opengl.GL.GL_VERSION;
+
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.GridBagConstraints;
@@ -31,6 +33,7 @@ import com.jogamp.opengl.GL2ES2;
 import com.jogamp.opengl.GLAutoDrawable;
 import com.jogamp.opengl.GLCapabilities;
 import com.jogamp.opengl.GLCapabilitiesImmutable;
+import com.jogamp.opengl.GLContext;
 import com.jogamp.opengl.GLProfile;
 import com.jogamp.opengl.awt.GLCanvas;
 import com.jogamp.opengl.util.gl2.GLUT;
@@ -65,6 +68,7 @@ public class JCP implements PlugIn {
 	public static Color rightAnaglyphColor=new Color((int) Prefs.get("ajs.joglcanvas.rightAnaglyphColor",Color.CYAN.getRGB()));
 	public static boolean dubois=Prefs.get("ajs.joglcanvas.dubois", false);
 	public static int stereoSep=5;
+	public static String version="";
 	
 	/**
 	 * This method gets called by ImageJ / Fiji.
@@ -256,7 +260,36 @@ public class JCP implements PlugIn {
 		//glCapabilities.setStereo(true);
 	}
 
+	
+	private static void getGLVersion() {
+		IJ.log("Getting OpenGL version...");
+		setGLCapabilities();
+		JFrame win=new JFrame();
+		win.setSize(100,100);
+		GLCanvas glc=new GLCanvas(glCapabilities);
+		glc.addGLEventListener(new GLEventListener() {
+			@Override
+			public void init(GLAutoDrawable drawable) {
+				JCP.version=drawable.getGL().glGetString(GL.GL_VERSION);
+				IJ.log("\\Update:"+JCP.version);
+			}
+			@Override
+			public void dispose(GLAutoDrawable drawable) {}
+			@Override
+			public void display(GLAutoDrawable drawable) {
+				win.dispose();
+			}
+			@Override
+			public void reshape(GLAutoDrawable drawable, int x, int y, int width, int height) {}
+			
+		});
+		win.add(glc);
+		win.setVisible(true);
+		glc.repaint();
+	}
+	
 	public static void preferences() {
+		if(version.equals(""))getGLVersion();
 		GLProfile glProfile=GLProfile.getDefault();
 		String defaultstr=defaultBitString;
 		if(defaultstr.equals("default"))defaultstr=Prefs.get("ajs.joglcanvas.colordepths","default");
@@ -273,7 +306,7 @@ public class JCP implements PlugIn {
 			if(add)bitdepths.add(tempstr);
 		}
 		GenericDialog gd=new GenericDialog("JOGL Canvas Deep Color 3D Display Options");
-		gd.addMessage("GL Ver:"+glProfile.getGLImplBaseClassName());
+		if(!version.equals(""))gd.addMessage("GL Ver: "+version);
 		gd.addMessage("For High-bit Monitors:\nChoose the color bit depths from those available\nChoices are bits for R,G,B,A respectively");
 		gd.addChoice("Bitdepths:", bitdepths.toArray(new String[bitdepths.size()]), bitdepths.get(0));
 		gd.addStringField("Or enter R,G,B,A if you are sure (e.g. 10,10,10,2)", "");

@@ -106,7 +106,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private JCGLObjects glos;
 	private Program[] programs;
 	private float[] anaColors;
-	private ByteBuffer vertb=null;
 	private FloatBuffer zoomIndVerts=null;
 	private int lim;
 	private Buffer[] imageFBs;
@@ -250,7 +249,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 
 		glos=new JCGLObjects(gl);
 		glos.newTexture("image");
-		vertb=glos.newBuffer(GL_ARRAY_BUFFER, "image", maxsize*4*Buffers.SIZEOF_FLOAT, null);
+		glos.newBuffer(GL_ARRAY_BUFFER, "image", maxsize*4*Buffers.SIZEOF_FLOAT, null);
 		glos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "image", maxsize*Buffers.SIZEOF_SHORT, elementBuffer);
 		glos.newVao("image", 3, GL_FLOAT, 3, GL_FLOAT);
 
@@ -536,6 +535,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				if(top)reverse=Yza==-matrix[6];
 				
 				if(ltr==null || !(ltr[0]==left && ltr[1]==top && ltr[2]==reverse) || !srcRect.equals(prevSrcRect)) {
+					ByteBuffer vertb=(ByteBuffer)glos.buffers.getDirectBuffer(GL_ARRAY_BUFFER, "image");
 					vertb.rewind();
 					if(left) { //left or right
 						lim=imageWidth*4*6;
@@ -608,6 +608,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				boolean push=false;
 				if(!srcRect.equals(prevSrcRect))push=true;
 				if(push) {
+					ByteBuffer vertb=(ByteBuffer)glos.buffers.getDirectBuffer(GL_ARRAY_BUFFER, "image");
 					vertb.rewind(); vertb.asFloatBuffer().rewind();
 					vertb.asFloatBuffer().put(initVerts);
 					for(int i=0;i<initVerts.length/6;i++)vertb.asFloatBuffer().put(i*6+5,0.5f);

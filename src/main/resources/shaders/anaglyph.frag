@@ -29,13 +29,13 @@ void main(){
 			color[1]=rgb>1.8;
 			if(color[1])rgb=rgb-2;
 			color[0]=rgb>0.8;
-			if(color[0])anaColor.r=clamp(anaColor.r+texColor[i],0f,1f);
-			if(color[1])anaColor.g=clamp(anaColor.g+texColor[i],0f,1f);
-			if(color[2])anaColor.b=clamp(anaColor.b+texColor[i],0f,1f);
+			if(color[0])anaColor.r=clamp(anaColor.r+texColor[i],0,1);
+			if(color[1])anaColor.g=clamp(anaColor.g+texColor[i],0,1);
+			if(color[2])anaColor.b=clamp(anaColor.b+texColor[i],0,1);
 		}
 	}
     mat3 m;
     if(stereoi==0)m=ana[0];
     else m=ana[1];
-	outputColor = vec4(anaColor*m,1f);
+	outputColor = vec4(anaColor*m,1);
 }

@@ -12,7 +12,6 @@ import java.util.Hashtable;
 
 import com.jogamp.common.nio.Buffers;
 import com.jogamp.opengl.GL;
-import com.jogamp.opengl.GL2;
 import com.jogamp.opengl.GL3;
 import com.jogamp.opengl.GL4;
 import com.jogamp.opengl.GLAutoDrawable;
@@ -137,7 +136,7 @@ public class JCGLObjects {
 	
 
 	public void drawTexVao(String name, int texIndex, int glElementBufferType, int count) {
-		GL2 gl2=gl.getGL2();
+		GL3 gl2=gl.getGL3();
 		gl2.glEnable(GL_TEXTURE_3D);
 		gl2.glBindTexture(GL_TEXTURE_3D, textures.get(name, texIndex));
 		gl2.glBindVertexArray(vaos.get(name));
@@ -160,7 +159,7 @@ public class JCGLObjects {
 	}
 	
 	public void drawVao(int glDraw, String name, Buffer vertexBuffer) {
-		GL2 gl2=gl.getGL2();
+		GL3 gl2=gl.getGL3();
 		int[] sizes=vaos.vsizes.get(name);
 		Buffer elementBuffer=getElementBufferFromVBO(vertexBuffer, (sizes[4]+sizes[5])/getSizeofType(vertexBuffer));
 		bindEBOVBO(name, elementBuffer, vertexBuffer);
@@ -252,7 +251,7 @@ public class JCGLObjects {
 		}
 
 		private void createRgbaTexture(int glTextureHandle, Buffer buffer, int width, int height, int depth, int COMPS) { 
-			GL2 gl2=gl.getGL2();
+			GL3 gl2=gl.getGL3();
 			
 			int internalFormat=COMPS==4?GL_RGBA32F:COMPS==3?GL_RGB32F:COMPS==2?GL_RG32F:GL_R32F;
 			int pixelType=GL_FLOAT;
@@ -295,7 +294,7 @@ public class JCGLObjects {
 		
 		public void loadTexFromPBO(String pboName, int pn, String texName, int tn, int width, int height, int depth, int offsetSlice, PixelType type, int COMPS) {
 
-			GL2 gl2=gl.getGL2();
+			GL3 gl2=gl.getGL3();
 			
 			int[] phs=pbos.get(pboName);
 			int[] ths=handles.get(texName);
@@ -401,8 +400,8 @@ public class JCGLObjects {
 		}
 		
 		public ByteBuffer newBuffer(int gltype, String name, long size, Buffer buffer, boolean define) {
-			GL2 gl2=gl.getGL2();
 			GL3 gl3=gl.getGL3();
+			GL3 gl2=gl3;
 			GL4 gl4=gl.getGL4();
 			Hashtable<String,int[]> dict=array;
 			Hashtable<String,Buffer> bdict=abuffers;
@@ -482,7 +481,7 @@ public class JCGLObjects {
 		}
 		
 		public void bindBuffer(int gltype, String name, int binding) {
-			GL2 gl2=gl.getGL2();
+			GL3 gl2=gl.getGL3();
 			if(gltype==GL_UNIFORM_BUFFER) {
 				gl2.glBindBufferBase(gltype, binding, uniform.get(name)[0]);
 				return;
@@ -494,7 +493,7 @@ public class JCGLObjects {
 		}
 		
 		public void unBindBuffer(int gltype, int binding) {
-			GL2 gl2=gl.getGL2();
+			GL3 gl2=gl.getGL3();
 			if(gltype==GL_UNIFORM_BUFFER) {
 				gl2.glBindBufferBase(gltype, binding, 0);
 				return;
@@ -503,7 +502,7 @@ public class JCGLObjects {
 		}
 		
 		public void dispose() {
-			GL2 gl2=gl.getGL2();
+			GL3 gl2=gl.getGL3();
 			for(int i=0;i<3;i++) {
 				Hashtable<String, int[]> dict=array;
 				Hashtable<String, Buffer> bdict=abuffers;
@@ -535,7 +534,7 @@ public class JCGLObjects {
 		
 		public void newVao(String name, int size1, int gltype1, int size2, int gltype2) {
 		
-			GL2 gl2=gl.getGL2();
+			GL3 gl2=gl.getGL3();
 			GL4 gl4=gl.getGL4();
 			
 			int[] vhs=new int[1];

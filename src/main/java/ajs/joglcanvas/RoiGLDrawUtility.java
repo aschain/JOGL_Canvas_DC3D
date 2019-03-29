@@ -1,18 +1,15 @@
 package ajs.joglcanvas;
 
-import static com.jogamp.opengl.GL4.*;
+import static com.jogamp.opengl.GL3.*;
 
 import java.awt.Color;
 import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Rectangle;
-import java.nio.ShortBuffer;
 import java.nio.FloatBuffer;
 
-import com.jogamp.common.nio.Buffers;
-import com.jogamp.opengl.GL2;
-import com.jogamp.opengl.GL4;
-import static com.jogamp.opengl.GL2.*;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GL3;
 import com.jogamp.opengl.GLAutoDrawable;
 import com.jogamp.opengl.util.GLBuffers;
 //import com.jogamp.opengl.util.awt.TextRenderer;
@@ -28,7 +25,7 @@ import ij.process.FloatPolygon;
 public class RoiGLDrawUtility {
 	//private TextRenderer textRenderer;
 	private ImagePlus imp;
-	private GL2 gl;
+	private GL3 gl;
 	private JCGLObjects rglos=null;
 	float px=2f/1024f;
 	float yrat=1f;
@@ -58,10 +55,15 @@ public class RoiGLDrawUtility {
 	}
 	
 	public void setGL(GLAutoDrawable drawable) {
-		gl=drawable.getGL().getGL2();
+		gl=drawable.getGL().getGL3();
+	}
+	
+	public void setGL(GL gl1) {
+		gl=gl1.getGL3();
 	}
 
 	public void drawRoiGL(GLAutoDrawable drawable, Roi roi, float z, boolean drawHandles, Color acolor) {
+		setGL(drawable);
 		if(roi==null)return;
 		isAnaglyph=(acolor!=null);
 		this.anacolor=acolor;
@@ -110,21 +112,21 @@ public class RoiGLDrawUtility {
 		}
 		
 		if(tp==Roi.POINT) {
-			drawPoints(gl,(PointRoi)roi, xpoints, ypoints, z);
+			drawPoints((PointRoi)roi, xpoints, ypoints, z);
 			drawHandles=false;
 		}else {
 			gl.glDisable(GL_BLEND);
-			drawGL(gl, coords, color,todraw);
+			drawGL(coords, color,todraw);
 			
 			//if it is a line with width
 			float strokeWidth=roi.getStrokeWidth();
 			if(strokeWidth>1 && (tp==Roi.LINE || tp==Roi.FREELINE || tp==Roi.POLYLINE) && !(roi instanceof Arrow) && fp.npoints>=2) {
 				Color c=new Color(color.getRed(), color.getGreen(), color.getBlue(), 77);
-				drawPolyWideLine(gl, fp, c, strokeWidth, z);
+				drawPolyWideLine(fp, c, strokeWidth, z);
 			}
 			if(roi instanceof Arrow) { //arrow
 				gl.glEnable(GL_MULTISAMPLE);
-				drawArrow(gl, (Arrow)roi, color, z);
+				drawArrow((Arrow)roi, color, z);
 			}
 		}
 		
@@ -170,7 +172,7 @@ public class RoiGLDrawUtility {
 				}
 			}
 			for(int i=0;i<xhandles.length;i++) {
-				drawHandle(gl,xhandles[i],yhandles[i],z,Roi.HANDLE_SIZE);
+				drawHandle(xhandles[i],yhandles[i],z,Roi.HANDLE_SIZE);
 			}
 		}
 	}
@@ -196,11 +198,11 @@ public class RoiGLDrawUtility {
 		return getSubGLCoords(fp,0,fp.npoints,z,convert);
 	}
 	
-	public void drawGL(GL2 gl, float[] coords, Color color, int toDraw) {
-		drawGL(gl, coords, new float[] {(float)color.getRed()/255f,(float)color.getGreen()/255f,(float)color.getBlue()/255f,(float)color.getAlpha()/255f},toDraw);
+	public void drawGL(float[] coords, Color color, int toDraw) {
+		drawGL(coords, new float[] {(float)color.getRed()/255f,(float)color.getGreen()/255f,(float)color.getBlue()/255f,(float)color.getAlpha()/255f},toDraw);
 	}
 	
-	public void drawGL(GL2 gl, float[] coords, float[] color, int toDraw) {
+	public void drawGL(float[] coords, float[] color, int toDraw) {
 		if(coords.length<6)return;
 		FloatBuffer fb=GLBuffers.newDirectFloatBuffer(coords.length/3*7);
 		for(int i=0;i<coords.length;i+=3) {
@@ -214,8 +216,8 @@ public class RoiGLDrawUtility {
 	 * @param fb
 	 * @param toDraw
 	 */
-	public void drawGLfb(GL2 gl, FloatBuffer fb, int toDraw) {
-
+	public void drawGLfb(GL3 gl, FloatBuffer fb, int toDraw) {
+		setGL(gl);
 		if(rglos==null) {
 			rglos= new JCGLObjects();
 			rglos.newBuffer(GL_ARRAY_BUFFER, "roiGL");
@@ -229,7 +231,7 @@ public class RoiGLDrawUtility {
 	/** draws an Roi handle. x,y,z are all opengl float positions
 	 *  Handle is in  IMAGEJ int!!
 	 */
-	public void drawHandle(GL2 gl, float x, float y, float z, int hsi, Color color, boolean border) {
+	public void drawHandle(float x, float y, float z, int hsi, Color color, boolean border) {
 		hsi/=2;
 		float hs=(float)hsi/(((1f/px)<128f)?2f:1f);
 		
@@ -242,26 +244,26 @@ public class RoiGLDrawUtility {
 				x-hs*px, y+hs*px, z,
 				x+hs*px, y+hs*px, z
 		};
-		drawGL(gl,coords,acolor,GL_TRIANGLE_STRIP);
+		drawGL(coords,acolor,GL_TRIANGLE_STRIP);
 
 		if(border) {
 			coords[6]=coords[9]; coords[9]=x-hs*px;
-			drawGL(gl,coords,new float[] {0f, 0f, 0f,1f},GL_LINE_LOOP);
+			drawGL(coords,new float[] {0f, 0f, 0f,1f},GL_LINE_LOOP);
 		}
 	}
 	
 	/** draws a default white Roi handle. x,y,z are all opengl float positions*/
-	public void drawHandle(GL2 gl, float x, float y, float z, int handlesize) {
-		drawHandle(gl,x,y,z,handlesize,Color.WHITE, true);
+	public void drawHandle(float x, float y, float z, int handlesize) {
+		drawHandle(x,y,z,handlesize,Color.WHITE, true);
 	}
 	
 	/** draws points. x,y,z are all opengl float positions*/
-	public void drawPoints(GL2 gl, PointRoi roi, float[] x, float[] y, float z) {
-		for(int n=0;n<x.length;n++)drawPoint(gl,roi, x[n],y[n],z, n);
+	public void drawPoints(PointRoi roi, float[] x, float[] y, float z) {
+		for(int n=0;n<x.length;n++)drawPoint(roi, x[n],y[n],z, n);
 	}
 	
 	/** draws a point. x,y,z are all opengl float positions*/
-	public void drawPoint(GL2 gl, PointRoi roi, float x, float y, float z, int n) {
+	public void drawPoint(PointRoi roi, float x, float y, float z, int n) {
 		gl.glDisable(GL_BLEND);
 		n++;
 		final int TINY=1, SMALL=3, MEDIUM=5, LARGE=7, EXTRA_LARGE=11;
@@ -304,8 +306,8 @@ public class RoiGLDrawUtility {
 			gl.glLineWidth(1f);
 			if (sizei>LARGE)
 				gl.glLineWidth(3f);
-			drawLine(gl, x-(sizei+3)*px, y, x+(sizei+2)*px, y, z, color);
-			drawLine(gl, x, y-(sizei+3)*px, x, y+(sizei+2)*px, z, color);
+			drawLine(x-(sizei+3)*px, y, x+(sizei+2)*px, y, z, color);
+			drawLine(x, y-(sizei+3)*px, x, y+(sizei+2)*px, z, color);
 		}
 		if (type==HYBRID || type==DOT) { 
 			if (!colorSet) {
@@ -315,13 +317,13 @@ public class RoiGLDrawUtility {
 			if (sizei>LARGE)
 				gl.glLineWidth(1f);
 			if (sizei>LARGE && type==DOT)
-				fillOval(gl, x-sizei/2*px, y-sizei/2*px, sizei*px, sizei*px, z, color);
+				fillOval(x-sizei/2*px, y-sizei/2*px, sizei*px, sizei*px, z, color);
 			else if (sizei>LARGE && type==HYBRID)
-				drawHandle(gl,x,y,z,sizei-4,color, false);
+				drawHandle(x,y,z,sizei-4,color, false);
 			else if (sizei>SMALL && type==HYBRID)
-				drawHandle(gl,x,y,z,sizei-2,color, false);
+				drawHandle(x,y,z,sizei-2,color, false);
 			else
-				drawHandle(gl,x,y,z,sizei,color, false);
+				drawHandle(x,y,z,sizei,color, false);
 		}
 		int nPoints=roi.getNCoordinates();
 		float fontSize=9f*px;
@@ -330,26 +332,26 @@ public class RoiGLDrawUtility {
 			if (nCounters==1) {
 				//if (!colorSet)
 					//setColor(gl,color);
-				drawString(gl, ""+n, TextRoi.LEFT, color, x+offset*px, y-(offset*px+fontSize), z);
+				drawString(""+n, TextRoi.LEFT, color, x+offset*px, y-(offset*px+fontSize), z);
 			} else if (counters!=null) {
 				//setColor(gl, getPointColor(counters[n-1]));
-				drawString(gl, ""+counters[n-1], TextRoi.LEFT, getPointColor(counters[n-1]), x+offset*px, y-(offset*px+fontSize), z);
+				drawString(""+counters[n-1], TextRoi.LEFT, getPointColor(counters[n-1]), x+offset*px, y-(offset*px+fontSize), z);
 			}
 		}
 		if ((sizei>TINY||type==DOT) && (type==HYBRID||type==DOT)) {
 			if (sizei>LARGE && type==HYBRID)
-				drawOval(gl,x-(sizei/2-1)*px, y-(sizei/2)*px, (sizei-2)*px, (sizei-2)*px, z, Color.black);
+				drawOval(x-(sizei/2-1)*px, y-(sizei/2)*px, (sizei-2)*px, (sizei-2)*px, z, Color.black);
 			else if (sizei>SMALL && type==HYBRID)
-				drawOval(gl,x-sizei/2*px, y-(sizei/2+1)*px, (sizei)*px, (sizei)*px, z, Color.black);
+				drawOval(x-sizei/2*px, y-(sizei/2+1)*px, (sizei)*px, (sizei)*px, z, Color.black);
 			else
-				drawOval(gl, x-(sizei/2+1)*px, y-(sizei/2+2)*px, (sizei+2)*px, (sizei+2)*px, z, Color.black);
+				drawOval(x-(sizei/2+1)*px, y-(sizei/2+2)*px, (sizei+2)*px, (sizei+2)*px, z, Color.black);
 		}
 		if (type==CIRCLE) {
 			float scaledSize = (sizei+1);
 			if(isAnaglyph)color=anacolor;
 			if (sizei>LARGE)
 				gl.glLineWidth(2f);
-			drawOval(gl, x-scaledSize*px/2f, y-scaledSize*px/2f, scaledSize*px, scaledSize*px, z, color);
+			drawOval(x-scaledSize*px/2f, y-scaledSize*px/2f, scaledSize*px, scaledSize*px, z, color);
 		}
 	}
 	
@@ -363,7 +365,7 @@ public class RoiGLDrawUtility {
 		return colors[index%10];
 	}
 	
-	private void drawPolyWideLine(GL2 gl, FloatPolygon fp, Color color, float width, float z) {
+	private void drawPolyWideLine(FloatPolygon fp, Color color, float width, float z) {
 		float[] wlcoords=getGLCoords(getWideLineTriStrip(width,fp), z, false);
 		gl.glEnable(GL_BLEND);
 		gl.glEnable(GL_STENCIL_TEST);
@@ -371,17 +373,17 @@ public class RoiGLDrawUtility {
 		gl.glStencilOp(GL_KEEP, GL_KEEP, GL_INCR);
 		gl.glStencilMask(0xFF); // Write to stencil buffer
 		gl.glClear(GL_STENCIL_BUFFER_BIT); // Clear stencil buffer (0 by default)
-		drawGL(gl, wlcoords, color, GL_TRIANGLE_STRIP);
+		drawGL(wlcoords, color, GL_TRIANGLE_STRIP);
 		gl.glStencilMask(0x00);
 		gl.glDisable(GL_STENCIL_TEST);
 	}
 	
-	private void drawArrow(GL2 gl, Arrow aroi, Color color, float z) {
-		drawArrow(gl,aroi,color, z,false);
-		if(aroi.getDoubleHeaded())drawArrow(gl,aroi,color, z,true);
+	private void drawArrow(Arrow aroi, Color color, float z) {
+		drawArrow(aroi,color, z,false);
+		if(aroi.getDoubleHeaded())drawArrow(aroi,color, z,true);
 	}
 	
-	private void drawArrow(GL2 gl, Arrow aroi, Color color, float z, boolean flip) {
+	private void drawArrow(Arrow aroi, Color color, float z, boolean flip) {
 		//ripped from Arrow calculatePoints()
 		double tip = 0.0;
 		double base;
@@ -467,10 +469,10 @@ public class RoiGLDrawUtility {
 					new float[] {points[0+1],points[3*2+1],points[2*2+1],points[3*2+1],points[4*2+1]},
 					5);
 		}
-		drawPolyWideLine(gl, shaftfp, aroi.getStrokeColor(), (float)shaftWidth, z);
+		drawPolyWideLine(shaftfp, aroi.getStrokeColor(), (float)shaftWidth, z);
 		if(style==Arrow.FILLED||style==Arrow.NOTCHED) {
 			float[] acoords=getGLCoords(new FloatPolygon(new float[] {points[2*1],points[2*2],points[2*3],points[2*1],points[2*4],points[2*3]},new float[] {points[2*1+1],points[2*2+1],points[2*3+1],points[2*1+1],points[2*4+1],points[2*3+1]}, 6),z,false);
-			drawGL(gl, acoords, color, GL_TRIANGLES);
+			drawGL(acoords, color, GL_TRIANGLES);
 		}
 	}
 	
@@ -491,31 +493,31 @@ public class RoiGLDrawUtility {
 	}
 	
 	/** x,y, z are in opengl float positions*/
-	public void drawLine(GL2 gl,float x1,float y1, float x2,float y2, float z, Color color) {
-		drawGL(gl,new float[] {x1,y1,z,x2,y2,z},color,GL_LINE_STRIP);
+	public void drawLine(float x1,float y1, float x2,float y2, float z, Color color) {
+		drawGL(new float[] {x1,y1,z,x2,y2,z},color,GL_LINE_STRIP);
 	}
 	
 	/** x,y, z are in opengl float positions*/
-	public void fillOval(GL2 gl, float x, float y, float width, float height, float z, Color color) {
-		drawOval(gl, x, y, width, height, z, true, color);
+	public void fillOval(float x, float y, float width, float height, float z, Color color) {
+		drawOval(x, y, width, height, z, true, color);
 	}
 	
 	/** x,y, z are in opengl float positions*/
-	public void drawOval(GL2 gl, float x, float y, float width, float height, float z, Color color) {
-		drawOval(gl, x, y, width, height, z, false, color);
+	public void drawOval(float x, float y, float width, float height, float z, Color color) {
+		drawOval(x, y, width, height, z, false, color);
 	}
 	
 	/** x,y, z are in opengl float positions*/
-	public void drawOval(GL2 gl, float x, float y, float width, float height, float z, boolean fill, Color color) {
+	public void drawOval(float x, float y, float width, float height, float z, boolean fill, Color color) {
 		if(imp==null)return;
 		int todraw=GL_LINE_LOOP;
 		if(fill)todraw=GL_TRIANGLE_STRIP;
-		drawGLFP(gl, todraw, getOvalFloatPolygon(new Rectangle(impX(x),impY(y),(int)(width*w/2f),(int)(-height*h/2f)),72),z, color);
+		drawGLFP(todraw, getOvalFloatPolygon(new Rectangle(impX(x),impY(y),(int)(width*w/2f),(int)(-height*h/2f)),72),z, color);
 	}
 	
 	/** FloatPolygon has coordinates in IMAGEJ (NOT opengl -1 to 1) except z*/
-	public void drawGLFP(GL2 gl, int GLtypetodraw, FloatPolygon fp, float z, Color color) {
-		drawGL(gl,getGLCoords(fp,z,false), color,GLtypetodraw);
+	public void drawGLFP(int GLtypetodraw, FloatPolygon fp, float z, Color color) {
+		drawGL(getGLCoords(fp,z,false), color,GLtypetodraw);
 	}
 	
 	public static FloatPolygon getOvalFloatPolygon(OvalRoi roi) {
@@ -671,7 +673,7 @@ public class RoiGLDrawUtility {
 	 * @param just Justification (0 is left, 1 is center, 2 is right)
 	 * @param color Text color
 	 */
-	protected void drawString(GL2 gl, String text, int just, Color color, float x, float y, float z) {
+	protected void drawString(String text, int just, Color color, float x, float y, float z) {
 		return;
 		/*
 		Font font=new Font("SansSerif", Font.PLAIN, 9);

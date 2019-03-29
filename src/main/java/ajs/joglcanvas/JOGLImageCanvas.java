@@ -57,7 +57,7 @@ import java.nio.ByteBuffer;
 
 import com.jogamp.common.nio.Buffers;
 import com.jogamp.opengl.GL;
-import com.jogamp.opengl.GL2;
+import com.jogamp.opengl.GL3;
 import com.jogamp.opengl.GL4;
 
 import static com.jogamp.opengl.GL4.*;
@@ -103,7 +103,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private MenuItem mi3d=null;
 	protected boolean myHZI=false;
 
-	private GL2 gl;
+	private GL3 gl;
 	private JCGLObjects glos;
 	private Program[] programs;
 	private float[] anaColors;
@@ -182,7 +182,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	}
 	
 	private void setGL(GLAutoDrawable drawable) {
-		gl = drawable.getGL().getGL2();
+		gl = drawable.getGL().getGL3();
 	}
 
 	//GLEventListener methods
@@ -1032,7 +1032,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}
 	}
 	
-	private void drawGraphics(GL2 gl, float z, String name, int index) {
+	private void drawGraphics(GL3 gl, float z, String name, int index) {
 		float yrat=(float)srcRect.height/srcRect.width;
 		FloatBuffer vb=GLBuffers.newDirectFloatBuffer(new float[] {
 				-1,	-yrat,	z, 	0,1,0.5f,
@@ -1059,7 +1059,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 
         public int name = 0;
 
-        public Program(GL2 gl, String root, String vertex, String fragment) {
+        public Program(GL3 gl, String root, String vertex, String fragment) {
 
             ShaderCode vertShader = ShaderCode.create(gl, GL_VERTEX_SHADER, this.getClass(), root, null, vertex,
                     "vert", null, true);

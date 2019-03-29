@@ -1,10 +1,9 @@
-#version 450 core
+#version 330 core
 
 precision highp float;
 precision highp int;
 
 layout(std140, column_major) uniform;
-layout(std430, column_major) buffer;
 
 // Incoming texture coordinate 3d.
 in vec3 texCoord;
@@ -14,7 +13,6 @@ in mat4 luts;
 layout (location = 0) out vec4 outputColor;
 
 uniform sampler3D mytex;
-//uniform vec3 lrc;
 uniform int stereoi;
 uniform mat3 ana[2];
 

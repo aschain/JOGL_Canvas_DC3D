@@ -1,4 +1,4 @@
-#version 450 core
+#version 330 core
 
 precision highp float;
 precision highp int;

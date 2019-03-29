@@ -1,6 +1,8 @@
 package ajs.joglcanvas;
 
 import static com.jogamp.opengl.GL.*;
+import static com.jogamp.opengl.GL2ES2.GL_FRAGMENT_SHADER;
+import static com.jogamp.opengl.GL2ES2.GL_VERTEX_SHADER;
 import static com.jogamp.opengl.GL4.*;
 
 import java.nio.Buffer;
@@ -17,6 +19,8 @@ import com.jogamp.opengl.GL4;
 import com.jogamp.opengl.GLAutoDrawable;
 import com.jogamp.opengl.math.FloatUtil;
 import com.jogamp.opengl.util.GLBuffers;
+import com.jogamp.opengl.util.glsl.ShaderCode;
+import com.jogamp.opengl.util.glsl.ShaderProgram;
 
 import ajs.joglcanvas.JOGLImageCanvas.PixelType;
 import ij.Prefs;
@@ -29,6 +33,7 @@ public class JCGLObjects {
 	public JCTextures textures=new JCTextures();
 	public JCBuffers buffers=new JCBuffers();
 	public JCVaos vaos=new JCVaos();
+	public JCPrograms programs=new JCPrograms();
 	
 	public JCGLObjects() {}
 	public JCGLObjects(GLAutoDrawable drawable) {
@@ -39,6 +44,7 @@ public class JCGLObjects {
 		textures.dispose();
 		buffers.dispose();
 		vaos.dispose();
+		programs.dispose();
 	}
 	
 	public void setGL(GLAutoDrawable drawable) {
@@ -575,6 +581,78 @@ public class JCGLObjects {
 				gl.getGL2().glDeleteVertexArrays(vhs.length,vhs,0);
 			}
 		}
+	}
+	
+	class JCPrograms{
+
+		public Hashtable<String, Program> programs =new Hashtable<String, Program>();
+
+        public JCPrograms() {}
+        
+        public void newProgram(String name, String root, String vertex, String fragment) {
+        	programs.put(name, new Program(root, vertex, fragment));
+        }
+        
+        public void addLocation(String programName, String var) {
+        	programs.get(programName).addLocation(var);
+        }
+        
+        public int getLocation(String programName, String var) {
+        	return programs.get(programName).locations.get(var);
+        }
+        
+        public void useProgram(String name) {
+        	gl.getGL3().glUseProgram(programs.get(name).name);
+        }
+        
+        public void dispose() {
+        	for(Enumeration<Program> j=programs.elements(); j.hasMoreElements();) {
+				j.nextElement().dispose();
+			}
+        }
+        
+        class Program{
+        	
+        	int name=0;
+    		public Hashtable<String, Integer> locations =new Hashtable<String, Integer>();
+        	
+        	public Program(String root, String vertex, String fragment) {
+        	GL3 gl3=gl.getGL3();
+            ShaderCode vertShader = ShaderCode.create(gl3, GL_VERTEX_SHADER, this.getClass(), root, null, vertex+(glver==GLVer.GL4?"4":"3"),
+                    "vert", null, true);
+            ShaderCode fragShader = ShaderCode.create(gl3, GL_FRAGMENT_SHADER, this.getClass(), root, null, fragment,
+                    "frag", null, true);
+
+            ShaderProgram shaderProgram = new ShaderProgram();
+
+            shaderProgram.add(vertShader);
+            shaderProgram.add(fragShader);
+
+            shaderProgram.init(gl3);
+
+            name=shaderProgram.program();
+
+            shaderProgram.link(gl3, System.err);
+            
+            if(glver==GLVer.GL3) {
+        		gl3.glUniformBlockBinding(name, gl3.glGetUniformBlockIndex(name, "Transform0"), 1);
+        		gl3.glUniformBlockBinding(name, gl3.glGetUniformBlockIndex(name, "Transform1"), 2);
+        		if(vertex.equals("texture"))gl3.glUniformBlockBinding(name, gl3.glGetUniformBlockIndex(name, "Transform2"), 3);
+            }
+            
+        	}
+        	
+        	public void addLocation(String var) {
+        		locations.put(var, gl.getGL3().glGetUniformLocation(name, var));
+        	}
+        	
+        	public void dispose() {
+        		gl.getGL3().glDeleteProgram(name);
+        	}
+        	
+        }
+		
+		
 	}
 	
 	private int getSizeofType(int gltype) {

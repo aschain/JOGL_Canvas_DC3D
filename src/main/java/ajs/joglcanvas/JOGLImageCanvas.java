@@ -105,7 +105,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 
 	private GL3 gl;
 	private JCGLObjects glos;
-	private Program[] programs;
 	private float[] anaColors;
 	private FloatBuffer zoomIndVerts=null;
 	private int lim;
@@ -267,14 +266,12 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		glos.buffers.loadIdentity("model");
 		//global written during reshape call
 
-        int numProgs=4;
-		programs=new Program[numProgs];
-		programs[0]=new Program(gl, "shaders", "texture", "texture");
-		programs[1]=new Program(gl, "shaders", "color", "color");
-		programs[2]=new Program(gl, "shaders", "texture", "anaglyph");
-		programs[3]=new Program(gl, "shaders", "roiTexture", "roiTexture");
-		anaSiLoc=gl.glGetUniformLocation(programs[2].name, "stereoi");
-		anaLoc=gl.glGetUniformLocation(programs[2].name, "ana");
+		glos.programs.newProgram("image", "shaders", "texture", "texture");
+		glos.programs.newProgram("color", "shaders", "color", "color");
+		glos.programs.newProgram("anaglyph", "shaders", "texture", "anaglyph");
+		glos.programs.newProgram("roi", "shaders", "roiTexture", "roiTexture");
+		glos.programs.addLocation("anaglyph", "stereoi");
+		glos.programs.addLocation("anaglyph", "ana");
 
 		if(JCP.dubois) {
 		//Source of below: bino, a 3d video player:  https://github.com/eile/bino/blob/master/src/video_output_render.fs.glsl
@@ -299,11 +296,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 
 	@Override
 	public void dispose(GLAutoDrawable drawable) {
-		setGL(drawable);
 		glos.setGL(drawable);
 		glos.dispose();
-
-        for(int i=0;i<programs.length;i++) if(programs[i]!=null)gl.glDeleteProgram(programs[i].name);
         
 		imp.unlock();
 	}
@@ -486,7 +480,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		};
 
 		//drawing
-		gl.glUseProgram(programs[0].name);
+		glos.programs.useProgram("image");
 		gl.glDisable(GL_SCISSOR_TEST);
 		gl.glDrawBuffers(1, new int[] {GL_BACK}, 0);
 		gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -512,9 +506,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					gl.glScissor((drawable.getSurfaceWidth()/2)-(int)(drawable.getSurfaceWidth()/CB_MAXSIZE/2f) + (int)(CB_TRANSLATE*drawable.getSurfaceWidth()/2f*(stereoi==0?-1:1)), y, (int)(drawable.getSurfaceWidth()/CB_MAXSIZE), height);
 					glos.buffers.loadMatrix("global", ortho);
 				}else if(stereoType==StereoType.ANAGLYPH) {
-					gl.glUseProgram(programs[2].name);
-					gl.glUniform1i(anaSiLoc, stereoi);
-					gl.glUniformMatrix3fv(anaLoc, 2, false, anaColors, 0);
+					glos.programs.useProgram("anaglyph");
+					gl.glUniform1i(glos.programs.getLocation("anaglyph", "stereoi"), stereoi);
+					gl.glUniformMatrix3fv(glos.programs.getLocation("anaglyph", "ana"), 2, false, anaColors, 0);
 				}
 				
 				//Rotate
@@ -1040,7 +1034,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				1,	yrat,	z, 	1,0,0.5f,
 				-1,	yrat,	z,	0,0,0.5f
 		});
-		gl.glUseProgram(programs[3].name);
+		glos.programs.useProgram("roi");
 		gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 1, glos.buffers.get(GL_UNIFORM_BUFFER, "global"));
 		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 2, glos.buffers.get(GL_UNIFORM_BUFFER, "model"));
@@ -1051,33 +1045,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		gl.glUseProgram(0);
 		
 	}
-	
-
-	
-	//from https://github.com/jvm-graphics-labs/hello-triangle/blob/master/src/main/java/gl/HelloTriangleSimple.java
-	private class Program {
-
-        public int name = 0;
-
-        public Program(GL3 gl, String root, String vertex, String fragment) {
-
-            ShaderCode vertShader = ShaderCode.create(gl, GL_VERTEX_SHADER, this.getClass(), root, null, vertex,
-                    "vert", null, true);
-            ShaderCode fragShader = ShaderCode.create(gl, GL_FRAGMENT_SHADER, this.getClass(), root, null, fragment,
-                    "frag", null, true);
-
-            ShaderProgram shaderProgram = new ShaderProgram();
-
-            shaderProgram.add(vertShader);
-            shaderProgram.add(fragShader);
-
-            shaderProgram.init(gl);
-
-            name = shaderProgram.program();
-
-            shaderProgram.link(gl, System.err);
-        }
-    }
 	
 	public void toggle3d() {
 		set3d(!go3d);
@@ -1248,7 +1215,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		zoomIndVerts.rewind();
 		
 
-		gl.glUseProgram(programs[1].name);
+		glos.programs.useProgram("color");
 		glos.bindUniformBuffer("global", 1);
 		glos.bindUniformBuffer("idm", 2);
 		rgldu.drawGLfb(gl, zoomIndVerts, GL_LINE_LOOP);
@@ -1272,7 +1239,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(rgldu==null)rgldu=new RoiGLDrawUtility(imp);
 		
 		setGL(drawable);
-		gl.glUseProgram(programs[1].name);
+		glos.programs.useProgram("color");
 		glos.bindUniformBuffer("global", 1);
 		glos.bindUniformBuffer("model", 2);
 		

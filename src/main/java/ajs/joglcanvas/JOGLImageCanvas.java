@@ -57,6 +57,7 @@ import java.nio.ByteBuffer;
 
 import com.jogamp.common.nio.Buffers;
 import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GL2;
 import com.jogamp.opengl.GL4;
 
 import static com.jogamp.opengl.GL4.*;
@@ -102,7 +103,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private MenuItem mi3d=null;
 	protected boolean myHZI=false;
 
-	private GL4 gl;
+	private GL2 gl;
 	private JCGLObjects glos;
 	private Program[] programs;
 	private float[] anaColors;
@@ -180,14 +181,14 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		return result;
 	}
 	
-	private GL4 getGL(GLAutoDrawable drawable) {
-		return drawable.getGL().getGL4();
+	private void setGL(GLAutoDrawable drawable) {
+		gl = drawable.getGL().getGL2();
 	}
 
 	//GLEventListener methods
 	@Override
 	public void reshape(GLAutoDrawable drawable, int x, int y, int width, int height) {
-		gl = getGL(drawable);
+		setGL(drawable);
 		float[] ortho = FloatUtil.makeOrtho(new float[16], 0, false, -1f, 1f, -(float)srcRect.height/srcRect.width, (float)srcRect.height/srcRect.width, -1f, 1f);
 		glos.buffers.loadMatrix("global", ortho);
 		glos.buffers.loadIdentity("global",16*Buffers.SIZEOF_FLOAT);
@@ -211,7 +212,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		double dpimag2=drawable.getSurfaceHeight()/dstHeight;
 		if(dpimag>1.0)IJ.log("Dpimag: "+dpimag+" "+dpimag2);
 		if(IJ.isMacOSX())icc.setLocation(4,47);
-		gl = getGL(drawable);
+		setGL(drawable);
 		JCP.version=drawable.getGL().glGetString(GL_VERSION);
 		gl.glClearColor(0f, 0f, 0f, 0f);
 		gl.glDisable(GL_DEPTH_TEST);
@@ -247,7 +248,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		*/
 		
 
-		glos=new JCGLObjects(gl);
+		glos=new JCGLObjects(drawable);
 		glos.newTexture("image");
 		glos.newBuffer(GL_ARRAY_BUFFER, "image", maxsize*4*Buffers.SIZEOF_FLOAT, null);
 		glos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "image", maxsize*Buffers.SIZEOF_SHORT, elementBuffer);
@@ -298,8 +299,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 
 	@Override
 	public void dispose(GLAutoDrawable drawable) {
-		gl = getGL(drawable);
-		glos.setGL(gl);
+		setGL(drawable);
+		glos.setGL(drawable);
 		glos.dispose();
 
         for(int i=0;i<programs.length;i++) if(programs[i]!=null)gl.glDeleteProgram(programs[i].name);
@@ -330,8 +331,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		
 		int srcRectWidthMag = (int)(srcRect.width*magnification+0.5);
 		int srcRectHeightMag = (int)(srcRect.height*magnification+0.5);
-		gl = getGL(drawable);
-		glos.setGL(gl);
+		setGL(drawable);
+		glos.setGL(drawable);
 		
 		if(stereoUpdated) {
 			if(stereoType!=StereoType.CARDBOARD) {
@@ -1031,7 +1032,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}
 	}
 	
-	private void drawGraphics(GL4 gl, float z, String name, int index) {
+	private void drawGraphics(GL2 gl, float z, String name, int index) {
 		float yrat=(float)srcRect.height/srcRect.width;
 		FloatBuffer vb=GLBuffers.newDirectFloatBuffer(new float[] {
 				-1,	-yrat,	z, 	0,1,0.5f,
@@ -1058,7 +1059,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 
         public int name = 0;
 
-        public Program(GL4 gl, String root, String vertex, String fragment) {
+        public Program(GL2 gl, String root, String vertex, String fragment) {
 
             ShaderCode vertShader = ShaderCode.create(gl, GL_VERTEX_SHADER, this.getClass(), root, null, vertex,
                     "vert", null, true);
@@ -1213,7 +1214,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	//adapted from drawZoomIndicator() in ImageCanvas
 	void drawMyZoomIndicator(GLAutoDrawable drawable) {
 		if(myHZI) return;
-		gl=getGL(drawable);
+		setGL(drawable);
 		if(rgldu==null)rgldu=new RoiGLDrawUtility(imp);
 		float x1 = 10;
 		float y1 = 10;
@@ -1270,7 +1271,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(roi==null)return;
 		if(rgldu==null)rgldu=new RoiGLDrawUtility(imp);
 		
-		gl=getGL(drawable);
+		setGL(drawable);
 		gl.glUseProgram(programs[1].name);
 		glos.bindUniformBuffer("global", 1);
 		glos.bindUniformBuffer("model", 2);

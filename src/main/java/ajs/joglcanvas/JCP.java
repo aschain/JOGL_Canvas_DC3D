@@ -270,7 +270,7 @@ public class JCP implements PlugIn {
 		glc.addGLEventListener(new GLEventListener() {
 			@Override
 			public void init(GLAutoDrawable drawable) {
-				JCP.version=drawable.getGL().glGetString(GL.GL_VERSION);
+				JCP.version=drawable.getGL().glGetString(GL_VERSION);
 				IJ.log("\\Update:"+JCP.version);
 			}
 			@Override
@@ -286,6 +286,7 @@ public class JCP implements PlugIn {
 		win.add(glc);
 		win.setVisible(true);
 		glc.repaint();
+		glCapabilities=null;
 	}
 	
 	public static void preferences() {

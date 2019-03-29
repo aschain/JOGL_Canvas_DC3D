@@ -212,7 +212,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(dpimag>1.0)IJ.log("Dpimag: "+dpimag+" "+dpimag2);
 		if(IJ.isMacOSX())icc.setLocation(4,47);
 		gl = getGL(drawable);
-		JCP.version=drawable.getGL().glGetString(GL.GL_VERSION);
+		JCP.version=drawable.getGL().glGetString(GL_VERSION);
 		gl.glClearColor(0f, 0f, 0f, 0f);
 		gl.glDisable(GL_DEPTH_TEST);
 		
@@ -901,12 +901,12 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	public Buffer getImageBuffer(boolean is3d, int stsl, int endsl, int stfr, int endfr, Buffer buffer, boolean notdirect) {
 		PixelType type=this.pixelType;
 		int bits=imp.getBitDepth();
-		int width=imageWidth, height=imageHeight;
+		int iwidth=imageWidth, iheight=imageHeight;
 		if(is3d) {
-			width/=undersample; height/=undersample;
+			iwidth/=undersample; iheight/=undersample;
 			type=this.pixelType3d;
 		}
-		width=tex4div(width); height=tex4div(height);
+		int width=tex4div(iwidth), height=tex4div(iheight);
 		int chs=imp.getNChannels();
 		COMPS=bits==24?3:chs;
 		int size=width*height*COMPS*(endsl-stsl)*(endfr-stfr);
@@ -921,13 +921,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				int offset=((csl-stsl))*width*height*chs+(fr-stfr)*(endsl-stsl)*width*height*chs;
 				for(int i=0;i<chs;i++) {
 					ImageProcessor ip=imst.getProcessor(imp.getStackIndex(i+1, csl+1, fr+1));
-					Object pixels=ip.getPixels();
-					
-					if(is3d) {
-						pixels=convertForUndersample(pixels,imageWidth,imageHeight);
-					}
-					addPixels(outPixels, width, pixels, imageWidth, imageHeight, offset, i, chs);
-					
+					Object pixels=convertForUndersample(ip.getPixels(), is3d?undersample:1);
+					addPixels(outPixels, width, pixels, iwidth, iheight, offset, i, chs);
 				}
 			}
 		}
@@ -998,9 +993,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		return buffer;
 	}
 
-	protected Object convertForUndersample(Object pixels, int width, int height) {
+	protected Object convertForUndersample(Object pixels, int undersample) {
 		if(undersample==1) return pixels;
-		int uwidth=width/undersample,uheight=height/undersample;
+		int uwidth=imageWidth/undersample,uheight=imageHeight/undersample;
 		Object tpixels;
 		boolean dobyte=pixels instanceof byte[];
 		boolean doshort=pixels instanceof short[];
@@ -1011,10 +1006,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		else tpixels=new float[uwidth*uheight];
 		for(int y=0;y<uheight;y++) {
 			for(int x=0;x<uwidth;x++) {
-				if(dobyte)((byte[])tpixels)[y*uwidth+x]=((byte[])pixels)[y*undersample*width+x*undersample];
-				else if(doshort)((short[])tpixels)[y*uwidth+x]=((short[])pixels)[y*undersample*width+x*undersample];
-				else if(doint)((int[])tpixels)[y*uwidth+x]=((int[])pixels)[y*undersample*width+x*undersample];
-				else ((float[])tpixels)[y*uwidth+x]=((float[])pixels)[y*undersample*width+x*undersample];
+				if(dobyte)((byte[])tpixels)[y*uwidth+x]=((byte[])pixels)[y*undersample*imageWidth+x*undersample];
+				else if(doshort)((short[])tpixels)[y*uwidth+x]=((short[])pixels)[y*undersample*imageWidth+x*undersample];
+				else if(doint)((int[])tpixels)[y*uwidth+x]=((int[])pixels)[y*undersample*imageWidth+x*undersample];
+				else ((float[])tpixels)[y*uwidth+x]=((float[])pixels)[y*undersample*imageWidth+x*undersample];
 			}
 		}
 		return tpixels;

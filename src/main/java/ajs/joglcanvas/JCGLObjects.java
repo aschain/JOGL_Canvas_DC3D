@@ -36,8 +36,13 @@ public class JCGLObjects {
 	public JCPrograms programs=new JCPrograms();
 	
 	public JCGLObjects() {}
+	
 	public JCGLObjects(GLAutoDrawable drawable) {
 		setGL(drawable);
+	}
+
+	public JCGLObjects(GL gl) {
+		setGL(gl.getGL());
 	}
 	
 	public void dispose() {
@@ -97,6 +102,10 @@ public class JCGLObjects {
 		vaos.newVao(name, size1, gltype1, size2, gltype2);
 	}
 	
+	public void newProgram(String name, String root, String vertex, String fragment) {
+		programs.newProgram(name, root, vertex, fragment);
+	}
+	
 	public void drawTexVao(String name, int glElementBufferType, int count) {
 		drawTexVao(name, 0, glElementBufferType, count);
 	}
@@ -107,6 +116,12 @@ public class JCGLObjects {
 		Buffer eb=getElementBufferFromVBO(vertexBuffer, (sizes[4]+sizes[5])/getSizeofType(vertexBuffer));
 		eb.rewind();
 		drawTexVaoWithEBOVBO(name, index, eb, vertexBuffer);
+	}
+	
+	public void drawTexVao(String name, int index, Buffer vb, String pname) {
+		programs.useProgram(pname);
+		drawTexVao(name, index, vb);
+		programs.stopProgram();
 	}
 	
 	/**
@@ -139,7 +154,6 @@ public class JCGLObjects {
 		if(buffers.element.containsKey(name))gl.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 		if(buffers.array.containsKey(name))gl.glBindBuffer(GL_ARRAY_BUFFER, 0);
 	}
-	
 
 	public void drawTexVao(String name, int texIndex, int glElementBufferType, int count) {
 		GL3 gl2=gl.getGL3();
@@ -162,6 +176,12 @@ public class JCGLObjects {
 		gl2.glBindVertexArray(0);
 		gl2.glBindTexture(GL_TEXTURE_3D, 0);
 		gl2.glDisable(GL_TEXTURE_3D);
+	}
+	
+	public void drawVao(int glDraw, String vname, Buffer vb, String pname) {
+		programs.useProgram(pname);
+		drawVao(glDraw, vname, vb);
+		programs.stopProgram();
 	}
 	
 	public void drawVao(int glDraw, String name, Buffer vertexBuffer) {
@@ -601,8 +621,16 @@ public class JCGLObjects {
         	return programs.get(programName).locations.get(var);
         }
         
+        public int getProgram(String pname) {
+        	return programs.get(pname).name;
+        }
+        
         public void useProgram(String name) {
         	gl.getGL3().glUseProgram(programs.get(name).name);
+        }
+        
+        public void stopProgram() {
+        	gl.getGL3().glUseProgram(0);
         }
         
         public void dispose() {

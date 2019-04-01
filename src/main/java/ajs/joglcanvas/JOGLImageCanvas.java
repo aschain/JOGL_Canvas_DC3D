@@ -267,7 +267,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		//global written during reshape call
 
 		glos.programs.newProgram("image", "shaders", "texture", "texture");
-		glos.programs.newProgram("color", "shaders", "color", "color");
 		glos.programs.newProgram("anaglyph", "shaders", "texture", "anaglyph");
 		glos.programs.newProgram("roi", "shaders", "roiTexture", "roiTexture");
 		glos.programs.addLocation("anaglyph", "stereoi");
@@ -651,6 +650,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			glos.unBindBuffer(GL_UNIFORM_BUFFER, 1);
 			glos.unBindBuffer(GL_UNIFORM_BUFFER, 2);
 			glos.unBindBuffer(GL_UNIFORM_BUFFER, 3);
+			glos.programs.stopProgram();
 			
 			if(roi!=null || overlay!=null) { 
 				float z=0f;
@@ -1034,15 +1034,13 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				1,	yrat,	z, 	1,0,0.5f,
 				-1,	yrat,	z,	0,0,0.5f
 		});
-		glos.programs.useProgram("roi");
 		gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 1, glos.buffers.get(GL_UNIFORM_BUFFER, "global"));
 		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 2, glos.buffers.get(GL_UNIFORM_BUFFER, "model"));
-		glos.drawTexVao(name, index, vb);
+		glos.drawTexVao(name, index, vb, "roi");
 		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 1, 0);
 		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 2, 0);
 		if(Prefs.interpolateScaledImages)gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		gl.glUseProgram(0);
 		
 	}
 	
@@ -1214,8 +1212,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		zoomIndVerts.put(x1).put(y1-h1).put(0f).put(color);
 		zoomIndVerts.rewind();
 		
-
-		glos.programs.useProgram("color");
 		glos.bindUniformBuffer("global", 1);
 		glos.bindUniformBuffer("idm", 2);
 		rgldu.drawGLfb(gl, zoomIndVerts, GL_LINE_LOOP);
@@ -1228,7 +1224,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		
 		rgldu.drawGLfb(gl, zoomIndVerts, GL_LINE_LOOP);
 
-		gl.glUseProgram(0);
 		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 1, 0);
 		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 2, 0);
 		
@@ -1239,14 +1234,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(rgldu==null)rgldu=new RoiGLDrawUtility(imp);
 		
 		setGL(drawable);
-		glos.programs.useProgram("color");
 		glos.bindUniformBuffer("global", 1);
 		glos.bindUniformBuffer("model", 2);
 		
 		rgldu.drawRoiGL(drawable, roi, z, drawHandles, anacolor);
 		
-
-		gl.glUseProgram(0);
 		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 1, 0);
 		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 2, 0);
 	}

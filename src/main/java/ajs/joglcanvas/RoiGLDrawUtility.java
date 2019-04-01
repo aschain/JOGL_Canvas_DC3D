@@ -12,7 +12,7 @@ import com.jogamp.opengl.GL;
 import com.jogamp.opengl.GL3;
 import com.jogamp.opengl.GLAutoDrawable;
 import com.jogamp.opengl.util.GLBuffers;
-//import com.jogamp.opengl.util.awt.TextRenderer;
+import com.jogamp.opengl.util.awt.TextRenderer;
 
 import ij.ImagePlus;
 import ij.gui.Arrow;
@@ -23,7 +23,7 @@ import ij.gui.TextRoi;
 import ij.process.FloatPolygon;
 
 public class RoiGLDrawUtility {
-	//private TextRenderer textRenderer;
+	private TextRenderer textRenderer;
 	private ImagePlus imp;
 	private GL3 gl;
 	private JCGLObjects rglos=null;
@@ -219,13 +219,13 @@ public class RoiGLDrawUtility {
 	public void drawGLfb(GL3 gl, FloatBuffer fb, int toDraw) {
 		setGL(gl);
 		if(rglos==null) {
-			rglos= new JCGLObjects();
+			rglos= new JCGLObjects(gl);
 			rglos.newBuffer(GL_ARRAY_BUFFER, "roiGL");
 			rglos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "roiGL");
 			rglos.newVao("roiGL", 3, GL_FLOAT, 4, GL_FLOAT);
-			rglos.setGL(gl);
+			rglos.programs.newProgram("color", "shaders", "color", "color");
 		}else rglos.setGL(gl);
-		rglos.drawVao(toDraw, "roiGL", fb);
+		rglos.drawVao(toDraw, "roiGL", fb, "color");
 	}
 	
 	/** draws an Roi handle. x,y,z are all opengl float positions
@@ -641,8 +641,6 @@ public class RoiGLDrawUtility {
 	}
 	
 	protected void drawTextRoi(TextRoi troi, float z) {
-		return;
-		/*
 		if(textRenderer==null || !textRenderer.getFont().equals(troi.getCurrentFont())) textRenderer = new TextRenderer(troi.getCurrentFont(),troi.getAntialiased(),false);
 		int just=troi.getJustification();
 		String[] text=troi.getText().split("\n");
@@ -663,7 +661,6 @@ public class RoiGLDrawUtility {
 			textRenderer.draw3D(text[i], x, y, z, px*(float)imp.getCanvas().getMagnification()); 
 		}
 		textRenderer.end3DRendering();
-		*/
 	}
 	
 	/** x,y,z are in opengl float positions
@@ -674,15 +671,12 @@ public class RoiGLDrawUtility {
 	 * @param color Text color
 	 */
 	protected void drawString(String text, int just, Color color, float x, float y, float z) {
-		return;
-		/*
 		Font font=new Font("SansSerif", Font.PLAIN, 9);
 		if(textRenderer==null || !textRenderer.getFont().equals(font))textRenderer =new TextRenderer(font,false,false);
 		textRenderer.begin3DRendering();
 		textRenderer.setColor(color);
 		textRenderer.draw3D(text, x, y, z, px); 
 		textRenderer.end3DRendering();
-		*/
 	}
 
 }

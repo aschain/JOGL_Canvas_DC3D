@@ -118,7 +118,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private static final float CB_MAXSIZE=4f;
 	private static final float CB_TRANSLATE=0.44f;
 	private StereoType stereoType=StereoType.OFF;
-	private int anaSiLoc, anaLoc;
 	private boolean stereoUpdated=true,threeDupdated=true;
 
 	enum PixelType{BYTE, SHORT, FLOAT, INT_RGB10A2};

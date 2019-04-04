@@ -1,8 +1,6 @@
 package ajs.joglcanvas;
 
-import static com.jogamp.opengl.GL.*;
-import static com.jogamp.opengl.GL2ES2.GL_FRAGMENT_SHADER;
-import static com.jogamp.opengl.GL2ES2.GL_VERTEX_SHADER;
+import static com.jogamp.opengl.GL3.*;
 import static com.jogamp.opengl.GL4.*;
 
 import java.nio.Buffer;
@@ -27,8 +25,8 @@ import ij.Prefs;
 
 public class JCGLObjects {
 	
-	enum GLVer{GL2, GL3, GL4};
-	private GLVer glver=GLVer.GL2;
+	enum GLVer{GL3, GL4};
+	private GLVer glver=GLVer.GL3;
 	private GL gl;
 	public JCTextures textures=new JCTextures();
 	public JCBuffers buffers=new JCBuffers();
@@ -65,7 +63,7 @@ public class JCGLObjects {
 	public void setGLVer() {
 		String version=gl.glGetString(GL_VERSION);
 		float v=Float.parseFloat(version.substring(0, 3));
-		glver=GLVer.GL2;
+		glver=GLVer.GL3;
 		if(v>=3.0f)glver=GLVer.GL3;
 		if(v>=4.5f)glver=GLVer.GL4;
 	}
@@ -573,7 +571,7 @@ public class JCGLObjects {
 		public void dispose() {
 			for(Enumeration<int[]> j=handles.elements(); j.hasMoreElements();) {
 				int[] vhs=j.nextElement();
-				gl.getGL2().glDeleteVertexArrays(vhs.length,vhs,0);
+				gl.getGL3().glDeleteVertexArrays(vhs.length,vhs,0);
 			}
 		}
 	}

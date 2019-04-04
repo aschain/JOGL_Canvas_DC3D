@@ -324,26 +324,8 @@ public class JCGLObjects {
 			
 			int[] phs=pbos.get(pboName);
 			int[] ths=handles.get(texName);
-
-			int internalFormat=COMPS==4?GL_RGBA32F:COMPS==3?GL_RGB32F:COMPS==2?GL_RG32F:GL_R32F;
-			int pixelType=GL_FLOAT;
-			int size=Buffers.SIZEOF_FLOAT;
-			int components=COMPS;
 			
-			if(type==PixelType.SHORT) {
-				internalFormat=COMPS==4?GL_RGBA16:COMPS==3?GL_RGB16:COMPS==2?GL_RG16:GL_R16;
-				pixelType=GL_UNSIGNED_SHORT;
-				size=Buffers.SIZEOF_SHORT;
-			}else if(type==PixelType.BYTE) {
-				internalFormat=COMPS==4?GL_RGBA8:COMPS==3?GL_RGB8:COMPS==2?GL_RG8:GL_R8;
-				pixelType=GL_UNSIGNED_BYTE;
-				size=Buffers.SIZEOF_BYTE;
-			}else if(type==PixelType.INT_RGB10A2) {
-				internalFormat=GL_RGB10_A2;
-				pixelType=GL_UNSIGNED_INT_2_10_10_10_REV;
-				size=Buffers.SIZEOF_INT;
-				components=1;
-			}
+			JOGLImageCanvas.PixelTypeInfo pinfo=JOGLImageCanvas.getPixelTypeInfo(type, COMPS);
 			
 			gl2.glEnable(GL_TEXTURE_3D);
 			gl2.glActiveTexture(GL_TEXTURE0);
@@ -352,7 +334,7 @@ public class JCGLObjects {
 			gl2.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			gl2.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_BASE_LEVEL, 0);
 			gl2.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAX_LEVEL, 0);
-			gl2.glTexImage3D(GL_TEXTURE_3D, 0, internalFormat, width, height, depth, 0, (COMPS==4||components==1)?GL_RGBA:COMPS==3?GL_RGB:COMPS==2?GL_RG:GL_LUMINANCE, pixelType, offsetSlice*components*width*height*size);
+			gl2.glTexImage3D(GL_TEXTURE_3D, 0, pinfo.glInternalFormat, width, height, depth, 0, (COMPS==4||pinfo.components==1)?GL_RGBA:COMPS==3?GL_RGB:COMPS==2?GL_RG:GL_LUMINANCE, pinfo.glPixelSize, offsetSlice*pinfo.components*width*height*pinfo.sizeBytes);
 			int magtype=GL_LINEAR;
 			if(!Prefs.interpolateScaledImages)magtype=GL_NEAREST;
 			gl2.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, magtype); 
@@ -373,14 +355,7 @@ public class JCGLObjects {
 		
 		public void updateSubRgbaPBO(String name, int index, Buffer buffer, int offset, int length, int bsize) {
 			int[] phs=pbos.get(name);
-			int size=Buffers.SIZEOF_FLOAT;
-			if(buffer instanceof ShortBuffer) {
-				size=Buffers.SIZEOF_SHORT;
-			}else if(buffer instanceof ByteBuffer) {
-				size=Buffers.SIZEOF_BYTE;
-			}else if(buffer instanceof IntBuffer) {
-				size=Buffers.SIZEOF_INT;
-			}
+			int size=getSizeofType(buffer);
 			
 			boolean isNew=false;
 			if(phs[index]==0) {

@@ -59,9 +59,27 @@ import com.jogamp.common.nio.Buffers;
 import com.jogamp.opengl.GL;
 import com.jogamp.opengl.GL3;
 
+import static com.jogamp.opengl.GL.GL_FLOAT;
+import static com.jogamp.opengl.GL.GL_R32F;
+import static com.jogamp.opengl.GL.GL_R8;
+import static com.jogamp.opengl.GL.GL_RG32F;
+import static com.jogamp.opengl.GL.GL_RG8;
+import static com.jogamp.opengl.GL.GL_RGB10_A2;
+import static com.jogamp.opengl.GL.GL_RGB32F;
+import static com.jogamp.opengl.GL.GL_RGB8;
+import static com.jogamp.opengl.GL.GL_RGBA32F;
+import static com.jogamp.opengl.GL.GL_RGBA8;
+import static com.jogamp.opengl.GL.GL_UNSIGNED_BYTE;
+import static com.jogamp.opengl.GL.GL_UNSIGNED_SHORT;
+import static com.jogamp.opengl.GL2ES2.GL_UNSIGNED_INT_2_10_10_10_REV;
+import static com.jogamp.opengl.GL2GL3.GL_R16;
+import static com.jogamp.opengl.GL2GL3.GL_RG16;
+import static com.jogamp.opengl.GL2GL3.GL_RGB16;
+import static com.jogamp.opengl.GL2GL3.GL_RGBA16;
 import static com.jogamp.opengl.GL3.*;
 import com.jogamp.opengl.GLAutoDrawable;
 import com.jogamp.opengl.util.texture.awt.AWTTextureIO;
+
 import com.jogamp.opengl.GLEventListener;
 import com.jogamp.opengl.GLException;
 import com.jogamp.opengl.awt.GLCanvas;
@@ -116,6 +134,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private static final float CB_TRANSLATE=0.44f;
 	private StereoType stereoType=StereoType.OFF;
 	private boolean stereoUpdated=true,threeDupdated=true;
+	private int[] stereoFramebuffers=new int[1];
 
 	enum PixelType{BYTE, SHORT, FLOAT, INT_RGB10A2};
 	private static final String[] pixelTypeStrings=new String[] {"4 bytes (8bpc, 32bit)","4 shorts (16bpc 64bit)","4 floats (32bpc 128bit)","1 int RGB10A2 (10bpc, 32bit)"};
@@ -267,6 +286,13 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		glos.programs.newProgram("roi", "shaders", "roiTexture", "roiTexture");
 		glos.programs.addLocation("anaglyph", "stereoi");
 		glos.programs.addLocation("anaglyph", "ana");
+		
+		glos.newTexture("anaglyph");
+		glos.newBuffer(GL_ARRAY_BUFFER, "anaglyph");
+		glos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "anaglyph");
+		glos.newVao("anaglyph", 3, GL_FLOAT, 3, GL_FLOAT);
+		gl.glGenFramebuffers(1, stereoFramebuffers, 0);
+		
 
 		if(JCP.dubois) {
 		//Source of below: bino, a 3d video player:  https://github.com/eile/bino/blob/master/src/video_output_render.fs.glsl
@@ -328,7 +354,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				glos.buffers.loadIdentity("global", 0);
 			}
 			if(stereoType==StereoType.ANAGLYPH) {
-				
+
+				gl.glBindTexture(GL_TEXTURE_3D, glos.textures.get("anaglyph"));
+				PixelTypeInfo info=getPixelTypeInfo(pixelType, 3);
+				gl.glTexImage3D(GL_TEXTURE_3D, 0, info.glInternalFormat, drawable.getSurfaceWidth(),drawable.getSurfaceHeight(), 0, 0, pixelType==PixelType.INT_RGB10A2?GL_RGBA:GL_RGB, info.glPixelSize, null);
+				gl.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_3D, glos.textures.get("anaglyph"), 0);
 			}
 			stereoUpdated=false;
 		}
@@ -477,7 +507,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		//drawing
 		glos.programs.useProgram("image");
 		gl.glDisable(GL_SCISSOR_TEST);
-		gl.glDrawBuffers(1, new int[] {GL_BACK}, 0);
+		gl.glDrawBuffers(1, new int[] {GL_BACK_LEFT},0);
 		gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		//gl.glClearBufferfv(GL_COLOR, 0, new float[] {0f,0f,0f,0f},0);
         //gl.glClearBufferfv(GL_DEPTH, 0, new float[] {0f},0);
@@ -485,11 +515,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		int views=1;
 		if(go3d && stereoType.ordinal()>0)views=2;
 		for(int stereoi=0;stereoi<views;stereoi++) {
+			IJ.log("stereoi"+stereoi);
 			if(go3d) {
-				
 				if(stereoType==StereoType.QUADBUFFER) {
-					if(stereoi==0)gl.glDrawBuffers(1, new int[] {GL_BACK_LEFT}, 0);
-					else gl.glDrawBuffers(1, new int[] {GL_BACK_RIGHT}, 0);
+					if(stereoi==1)
+						gl.glDrawBuffers(1, new int[] {GL_BACK_RIGHT},0);
 				}else if(stereoType==StereoType.CARDBOARD) {
 					float[] ortho = FloatUtil.makeOrtho(new float[16], 0, false, -CB_MAXSIZE, CB_MAXSIZE, -CB_MAXSIZE*yrat, CB_MAXSIZE*yrat, -CB_MAXSIZE, CB_MAXSIZE);
 					float[] translate=FloatUtil.makeTranslation(new float[16], 0, false, (stereoi==0?(-CB_MAXSIZE*CB_TRANSLATE):(CB_MAXSIZE*CB_TRANSLATE)), 0f, 0f);
@@ -501,6 +531,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					gl.glScissor((drawable.getSurfaceWidth()/2)-(int)(drawable.getSurfaceWidth()/CB_MAXSIZE/2f) + (int)(CB_TRANSLATE*drawable.getSurfaceWidth()/2f*(stereoi==0?-1:1)), y, (int)(drawable.getSurfaceWidth()/CB_MAXSIZE), height);
 					glos.buffers.loadMatrix("global", ortho);
 				}else if(stereoType==StereoType.ANAGLYPH) {
+					if(stereoi==1) {
+						gl.glDrawBuffers(1, new int[] {0},0);
+						gl.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, stereoFramebuffers[0]);
+						gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+					}
 					glos.programs.useProgram("anaglyph");
 					gl.glUniform1i(glos.programs.getLocation("anaglyph", "stereoi"), stereoi);
 					gl.glUniformMatrix3fv(glos.programs.getLocation("anaglyph", "ana"), 2, false, anaColors, 0);
@@ -691,6 +726,16 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			}
 			//IJ.log("\\Update0:Display took: "+(System.nanoTime()-starttime)/1000000L+"ms");		
 			gl.glFinish();
+			
+			if(go3d && stereoi==1 && stereoType==StereoType.ANAGLYPH) {
+				gl.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+				gl.glDrawBuffers(1, new int[] {GL_BACK_LEFT},0);
+				gl.glBlendEquation(GL_MAX);
+				gl.glBlendFunc(GL_SRC_COLOR, GL_DST_COLOR);
+				drawGraphics(gl, 0, "anaglyph", 0, "idm");
+				gl.glFinish();
+			}
+			
 		} //stereoi for
 		//IJ.log("\\Update1:Display took: "+(System.nanoTime()-starttime)/1000000L+"ms");
 		
@@ -1023,6 +1068,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	}
 	
 	private void drawGraphics(GL3 gl, float z, String name, int index) {
+		drawGraphics(gl, z, name, index, "model");
+	}
+	
+	private void drawGraphics(GL3 gl, float z, String name, int index, String modelMatrix) {
 		float yrat=(float)srcRect.height/srcRect.width;
 		FloatBuffer vb=GLBuffers.newDirectFloatBuffer(new float[] {
 				-1,	-yrat,	z, 	0,1,0.5f,
@@ -1032,12 +1081,45 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		});
 		gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 1, glos.buffers.get(GL_UNIFORM_BUFFER, "global"));
-		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 2, glos.buffers.get(GL_UNIFORM_BUFFER, "model"));
+		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 2, glos.buffers.get(GL_UNIFORM_BUFFER, modelMatrix));
 		glos.drawTexVao(name, index, vb, "roi");
 		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 1, 0);
 		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 2, 0);
 		if(Prefs.interpolateScaledImages)gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		
+	}
+	
+	static class PixelTypeInfo{
+		public int glInternalFormat;
+		public int glPixelSize;
+		public int sizeBytes;
+		public int components;
+		
+		public PixelTypeInfo(PixelType type, int COMPS) {
+			glInternalFormat=COMPS==4?GL_RGBA32F:COMPS==3?GL_RGB32F:COMPS==2?GL_RG32F:GL_R32F;
+			glPixelSize=GL_FLOAT;
+			sizeBytes=Buffers.SIZEOF_FLOAT;
+			components=COMPS;
+			
+			if(type==PixelType.SHORT) {
+				glInternalFormat=COMPS==4?GL_RGBA16:COMPS==3?GL_RGB16:COMPS==2?GL_RG16:GL_R16;
+				glPixelSize=GL_UNSIGNED_SHORT;
+				sizeBytes=Buffers.SIZEOF_SHORT;
+			}else if(type==PixelType.BYTE) {
+				glInternalFormat=COMPS==4?GL_RGBA8:COMPS==3?GL_RGB8:COMPS==2?GL_RG8:GL_R8;
+				glPixelSize=GL_UNSIGNED_BYTE;
+				sizeBytes=Buffers.SIZEOF_BYTE;
+			}else if(type==PixelType.INT_RGB10A2) {
+				glInternalFormat=GL_RGB10_A2;
+				glPixelSize=GL_UNSIGNED_INT_2_10_10_10_REV;
+				sizeBytes=Buffers.SIZEOF_INT;
+				components=1;
+			}
+		}
+	}
+	
+	public static PixelTypeInfo getPixelTypeInfo(PixelType type, int comps) {
+		return new PixelTypeInfo(type, comps);
 	}
 	
 	public void toggle3d() {

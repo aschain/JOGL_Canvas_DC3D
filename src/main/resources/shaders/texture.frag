@@ -8,7 +8,7 @@ layout(std140, column_major) uniform;
 in vec3 texCoord;
 in mat4 luts;
 // Outgoing final color.
-layout (location = 0) out vec4 outputColor;
+out vec4 outputColor;
 
 uniform sampler3D mytex;
 

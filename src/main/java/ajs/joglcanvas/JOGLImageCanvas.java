@@ -59,23 +59,6 @@ import com.jogamp.common.nio.Buffers;
 import com.jogamp.opengl.GL;
 import com.jogamp.opengl.GL3;
 
-import static com.jogamp.opengl.GL.GL_FLOAT;
-import static com.jogamp.opengl.GL.GL_R32F;
-import static com.jogamp.opengl.GL.GL_R8;
-import static com.jogamp.opengl.GL.GL_RG32F;
-import static com.jogamp.opengl.GL.GL_RG8;
-import static com.jogamp.opengl.GL.GL_RGB10_A2;
-import static com.jogamp.opengl.GL.GL_RGB32F;
-import static com.jogamp.opengl.GL.GL_RGB8;
-import static com.jogamp.opengl.GL.GL_RGBA32F;
-import static com.jogamp.opengl.GL.GL_RGBA8;
-import static com.jogamp.opengl.GL.GL_UNSIGNED_BYTE;
-import static com.jogamp.opengl.GL.GL_UNSIGNED_SHORT;
-import static com.jogamp.opengl.GL2ES2.GL_UNSIGNED_INT_2_10_10_10_REV;
-import static com.jogamp.opengl.GL2GL3.GL_R16;
-import static com.jogamp.opengl.GL2GL3.GL_RG16;
-import static com.jogamp.opengl.GL2GL3.GL_RGB16;
-import static com.jogamp.opengl.GL2GL3.GL_RGBA16;
 import static com.jogamp.opengl.GL3.*;
 import com.jogamp.opengl.GLAutoDrawable;
 import com.jogamp.opengl.util.texture.awt.AWTTextureIO;
@@ -138,7 +121,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 
 	enum PixelType{BYTE, SHORT, FLOAT, INT_RGB10A2};
 	private static final String[] pixelTypeStrings=new String[] {"4 bytes (8bpc, 32bit)","4 shorts (16bpc 64bit)","4 floats (32bpc 128bit)","1 int RGB10A2 (10bpc, 32bit)"};
-	private PixelType pixelType=PixelType.BYTE;
 	private PixelType pixelType3d=PixelType.BYTE;
 	private int COMPS=0;
 	
@@ -155,15 +137,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		updateLastPosition();
 		prevSrcRect=new Rectangle(0, 0, 0, 0);
 		if(JCP.glCapabilities==null && !JCP.setGLCapabilities()) IJ.showMessage("error in GL Capabilities");
-		int[] bits=new int[] {JCP.glCapabilities.getAlphaBits(),JCP.glCapabilities.getRedBits(),JCP.glCapabilities.getGreenBits(),JCP.glCapabilities.getBlueBits()};
-		if(imp.getBitDepth()>8 && bitDepth!=24) {
-			if(bits[0]>8||bits[1]>8||bits[2]>8||bits[3]>8 && JCP.glCapabilities.getGLProfile().isGL4()) {
-				pixelType=PixelType.SHORT;
-			}
-			if(bits[0]<=2 && bits[1]==10 && bits[2]==10 && bits[3]==10) {
-				pixelType=PixelType.INT_RGB10A2;
-			}
-		}
 		createPopupMenu();
 		initBuffers(imp.getNFrames(),imp.getNSlices());
 		icc=new GLCanvas(JCP.glCapabilities);
@@ -325,7 +298,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 
 	@Override
 	public void display(GLAutoDrawable drawable) {
-		//IJ.log(""+icc);
 		//IJ.log("\\Update2:Display took: "+(System.nanoTime()-starttime)/1000000L+"ms");
 		//starttime=System.nanoTime();
 		if(imp.isLocked())return;
@@ -356,8 +328,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			if(stereoType==StereoType.ANAGLYPH) {
 
 				gl.glBindTexture(GL_TEXTURE_3D, glos.textures.get("anaglyph"));
-				PixelTypeInfo info=getPixelTypeInfo(pixelType, 3);
-				gl.glTexImage3D(GL_TEXTURE_3D, 0, info.glInternalFormat, drawable.getSurfaceWidth(),drawable.getSurfaceHeight(), 0, 0, pixelType==PixelType.INT_RGB10A2?GL_RGBA:GL_RGB, info.glPixelSize, null);
+				PixelTypeInfo info=getPixelTypeInfo(pixelType3d, 3);
+				gl.glTexImage3D(GL_TEXTURE_3D, 0, info.glInternalFormat, drawable.getSurfaceWidth(),drawable.getSurfaceHeight(), 0, 0, GL_RGB, info.glPixelSize, null);
 				gl.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_3D, glos.textures.get("anaglyph"), 0);
 			}
 			stereoUpdated=false;
@@ -435,13 +407,13 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						//IJ.log("Updating for chslfr:"+imp.getC()+" "+(sl+1)+" "+(fr+1));
 						sliceImage=getImageBufferSlice(imp.getZ(), imp.getT());
 						checkBuffers();
-						int psize=tex4div(imageWidth)*tex4div(imageHeight)*((pixelType==PixelType.INT_RGB10A2)?1:COMPS);
+						PixelType pixeltype=getPixelType();
+						int psize=tex4div(imageWidth)*tex4div(imageHeight)*COMPS;
 						int bsize=sls*psize;
 						if(imageFBs[fr]==null) {
-							if(pixelType==PixelType.FLOAT)imageFBs[fr]=GLBuffers.newDirectFloatBuffer(bsize);
-							else if(pixelType==PixelType.SHORT)imageFBs[fr]=GLBuffers.newDirectShortBuffer(bsize);
-							else if(pixelType==PixelType.BYTE)imageFBs[fr]=GLBuffers.newDirectByteBuffer(bsize);
-							else if(pixelType==PixelType.INT_RGB10A2)imageFBs[fr]=GLBuffers.newDirectIntBuffer(bsize);
+							if(pixeltype==PixelType.FLOAT)imageFBs[fr]=GLBuffers.newDirectFloatBuffer(bsize);
+							else if(pixeltype==PixelType.SHORT)imageFBs[fr]=GLBuffers.newDirectShortBuffer(bsize);
+							else if(pixeltype==PixelType.BYTE)imageFBs[fr]=GLBuffers.newDirectByteBuffer(bsize);
 						}
 						updateImageStackBuffer(imageFBs[fr],sliceImage,sl+1);
 						int offset=psize*sl;
@@ -464,7 +436,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				}else {
 					sliceImage=getImageBufferSlice(imp.getZ(), imp.getT());
 				}
-				if(loadtex)glos.textures.loadTexFromPBO("image",fr, tex4div(imageWidth), tex4div(imageHeight), 1, sl, pixelType, COMPS);
+				if(loadtex)glos.textures.loadTexFromPBO("image",fr, tex4div(imageWidth), tex4div(imageHeight), 1, sl, getPixelType(), COMPS);
 				else {
 					gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT);
 					glos.textures.createRgbaTexture("image", sliceImage, tex4div(imageWidth), tex4div(imageHeight), 1, COMPS);
@@ -505,17 +477,16 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		};
 
 		//drawing
-		glos.programs.useProgram("image");
 		gl.glDisable(GL_SCISSOR_TEST);
 		gl.glDrawBuffers(1, new int[] {GL_BACK_LEFT},0);
 		gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		//gl.glClearBufferfv(GL_COLOR, 0, new float[] {0f,0f,0f,0f},0);
-        //gl.glClearBufferfv(GL_DEPTH, 0, new float[] {0f},0);
+		gl.glClearBufferfv(GL_COLOR, 0, new float[] {0f,0f,0f,0f},0);
+        gl.glClearBufferfv(GL_DEPTH, 0, new float[] {0f},0);
 		
 		int views=1;
 		if(go3d && stereoType.ordinal()>0)views=2;
 		for(int stereoi=0;stereoi<views;stereoi++) {
-			IJ.log("stereoi"+stereoi);
+			glos.programs.useProgram("image");
 			if(go3d) {
 				if(stereoType==StereoType.QUADBUFFER) {
 					if(stereoi==1)
@@ -526,9 +497,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					ortho=FloatUtil.multMatrix(ortho, translate);
 					gl.glEnable(GL_SCISSOR_TEST);
 					int height=drawable.getSurfaceHeight();
+					int width=drawable.getSurfaceWidth();
 					int y=(int)((1f-(1f/CB_MAXSIZE))*yrat/2f*(float)height);
-					height/=CB_MAXSIZE;
-					gl.glScissor((drawable.getSurfaceWidth()/2)-(int)(drawable.getSurfaceWidth()/CB_MAXSIZE/2f) + (int)(CB_TRANSLATE*drawable.getSurfaceWidth()/2f*(stereoi==0?-1:1)), y, (int)(drawable.getSurfaceWidth()/CB_MAXSIZE), height);
+					gl.glScissor((width/2)-(int)(width/CB_MAXSIZE/2f) + (int)(CB_TRANSLATE*width/2f*(stereoi==0?-1:1)), y, (int)(width/CB_MAXSIZE), (int)(height/CB_MAXSIZE));
 					glos.buffers.loadMatrix("global", ortho);
 				}else if(stereoType==StereoType.ANAGLYPH) {
 					if(stereoi==1) {
@@ -609,11 +580,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 							}
 						}
 					}
-					//for(int i=0;i<vertb.limit()/6;i++) {
-					//	if(i==4)i=vertb.limit()/6-4;
-					//	IJ.log((reverse?"rev ":"")+"Vert"+i+" vx"+vertb.get(i*6)+" vy"+vertb.get(i*6+1)+" vz"+vertb.get(i*6+2)+
-					//	" tx"+vertb.get(i*6+3)+" ty"+vertb.get(i*6+4)+" tz"+vertb.get(i*6+5));
-					//}
 				}
 				ltr=new boolean[] {left,top,reverse};
 				
@@ -664,8 +630,13 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 							if(cmode==IJ.GRAYSCALE)color=7;
 							else color=(((rgb & 0x00ff0000)==0x00ff0000)?1:0) + (((rgb & 0x0000ff00)==0x0000ff00)?2:0) + (((rgb & 0x000000ff)==0x000000ff)?4:0);
 						}
-						min=(float)(luts[i].min/topmax);
-						max=(float)(luts[i].max/topmax);
+						if(bitd<32) {
+							min=(float)(Math.round(luts[i].min)/topmax);
+							max=(float)(Math.round(luts[i].max)/topmax);
+						}else {
+							min=(float)luts[i].min;
+							max=(float)luts[i].max;
+						}
 					}
 					lutMatrixPointer.putFloat(min);
 					lutMatrixPointer.putFloat(max);
@@ -724,7 +695,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				gl.glDisable(GL_MULTISAMPLE);
 				drawMyZoomIndicator(drawable);
 			}
-			//IJ.log("\\Update0:Display took: "+(System.nanoTime()-starttime)/1000000L+"ms");		
+			//IJ.log("\\Update0:Display took: "+(System.nanoTime()-starttime)/1000000L+"ms");	 
+			gl.glDisable(GL_SCISSOR_TEST);
 			gl.glFinish();
 			
 			if(go3d && stereoi==1 && stereoType==StereoType.ANAGLYPH) {
@@ -733,7 +705,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				gl.glBlendEquation(GL_MAX);
 				gl.glBlendFunc(GL_SRC_COLOR, GL_DST_COLOR);
 				drawGraphics(gl, 0, "anaglyph", 0, "idm");
-				gl.glFinish();
+				//gl.glFinish();
 			}
 			
 		} //stereoi for
@@ -776,27 +748,19 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		return wh+((wh%4)>0?(4-wh%4):0);
 	}
 	
-	public void setPixelType(PixelType newtype, boolean for3d) {
+	public void set3dPixelType(PixelType newtype) {
 		int bits=imp.getBitDepth();
 		if(bits==24)bits=8;
 		if(newtype==PixelType.FLOAT && bits<32) {IJ.error("Not enough image bits for float display pixel");return;}
 		if((newtype==PixelType.SHORT || newtype==PixelType.INT_RGB10A2) && (bits<16)) {IJ.error("Not enough image bits for high bit display pixel");return;}
 
-		if(for3d) {
-			while(updatingBuffers>0)IJ.wait(50);
-			pixelType3d=newtype;
-			resetBuffers();
-		}
-		else {
-			pixelType=newtype;
-			myImageUpdated=true;
-			repaint();
-		}
+		while(updatingBuffers>0)IJ.wait(50);
+		pixelType3d=newtype;
+		resetBuffers();
 	}
 	
-	private int getCurrentPixelType(boolean for3d) {
-		PixelType pt=for3d?pixelType3d:pixelType;
-		for(int i=0;i<PixelType.values().length;i++)if(pt==PixelType.values()[i])return i;
+	private int getCurrent3dPixelType() {
+		for(int i=0;i<PixelType.values().length;i++)if(pixelType3d==PixelType.values()[i])return i;
 		return -1;
 	}
 	
@@ -810,7 +774,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	}
 	
 	private void checkBuffers() {
-		PixelType pixelType=go3d?this.pixelType3d:this.pixelType;
+		PixelType pixelType=go3d?this.pixelType3d:getPixelType();
 		for(int i=0;i<imageFBs.length;i++) {
 			if(imageFBs[i] instanceof FloatBuffer && pixelType!=PixelType.FLOAT)imageFBs[i]=null;
 			if(imageFBs[i] instanceof ShortBuffer && pixelType!=PixelType.SHORT)imageFBs[i]=null;
@@ -935,7 +899,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	
 	//If there is a buffer, it should be for one whole frame, otherwise one slice or whole frame
 	public Buffer getImageBuffer(boolean is3d, int stsl, int endsl, int stfr, int endfr, Buffer buffer, boolean notdirect) {
-		PixelType type=this.pixelType;
+		PixelType type=getPixelType();
 		int bits=imp.getBitDepth();
 		int iwidth=imageWidth, iheight=imageHeight;
 		if(is3d) {
@@ -963,16 +927,16 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			}
 		}
 
-		if(type==PixelType.BYTE && (buffer==null || buffer.limit()!=size)) {
+		if(type==PixelType.BYTE && (buffer==null || buffer.capacity()!=size)) {
 			if(notdirect)buffer=ByteBuffer.allocate(size);
 			else buffer=GLBuffers.newDirectByteBuffer(size);
-		}else if(type==PixelType.SHORT && (buffer==null || buffer.limit()!=size)) {
+		}else if(type==PixelType.SHORT && (buffer==null || buffer.capacity()!=size)) {
 			if(notdirect)buffer=ShortBuffer.allocate(size);
 			else buffer=GLBuffers.newDirectShortBuffer(size);
-		}else if(type==PixelType.INT_RGB10A2 && (buffer==null || buffer.limit()!=size)) {
+		}else if(type==PixelType.INT_RGB10A2 && (buffer==null || buffer.capacity()!=size)) {
 			if(notdirect)buffer=IntBuffer.allocate(size/COMPS);
 			else buffer=GLBuffers.newDirectIntBuffer(size/COMPS);
-		}else if(type==PixelType.FLOAT && (buffer==null || buffer.limit()!=size)) {
+		}else if(type==PixelType.FLOAT && (buffer==null || buffer.capacity()!=size)) {
 			if(notdirect)buffer=FloatBuffer.allocate(size);
 			else buffer=GLBuffers.newDirectFloatBuffer(size);
 		}
@@ -982,7 +946,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			if(bits==8)((ByteBuffer)buffer).put(((byte[])outPixels));
 			else {
 				for(int i=0;i<size;i++) {
-					if(bits==16)((ByteBuffer)buffer).put((byte)(((int)((((short[])outPixels)[i]&0xffff)/65535.0*255.0))));
+					if(bits==16)((ByteBuffer)buffer).put((byte)(((int)((((short[])outPixels)[i]&0xffff)/256.0))));
 					else if(bits==32)((ByteBuffer)buffer).put((byte)(((int)(((float[])outPixels)[i]*255f))));
 					else {
 						int rgb=((int[])outPixels)[i];
@@ -1013,11 +977,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			}else if(bits==16) {
 				short[] shortPixels=((short[])outPixels);
 				for(int i=0;i<size;i+=COMPS) {
-					int red=(((int)((shortPixels[i]&0xffff)/65535f*1023f))&0x3ff);
-					int green=(COMPS<2)?0:(((int)((shortPixels[i+1]&0xffff)/65535f*1023f))&0x3ff);
-					int blue=(COMPS<3)?0:(((int)((shortPixels[i+2]&0xffff)/65535f*1023f))&0x3ff);
+					int red=(((int)(shortPixels[i]/64f))&0x3ff);
+					int green=(COMPS<2)?0:(((int)(shortPixels[i+1]/64f))&0x3ff);
+					int blue=(COMPS<3)?0:(((int)(shortPixels[i+2]/64f))&0x3ff);
 					int alpha=1;
-					//if(COMPS==4) alpha=(((int)((shortPixels[i+3]&0xffff)/65535f*0x3))&0x3);
+					//if(COMPS==4) alpha=(((int)((shortPixels[i+3]&0xffff)/16384f))&0x3);
 					((IntBuffer)buffer).put(alpha<<30 | blue <<20 | green<<10 | red);
 				}
 			}else IJ.error("Don't use 10bit INT for 8 bit images");
@@ -1554,9 +1518,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			
 			dcpopup.add(threeDmenu);
 			
-			menu=new Menu("Normal Pixel Type");
-			for(int i=0;i<pixelTypeStrings.length;i++) addCMI(menu,pixelTypeStrings[i],pixelType==PixelType.values()[i]);
-			dcpopup.add(menu);
+			//menu=new Menu("Normal Pixel Type");
+			//for(int i=0;i<pixelTypeStrings.length;i++) addCMI(menu,pixelTypeStrings[i],pixelType==PixelType.values()[i]);
+			//dcpopup.add(menu);
 			
 			mi=new MenuItem("Switch use PBO for Slices");
 			mi.setActionCommand("usePBOforSlices");
@@ -1631,8 +1595,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			if(e.getStateChange()==ItemEvent.SELECTED) {
 				int temp=0;
 				for(int i=0;i<pixelTypeStrings.length;i++) if(cmd.equals(pixelTypeStrings[i])) temp=i;
-				setPixelType(PixelType.values()[temp],whichmenu.equals("3D Pixel Type"));
-				checkRenderPopup(whichmenu, pixelTypeStrings[getCurrentPixelType(whichmenu.equals("3D Pixel Type"))]);
+				set3dPixelType(PixelType.values()[temp]);//,whichmenu.equals("3D Pixel Type")
+				checkRenderPopup(whichmenu, pixelTypeStrings[getCurrent3dPixelType()]);//whichmenu.equals("3D Pixel Type")
 			}
 		}
 	}
@@ -1853,6 +1817,17 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			}
 			stwin.pack();
 		}
+	}
+	
+	private PixelType getPixelType() {
+		switch(imp.getBitDepth()) {
+		case 1 : return PixelType.BYTE;
+		case 8 : return PixelType.BYTE;
+		case 16 : return PixelType.SHORT;
+		case 24 : return PixelType.BYTE;
+		case 32 : return PixelType.FLOAT;
+		}
+		return PixelType.BYTE;
 	}
 
 }

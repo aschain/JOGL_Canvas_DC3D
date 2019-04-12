@@ -326,11 +326,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				glos.buffers.loadIdentity("global", 0);
 			}
 			if(stereoType==StereoType.ANAGLYPH) {
-
-				gl.glBindTexture(GL_TEXTURE_3D, glos.textures.get("anaglyph"));
-				PixelTypeInfo info=getPixelTypeInfo(pixelType3d, 3);
-				gl.glTexImage3D(GL_TEXTURE_3D, 0, info.glInternalFormat, drawable.getSurfaceWidth(),drawable.getSurfaceHeight(), 0, 0, GL_RGB, info.glPixelSize, null);
-				gl.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_3D, glos.textures.get("anaglyph"), 0);
 			}
 			stereoUpdated=false;
 		}
@@ -503,8 +498,14 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					glos.buffers.loadMatrix("global", ortho);
 				}else if(stereoType==StereoType.ANAGLYPH) {
 					if(stereoi==1) {
-						gl.glDrawBuffers(1, new int[] {0},0);
-						gl.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, stereoFramebuffers[0]);
+						gl.glBindFramebuffer(GL_FRAMEBUFFER, stereoFramebuffers[0]);
+						
+						gl.glBindTexture(GL_TEXTURE_3D, glos.textures.get("anaglyph"));
+						PixelTypeInfo info=getPixelTypeInfo(pixelType3d, 3);
+						gl.glTexImage3D(GL_TEXTURE_3D, 0, info.glInternalFormat, drawable.getSurfaceWidth(),drawable.getSurfaceHeight(), 0, 0, GL_RGB, info.glPixelSize, null);
+						gl.glFramebufferTexture3D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_3D, glos.textures.get("anaglyph"), 0, 0);
+
+						gl.glDrawBuffers(1, new int[] {GL_COLOR_ATTACHMENT0},0);
 						gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 					}
 					glos.programs.useProgram("anaglyph");
@@ -700,7 +701,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			gl.glFinish();
 			
 			if(go3d && stereoi==1 && stereoType==StereoType.ANAGLYPH) {
-				gl.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+				gl.glBindFramebuffer(GL_FRAMEBUFFER, 0);
 				gl.glDrawBuffers(1, new int[] {GL_BACK_LEFT},0);
 				gl.glBlendEquation(GL_MAX);
 				gl.glBlendFunc(GL_SRC_COLOR, GL_DST_COLOR);

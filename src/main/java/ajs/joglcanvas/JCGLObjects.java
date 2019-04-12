@@ -155,8 +155,10 @@ public class JCGLObjects {
 
 	public void drawTexVao(String name, int texIndex, int glElementBufferType, int count) {
 		GL3 gl3=gl.getGL3();
-		gl3.glEnable(GL_TEXTURE_3D);
-		gl3.glBindTexture(GL_TEXTURE_3D, textures.get(name, texIndex));
+		int gltype=GL_TEXTURE_3D;
+		if(name.equals("anaglyph"))gltype=GL_TEXTURE_2D;
+		gl3.glEnable(gltype);
+		gl3.glBindTexture(gltype, textures.get(name, texIndex));
 		gl3.glBindVertexArray(vaos.get(name));
 		
 		if(glver==GLVer.GL3){
@@ -172,8 +174,8 @@ public class JCGLObjects {
 		
         gl3.glDrawElements(GL_TRIANGLES, count, glElementBufferType, 0);
 		gl3.glBindVertexArray(0);
-		gl3.glBindTexture(GL_TEXTURE_3D, 0);
-		gl3.glDisable(GL_TEXTURE_3D);
+		gl3.glBindTexture(gltype, 0);
+		gl3.glDisable(gltype);
 	}
 	
 	public void drawVao(int glDraw, String vname, Buffer vb, String pname) {

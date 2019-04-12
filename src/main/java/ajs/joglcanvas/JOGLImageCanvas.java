@@ -244,7 +244,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		glos.newTexture("roiGraphic");
 		glos.newBuffer(GL_ARRAY_BUFFER, "roiGraphic");
 		glos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "roiGraphic");
-		glos.newVao("roi", 3, GL_FLOAT, 3, GL_FLOAT);
+		glos.newVao("roiGraphic", 3, GL_FLOAT, 3, GL_FLOAT);
 		
 		glos.newBuffer(GL_UNIFORM_BUFFER, "global", 16*2 * Buffers.SIZEOF_FLOAT, null);
 		glos.newBuffer(GL_UNIFORM_BUFFER, "model", 16 * Buffers.SIZEOF_FLOAT, null);
@@ -353,12 +353,17 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					if((rc==0||rc==imp.getC()) && (rz==0||rz==(sl+1)) && (rt==0||rt==imp.getT())) {oroi.drawOverlay(g); doRoi=true;}
 				}
 			}
-			if(doRoi)glos.textures.createRgbaTexture("roi", AWTTextureIO.newTextureData(gl.getGLProfile(), roiImage, false).getBuffer(), srcRectWidthMag, srcRectHeightMag, 1, 4);
+			if(doRoi)glos.textures.createRgbaTexture("roiGraphic", AWTTextureIO.newTextureData(gl.getGLProfile(), roiImage, false).getBuffer(), srcRectWidthMag, srcRectHeightMag, 1, 4);
 		}
 		boolean[] doOv=null;
 		if(!JCP.openglroi && overlay!=null && go3d) {
 			doOv=new boolean[sls];
-			if(!glos.textures.containsKey("overlay") || glos.textures.getLength("overlay")!=sls)glos.newTexture("overlay",sls);
+			if(!glos.textures.containsKey("overlay") || glos.textures.getLength("overlay")!=sls) {
+				glos.newTexture("overlay",sls);
+				glos.newBuffer(GL_ARRAY_BUFFER, "overlay");
+				glos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "overlay");
+				glos.newVao("overlay", 3, GL_FLOAT, 3, GL_FLOAT);
+			}
 			for(int osl=0;osl<sls;osl++) {
 				BufferedImage roiImage=null;
 				Graphics g=null;
@@ -497,20 +502,21 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					gl.glScissor((width/2)-(int)(width/CB_MAXSIZE/2f) + (int)(CB_TRANSLATE*width/2f*(stereoi==0?-1:1)), y, (int)(width/CB_MAXSIZE), (int)(height/CB_MAXSIZE));
 					glos.buffers.loadMatrix("global", ortho);
 				}else if(stereoType==StereoType.ANAGLYPH) {
-					if(stereoi==1) {
-						gl.glBindFramebuffer(GL_FRAMEBUFFER, stereoFramebuffers[0]);
-						
-						gl.glBindTexture(GL_TEXTURE_3D, glos.textures.get("anaglyph"));
-						PixelTypeInfo info=getPixelTypeInfo(pixelType3d, 3);
-						gl.glTexImage3D(GL_TEXTURE_3D, 0, info.glInternalFormat, drawable.getSurfaceWidth(),drawable.getSurfaceHeight(), 0, 0, GL_RGB, info.glPixelSize, null);
-						gl.glFramebufferTexture3D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_3D, glos.textures.get("anaglyph"), 0, 0);
-
-						gl.glDrawBuffers(1, new int[] {GL_COLOR_ATTACHMENT0},0);
-						gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-					}
 					glos.programs.useProgram("anaglyph");
 					gl.glUniform1i(glos.programs.getLocation("anaglyph", "stereoi"), stereoi);
 					gl.glUniformMatrix3fv(glos.programs.getLocation("anaglyph", "ana"), 2, false, anaColors, 0);
+					if(stereoi==1) {
+						gl.glBindFramebuffer(GL_FRAMEBUFFER, stereoFramebuffers[0]);
+						
+						gl.glBindTexture(GL_TEXTURE_2D, glos.textures.get("anaglyph"));
+						PixelTypeInfo info=getPixelTypeInfo(pixelType3d, 3);
+						gl.glTexImage2D(GL_TEXTURE_2D, 0, info.glInternalFormat, drawable.getSurfaceWidth(),drawable.getSurfaceHeight(), 0, GL_RGB, info.glPixelSize, null);
+						gl.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, glos.textures.get("anaglyph"), 0);
+
+						gl.glDrawBuffers(1, new int[] {GL_COLOR_ATTACHMENT0},0);
+						gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+						gl.glBindFragDataLocation(glos.programs.getProgram("anaglyph"), 0, "outputColor");
+					}
 				}
 				
 				//Rotate
@@ -654,16 +660,17 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			glos.unBindBuffer(GL_UNIFORM_BUFFER, 2);
 			glos.unBindBuffer(GL_UNIFORM_BUFFER, 3);
 			glos.programs.stopProgram();
+
+			gl.glEnable(GL_BLEND);
 			
 			if(roi!=null || overlay!=null) { 
 				float z=0f;
 				float zf=(float)(cal.pixelDepth/cal.pixelWidth)/srcRect.width;
 				if(go3d) z=((float)sls-2f*sl)*zf;
-				gl.glEnable(GL_MULTISAMPLE);
 				gl.glBlendEquation(GL_FUNC_ADD);
 				gl.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 				if(!JCP.openglroi) {
-					if(doRoi)drawGraphics(gl, z, "roi", 0);
+					if(doRoi)drawGraphics(gl, z, "roiGraphic", 0);
 					if(doOv!=null) {
 						for(int osl=0;osl<sls;osl++) {
 							if(doOv[osl]) {
@@ -672,6 +679,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						}
 					}
 				}else {
+					gl.glEnable(GL_MULTISAMPLE);
 					Color anacolor=null;
 					if(stereoType==StereoType.ANAGLYPH)anacolor=(stereoi==0)?JCP.leftAnaglyphColor:JCP.rightAnaglyphColor;
 					if(overlay!=null) {
@@ -688,12 +696,12 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						}
 					}
 					drawRoiGL(drawable, roi, z, true, anacolor);
+					gl.glDisable(GL_MULTISAMPLE);
 				}
 			}
 			boolean nzi=(!myHZI && (srcRect.width<imageWidth || srcRect.height<imageHeight));
 			
 			if(nzi) {
-				gl.glDisable(GL_MULTISAMPLE);
 				drawMyZoomIndicator(drawable);
 			}
 			//IJ.log("\\Update0:Display took: "+(System.nanoTime()-starttime)/1000000L+"ms");	 
@@ -705,8 +713,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				gl.glDrawBuffers(1, new int[] {GL_BACK_LEFT},0);
 				gl.glBlendEquation(GL_MAX);
 				gl.glBlendFunc(GL_SRC_COLOR, GL_DST_COLOR);
+				glos.programs.useProgram("image");
 				drawGraphics(gl, 0, "anaglyph", 0, "idm");
-				//gl.glFinish();
 			}
 			
 		} //stereoi for
@@ -1044,14 +1052,16 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				1,	yrat,	z, 	1,0,0.5f,
 				-1,	yrat,	z,	0,0,0.5f
 		});
+		ShortBuffer eb=GLBuffers.newDirectShortBuffer(new short[] {0,1,2,2,3,0});
 		gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 1, glos.buffers.get(GL_UNIFORM_BUFFER, "global"));
 		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 2, glos.buffers.get(GL_UNIFORM_BUFFER, modelMatrix));
-		glos.drawTexVao(name, index, vb, "roi");
+		glos.programs.useProgram("roi");
+		glos.drawTexVaoWithEBOVBO(name, index, eb, vb);
+		glos.programs.stopProgram();
 		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 1, 0);
 		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 2, 0);
 		if(Prefs.interpolateScaledImages)gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		
 	}
 	
 	static class PixelTypeInfo{

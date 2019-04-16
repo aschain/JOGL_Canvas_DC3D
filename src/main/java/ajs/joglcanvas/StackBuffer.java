@@ -33,6 +33,9 @@ public class StackBuffer {
 		this.dcic=JCP.getJOGLImageCanvas(imp);
 		if(imp.getNFrames()>1 && imp.getNSlices()==1)isFrameStack=true;
 		initBuffers();
+		if(JCP.backgroundLoadBuffers) {
+			updateBuffersBackground(null, dcic.pixelType3d);
+		}
 	}
 	
 	public boolean initBuffersIfNeeded() {
@@ -85,6 +88,10 @@ public class StackBuffer {
 		}
 	}
 	
+	public boolean updateBuffers(int frame, boolean bload) {
+		return updateBuffers(frame, bload, getPixelType());
+	}
+	
 	public boolean updateBuffers(int frame, boolean bgload, PixelType pixeltype) {
 		checkBuffers(pixeltype);
 		//if(imp.getNSlices()==1)return false; //delete if you implement a buffer for a framestack
@@ -98,18 +105,18 @@ public class StackBuffer {
 				frame=0;
 			}
 			updatedFrames[fr]=true;
-			imageFBs[fr]=getImageBufferStack(go3d, frame, imageFBs[fr]);
+			imageFBs[fr]=getImageBufferStack(pixeltype, frame, imageFBs[fr]);
 			int sls=imp.getNSlices();
 			for(int sl=0;sl<sls;sl++)updatedSlices[fr*sls+sl]=true;
 			if(isFrameStack) for(int i=0;i<imp.getNFrames();i++)updatedSlices[i]=true;
 			skipframe=new int[] {frame};
 		}
-		if(bgload && !isFrameStack)return updateBuffersBackground(skipframe);
+		if(bgload && !isFrameStack)return updateBuffersBackground(skipframe, pixeltype);
 		else return false;
 	}
 	
-	public boolean updateBuffersBackground(int[] skipframe) {
-		checkBuffers();
+	public boolean updateBuffersBackground(int[] skipframe, PixelType pixeltype) {
+		checkBuffers(pixeltype);
 		if(imp.getNSlices()==1)return false;
 		if(updatingBuffers>0)return true;
 		for(int i=0;i<updatedFrames.length;i++)updatedFrames[i]=false;
@@ -200,13 +207,13 @@ public class StackBuffer {
 	}
 	
 	//If there is a buffer, it should be for one whole frame, otherwise one slice or whole frame
-	public Buffer getImageBuffer(PixelType pixeltype, int undersample, int stsl, int endsl, int stfr, int endfr, Buffer buffer, boolean notdirect) {
+	public Buffer getImageBuffer(PixelType type, int undersample, int stsl, int endsl, int stfr, int endfr, Buffer buffer, boolean notdirect) {
 		int bits=imp.getBitDepth();
 		int iwidth=imp.getWidth(), iheight=imp.getHeight();
 		iwidth/=undersample; iheight/=undersample;
 		int width=tex4div(iwidth), height=tex4div(iheight);
 		int chs=imp.getNChannels();
-		COMPS=bits==24?3:chs;
+		int COMPS=bits==24?3:chs;
 		int size=width*height*COMPS*(endsl-stsl)*(endfr-stfr);
 		Object outPixels;
 		if(bits==8)outPixels=new byte[size];
@@ -219,7 +226,7 @@ public class StackBuffer {
 				int offset=((csl-stsl))*width*height*chs+(fr-stfr)*(endsl-stsl)*width*height*chs;
 				for(int i=0;i<chs;i++) {
 					ImageProcessor ip=imst.getProcessor(imp.getStackIndex(i+1, csl+1, fr+1));
-					Object pixels=convertForUndersample(ip.getPixels(), is3d?undersample:1);
+					Object pixels=convertForUndersample(ip.getPixels(), undersample);
 					addPixels(outPixels, width, pixels, iwidth, iheight, offset, i, chs);
 				}
 			}
@@ -293,6 +300,7 @@ public class StackBuffer {
 
 	protected Object convertForUndersample(Object pixels, int undersample) {
 		if(undersample==1) return pixels;
+		int imageWidth=imp.getWidth(), imageHeight=imp.getHeight();
 		int uwidth=imageWidth/undersample,uheight=imageHeight/undersample;
 		Object tpixels;
 		boolean dobyte=pixels instanceof byte[];

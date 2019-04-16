@@ -150,9 +150,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		icc.setPreferredSize(new Dimension(imageWidth,imageHeight));
 		icc.addGLEventListener(this);
 		ImagePlus.addImageListener(this);
-		if(JCP.backgroundLoadBuffers) {
-			updateBuffersBackground(null);
-		}
 		if(mirror)setMirror();
 	}
 	
@@ -736,7 +733,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	
 	public void setUnderSampling(int us) {
 		if(undersample==us)return;
-		while(updatingBuffers>0)IJ.wait(50);
+		//while(updatingBuffers>0)IJ.wait(50);
 		undersample=us;
 		resetBuffers();
 	}
@@ -758,7 +755,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(newtype==PixelType.FLOAT && bits<32) {IJ.error("Not enough image bits for float display pixel");return;}
 		if((newtype==PixelType.SHORT || newtype==PixelType.INT_RGB10A2) && (bits<16)) {IJ.error("Not enough image bits for high bit display pixel");return;}
 
-		while(updatingBuffers>0)IJ.wait(50);
+		//while(updatingBuffers>0)IJ.wait(50);
 		pixelType3d=newtype;
 		resetBuffers();
 	}
@@ -1179,9 +1176,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				icc.add(dcpopup);
 				if (IJ.isMacOSX()) IJ.wait(10);
 				String lbl=mi3d.getLabel();
-				int a=0;
-				for(int i=0;i<imageFBs.length;i++)if(imageFBs!=null)a++;
-				if(a<imageFBs.length)mi3d.setLabel(lbl+" PBOs:"+a+"/"+imageFBs.length);
+				//int a=0;
+				//for(int i=0;i<imageFBs.length;i++)if(imageFBs!=null)a++;
+				//if(a<imageFBs.length)mi3d.setLabel(lbl+" PBOs:"+a+"/"+imageFBs.length);
 				if(dpimag>1.0 && !IJ.isMacOSX())dcpopup.show(icc, (int)(x*dpimag), (int)(y*dpimag));
 				else dcpopup.show(icc, x, y);
 				mi3d.setLabel(lbl);
@@ -1293,14 +1290,17 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			if(go3d) {
 				myImageUpdated=true; repaint();
 			}else {
-				updateBuffers(imp.getT(),true);
+				sb.updateBuffers(imp.getT(),true);
 			}
 		}
 		else if(cmd.equals("revert")){revert();}
 		else if(cmd.equals("reset3d")){resetAngles();}
 		else if(cmd.equals("prefs")){JCP.preferences();}
-		else if(cmd.equals("bgload")) {if(go3d) updateBuffers(imp.getT(),true);  else updateBuffersBackground(null);}
-		else if(cmd.equals("Recorder")){
+		else if(cmd.equals("bgload")) {
+			IJ.error("TODO: bgload");
+			//if(go3d) updateBuffers(imp.getT(),true); 
+			//else updateBuffersBackground(null);
+		}else if(cmd.equals("Recorder")){
 			IJ.run("JOGL Canvas Recorder",imp.getTitle());
 		}else if(cmd.equals("usePBOforSlices")) {
 			if(usePBOforSlices) {

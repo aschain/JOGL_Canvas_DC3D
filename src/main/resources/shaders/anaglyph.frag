@@ -10,11 +10,10 @@ in vec3 texCoord;
 in mat4 luts;
 
 // Outgoing final color.
-out vec4 outputColor;
+layout (location=0) out vec4 outputColor;
 
 uniform sampler3D mytex;
-uniform int stereoi;
-uniform mat3 ana[2];
+uniform mat3 ana;
 
 void main(){
 	vec4 texColor=texture(mytex, texCoord);
@@ -34,8 +33,5 @@ void main(){
 			if(color[2])anaColor.b=clamp(anaColor.b+texColor[i],0,1);
 		}
 	}
-    mat3 m;
-    if(stereoi==0)m=ana[0];
-    else m=ana[1];
-	outputColor = vec4(anaColor*m,1);
+	outputColor = vec4(anaColor*ana,1);
 }

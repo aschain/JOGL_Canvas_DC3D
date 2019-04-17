@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.ArrayList;
 
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -22,6 +23,8 @@ import java.awt.MenuItem;
 import java.awt.PopupMenu;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.ItemEvent;
+import java.awt.event.ItemListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
@@ -502,8 +505,18 @@ public class JCP implements PlugIn {
 		}
 		c.gridy=4; c.gridx=0; c.gridwidth=4; panel.add(new JLabel(" "),c);
 		c.gridy=5; c.gridwidth=1;
-		c.gridx=1; c.weightx=9; c.anchor=GridBagConstraints.EAST; panel.add(new JLabel("Angle of separation"),c);
+		c.gridx=4; c.weightx=5; c.anchor=GridBagConstraints.EAST; panel.add(new JLabel("Angle of separation"),c);
 		c.gridx=3; c.anchor=GridBagConstraints.CENTER; panel.add(sepsl,c);
+		
+		c.gridx=0; c.weightx=3; c.anchor=GridBagConstraints.WEST;
+		JCheckBox cb=new JCheckBox("Dubois",dubois);
+		cb.addItemListener(new ItemListener() {
+			@Override
+			public void itemStateChanged(ItemEvent e)  {
+				dubois=e.getStateChange()==1;
+			}
+		});
+		panel.add(cb,c);
 		
 		JPanel bpanel=new JPanel();
 		bpanel.setLayout(new GridLayout(1,2,10,2));
@@ -517,6 +530,7 @@ public class JCP implements PlugIn {
 				stereoSep=canvas.sep;
 				Prefs.set("ajs.joglcanvas.leftAnaglyphColor",leftAnaglyphColor.getRGB());
 				Prefs.set("ajs.joglcanvas.rightAnaglyphColor",rightAnaglyphColor.getRGB());
+				Prefs.set("ajs.joglcanvas.dubois", dubois);
 				asettings.dispose();
 			}
 		});

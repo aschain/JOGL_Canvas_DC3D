@@ -156,7 +156,6 @@ public class JCGLObjects {
 	public void drawTexVao(String name, int texIndex, int glElementBufferType, int count) {
 		GL3 gl3=gl.getGL3();
 		int gltype=GL_TEXTURE_3D;
-		if(name.equals("anaglyph"))gltype=GL_TEXTURE_2D;
 		gl3.glEnable(gltype);
 		gl3.glBindTexture(gltype, textures.get(name, texIndex));
 		gl3.glBindVertexArray(vaos.get(name));
@@ -297,7 +296,7 @@ public class JCGLObjects {
 			gl3.glEnable(GL_TEXTURE_3D);
 			gl3.glBindTexture(GL_TEXTURE_3D, glTextureHandle); 
 			//gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-			gl3.glTexImage3D(GL_TEXTURE_3D, 0, internalFormat, width, height, depth, 0, (COMPS==4||pixelType==GL_UNSIGNED_INT_2_10_10_10_REV)?GL_RGBA:COMPS==3?GL_RGB:COMPS==2?GL_RG:GL_LUMINANCE, pixelType, buffer); 
+			gl3.glTexImage3D(GL_TEXTURE_3D, 0, internalFormat, width, height, depth, 0, (COMPS==4||pixelType==GL_UNSIGNED_INT_2_10_10_10_REV)?GL_RGBA:COMPS==3?GL_RGB:COMPS==2?GL_RG:GL_RED, pixelType, buffer); 
 			//gl.glTexImage3D(GL_TEXTURE_2D, mipmapLevel, internalFormat, width, height, depth, numBorderPixels, pixelFormat, pixelType, buffer); 
 			
 			int magtype=GL_LINEAR;
@@ -334,7 +333,7 @@ public class JCGLObjects {
 			gl3.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_BASE_LEVEL, 0);
 			gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAX_LEVEL, 0);
-			gl3.glTexImage3D(GL_TEXTURE_3D, 0, pinfo.glInternalFormat, width, height, depth, 0, (COMPS==4||pinfo.components==1)?GL_RGBA:COMPS==3?GL_RGB:COMPS==2?GL_RG:GL_LUMINANCE, pinfo.glPixelSize, offsetSlice*pinfo.components*width*height*pinfo.sizeBytes);
+			gl3.glTexImage3D(GL_TEXTURE_3D, 0, pinfo.glInternalFormat, width, height, depth, 0, pinfo.glFormat, pinfo.glPixelSize, offsetSlice*pinfo.components*width*height*pinfo.sizeBytes);
 			int magtype=GL_LINEAR;
 			if(!Prefs.interpolateScaledImages)magtype=GL_NEAREST;
 			gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, magtype); 

@@ -255,9 +255,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		//global written during reshape call
 
 		glos.programs.newProgram("image", "shaders", "texture", "texture");
-		glos.programs.newProgram("anaglyph", "shaders", "texture", "anaglyph");
+		glos.programs.newProgram("anaglyph", "shaders", "roiTexture", "anaglyph");
 		glos.programs.newProgram("roi", "shaders", "roiTexture", "roiTexture");
-		//glos.programs.addLocation("anaglyph", "stereoi");
 		glos.programs.addLocation("anaglyph", "ana");
 		
 		glos.newTexture("anaglyph");
@@ -268,9 +267,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		gl.glGenRenderbuffers(1, stereoFramebuffers, 1);
 
 		if(JCP.dubois) {
-		//Source of below: bino, a 3d video player:  https://github.com/eile/bino/blob/master/src/video_output_render.fs.glsl
-		// Source of this matrix: http://www.site.uottawa.ca/~edubois/anaglyph/LeastSquaresHowToPhotoshop.pdf
-		anaColors = new float[][] {
+			//Source of below: bino, a 3d video player:  https://github.com/eile/bino/blob/master/src/video_output_render.fs.glsl
+			// Source of this matrix: http://www.site.uottawa.ca/~edubois/anaglyph/LeastSquaresHowToPhotoshop.pdf
+			anaColors = new float[][] {
 				 {0.437f, -0.062f, -0.048f,
 				 0.449f, -0.062f, -0.050f,
 				 0.164f, -0.024f, -0.017f},
@@ -278,6 +277,14 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				{-0.011f,  0.377f, -0.026f,
 				-0.032f,  0.761f, -0.093f,
 				-0.007f,  0.009f,  1.234f}};
+			anaColors = new float[][] {
+				 {0.456f, -0.04f, -0.015f,
+				 0.5f, -0.038f, -0.021f,
+				 0.176f, -0.016f, -0.005f},
+				 
+				{-0.043f,  0.378f, -0.072f,
+				-0.088f,  0.734f, -0.113f,
+				-0.002f,  0.018f,  1.226f}};
 		}else {
 			float lr=(float)JCP.leftAnaglyphColor.getRed()/255f, lg=(float)JCP.leftAnaglyphColor.getGreen()/255f, lb=(float)JCP.leftAnaglyphColor.getBlue()/255f,
 				rr=(float)JCP.rightAnaglyphColor.getRed()/255f, gr=(float)JCP.rightAnaglyphColor.getGreen()/255f, br=(float)JCP.rightAnaglyphColor.getBlue()/255f;
@@ -517,8 +524,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					}
 					gl.glViewport(0, 0, drawable.getSurfaceWidth(), drawable.getSurfaceHeight());
 					gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-					glos.programs.useProgram("anaglyph");
-					gl.glUniformMatrix3fv(glos.programs.getLocation("anaglyph", "ana"), 1, false, anaColors[stereoi], 0);
 					if(gl.glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)IJ.error("not ready");
 				}
 				
@@ -726,8 +731,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						-1,	yrat,	0,	0,1,0.5f
 				});
 
-				glos.programs.useProgram("roi");
-				//gl.glUniformMatrix3fv(glos.programs.getLocation("anaglyph", "ana"), 1, false, anaColors[stereoi], 0);
+
+				glos.programs.useProgram("anaglyph");
+				gl.glUniformMatrix3fv(glos.programs.getLocation("anaglyph", "ana"), 1, false, anaColors[stereoi], 0);
 				drawGraphics(gl, "anaglyph", 0, "idm", vb);
 				glos.programs.stopProgram();
 			}

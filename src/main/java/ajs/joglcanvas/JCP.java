@@ -505,7 +505,7 @@ public class JCP implements PlugIn {
 		}
 		c.gridy=4; c.gridx=0; c.gridwidth=4; panel.add(new JLabel(" "),c);
 		c.gridy=5; c.gridwidth=1;
-		c.gridx=4; c.weightx=5; c.anchor=GridBagConstraints.EAST; panel.add(new JLabel("Angle of separation"),c);
+		c.gridx=1; c.weightx=5; c.anchor=GridBagConstraints.EAST; panel.add(new JLabel("Angle of separation"),c);
 		c.gridx=3; c.anchor=GridBagConstraints.CENTER; panel.add(sepsl,c);
 		
 		c.gridx=0; c.weightx=3; c.anchor=GridBagConstraints.WEST;

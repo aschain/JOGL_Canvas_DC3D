@@ -652,6 +652,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 							min=(float)luts[i].min;
 							max=(float)luts[i].max;
 						}
+						if(min==max) {if(min==0){max+=(1/topmax);}else{min-=(1/topmax);}}
 					}
 					lutMatrixPointer.putFloat(min);
 					lutMatrixPointer.putFloat(max);
@@ -717,7 +718,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			gl.glFinish();
 			
 			if(go3d && stereoType==StereoType.ANAGLYPH) {
-				//TODO:				
 				gl.glBindFramebuffer(GL_FRAMEBUFFER, 0);
 				gl.glBindRenderbuffer(GL_RENDERBUFFER, 0);
 				gl.glViewport(0, 0, drawable.getSurfaceWidth(), drawable.getSurfaceHeight());

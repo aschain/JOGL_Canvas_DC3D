@@ -19,15 +19,15 @@ void main(){
 		bool color[3];
 		float rgb=luts[i][2];
 		if(rgb>0.8){
-			texColor[i]=(texColor[i]-luts[i][0])/(luts[i][1]-luts[i][0]);
+			float col=max(texColor[i]-luts[i][0],0)/(luts[i][1]-luts[i][0]);
 			color[2]=rgb>3.5;
 			if(color[2])rgb=rgb-4;
 			color[1]=rgb>1.8;
 			if(color[1])rgb=rgb-2;
 			color[0]=rgb>0.8;
-			if(color[0])outputColor.r=clamp(outputColor.r+texColor[i],0,1);
-			if(color[1])outputColor.g=clamp(outputColor.g+texColor[i],0,1);
-			if(color[2])outputColor.b=clamp(outputColor.b+texColor[i],0,1);
+			if(color[0])outputColor.r=clamp(outputColor.r+col,0,1);
+			if(color[1])outputColor.g=clamp(outputColor.g+col,0,1);
+			if(color[2])outputColor.b=clamp(outputColor.b+col,0,1);
 		}
 	}
 	outputColor.a = max(outputColor.r,max(outputColor.g,outputColor.b));

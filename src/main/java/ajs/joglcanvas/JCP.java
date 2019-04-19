@@ -61,7 +61,7 @@ public class JCP implements PlugIn {
 	public static GLCapabilities glCapabilities=null;
 	public static MenuItem dcmi=null;
 	public static MenuItem dcmmi=null;
-	public static int undersample=1;
+	public static int undersample=(int)Prefs.get("ajs.joglcanvas.undersample", 1.0);
 	public static String renderFunction=Prefs.get("ajs.joglcanvas.renderFunction", "MAX");
 	public static boolean backgroundLoadBuffers=Prefs.get("ajs.joglcanvas.backgroundLoadBuffers", false);
 	public static boolean openglroi=Prefs.get("ajs.joglcanvas.openglroi", false);
@@ -71,6 +71,8 @@ public class JCP implements PlugIn {
 	public static boolean dubois=Prefs.get("ajs.joglcanvas.dubois", false);
 	public static int stereoSep=5;
 	public static String version="";
+	public static float[][] anaColors;
+	public static boolean go3d=Prefs.get("ajs.joglcanvas.go3d", false);;
 	
 	/**
 	 * This method gets called by ImageJ / Fiji.
@@ -80,6 +82,8 @@ public class JCP implements PlugIn {
 	 */
 	@Override
 	public void run(String arg) {
+		
+		fillAnaColors();
 		
 		if(arg.equals("setprefs")) {
 			preferences();
@@ -319,6 +323,8 @@ public class JCP implements PlugIn {
 		gd.addMessage("Add to ImageJ Popup Menu:");
 		gd.addCheckbox("Convert to JOGL Canvas", hasInstalledPopup(0));
 		gd.addCheckbox("Add JOGL Canvas Mirror", hasInstalledPopup(1));
+		gd.addMessage("Default 3d:");
+		gd.addCheckbox("3D on by default?", go3d);
 		gd.addMessage("Extra:");
 		gd.addChoice("Default 3d Render Type", new String[] {"MAX","ALPHA"}, renderFunction);
 		gd.addCheckbox("Load entire stack in background immediately (for 3d)", backgroundLoadBuffers);
@@ -348,12 +354,15 @@ public class JCP implements PlugIn {
 		//PopupMenus
 		if(gd.getNextBoolean()) addJCPopup(0); else removeJCPopup(0);
 		if(gd.getNextBoolean()) addJCPopup(1); else removeJCPopup(1);
+		go3d=gd.getNextBoolean();
+		Prefs.set("ajs.joglcanvas.go3d", go3d);
 		renderFunction=gd.getNextChoice();
 		Prefs.set("ajs.joglcanvas.renderFunction", renderFunction);
 		backgroundLoadBuffers=gd.getNextBoolean();
 		Prefs.set("ajs.joglcanvas.backgroundLoadBuffers", backgroundLoadBuffers);
 		String newus=gd.getNextChoice();
 		undersample=newus.equals("None")?1:Integer.parseInt(newus);
+		Prefs.set("ajs.joglcanvas.undersample", (double)undersample);
 		openglroi=gd.getNextBoolean();
 		Prefs.set("ajs.joglcanvas.openglroi", openglroi);
 		usePBOforSlices=gd.getNextBoolean();
@@ -509,7 +518,7 @@ public class JCP implements PlugIn {
 		c.gridx=3; c.anchor=GridBagConstraints.CENTER; panel.add(sepsl,c);
 		
 		c.gridx=0; c.weightx=3; c.anchor=GridBagConstraints.WEST;
-		JCheckBox cb=new JCheckBox("Dubois",dubois);
+		JCheckBox cb=new JCheckBox("Dubois-red-cyan",dubois);
 		cb.addItemListener(new ItemListener() {
 			@Override
 			public void itemStateChanged(ItemEvent e)  {
@@ -531,6 +540,7 @@ public class JCP implements PlugIn {
 				Prefs.set("ajs.joglcanvas.leftAnaglyphColor",leftAnaglyphColor.getRGB());
 				Prefs.set("ajs.joglcanvas.rightAnaglyphColor",rightAnaglyphColor.getRGB());
 				Prefs.set("ajs.joglcanvas.dubois", dubois);
+				fillAnaColors();
 				asettings.dispose();
 			}
 		});
@@ -555,6 +565,34 @@ public class JCP implements PlugIn {
 		asettings.pack();
 		asettings.setVisible(true);
 		canvas.repaint();
+	}
+	
+	public static void fillAnaColors(){
+		if(dubois) {
+			//Source of below: bino, a 3d video player:  https://github.com/eile/bino/blob/master/src/video_output_render.fs.glsl
+			// Source of this matrix: http://www.site.uottawa.ca/~edubois/anaglyph/LeastSquaresHowToPhotoshop.pdf
+			anaColors = new float[][] {
+				 {0.437f, -0.062f, -0.048f,
+				 0.449f, -0.062f, -0.050f,
+				 0.164f, -0.024f, -0.017f},
+				 
+				{-0.011f,  0.377f, -0.026f,
+				-0.032f,  0.761f, -0.093f,
+				-0.007f,  0.009f,  1.234f}};
+			anaColors = new float[][] {
+				 {0.456f, -0.04f, -0.015f,
+				 0.5f, -0.038f, -0.021f,
+				 0.176f, -0.016f, -0.005f},
+				 
+				{-0.043f,  0.378f, -0.072f,
+				-0.088f,  0.734f, -0.113f,
+				-0.002f,  0.018f,  1.226f}};
+		}else {
+			float lr=(float)JCP.leftAnaglyphColor.getRed()/255f, lg=(float)JCP.leftAnaglyphColor.getGreen()/255f, lb=(float)JCP.leftAnaglyphColor.getBlue()/255f,
+				rr=(float)JCP.rightAnaglyphColor.getRed()/255f, gr=(float)JCP.rightAnaglyphColor.getGreen()/255f, br=(float)JCP.rightAnaglyphColor.getBlue()/255f;
+			anaColors=new float[][] {{ lr,lr,lr,lg,lg,lg,lb,lb,lb},
+								{rr,rr,rr,gr,gr,gr,br,br,br}};
+		}
 	}
 
 

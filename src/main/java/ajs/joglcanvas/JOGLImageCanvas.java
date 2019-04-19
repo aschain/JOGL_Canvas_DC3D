@@ -91,7 +91,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private Rectangle prevSrcRect=null;
 	private boolean[] ltr=null;
 
-	protected boolean go3d=true;
+	protected boolean go3d=false;
 	public String renderFunction=JCP.renderFunction;
 	public boolean usePBOforSlices=JCP.usePBOforSlices;
 	protected int sx,sy;
@@ -103,7 +103,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 
 	private GL3 gl;
 	private JCGLObjects glos;
-	private float[][] anaColors;
 	private FloatBuffer zoomIndVerts=null;
 	private int lim;
 	private Buffer[] imageFBs;
@@ -115,7 +114,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private static String[] stereoTypeStrings=new String[] {"Stereo off", "Google Cardboard-SBS","Anaglyph (red-cyan)","OpenGL Quad Buffers"};
 	private static final float CB_MAXSIZE=4f;
 	private static final float CB_TRANSLATE=0.44f;
-	private StereoType stereoType=StereoType.ANAGLYPH;
+	private StereoType stereoType=StereoType.OFF;
 	private boolean stereoUpdated=true,threeDupdated=true;
 	private int[] stereoFramebuffers=new int[2];
 
@@ -258,6 +257,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		glos.programs.newProgram("anaglyph", "shaders", "roiTexture", "anaglyph");
 		glos.programs.newProgram("roi", "shaders", "roiTexture", "roiTexture");
 		glos.programs.addLocation("anaglyph", "ana");
+		glos.programs.addLocation("anaglyph", "dubois");
 		
 		glos.newTexture("anaglyph");
 		glos.newBuffer(GL_ARRAY_BUFFER, "anaglyph");
@@ -265,32 +265,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		glos.newVao("anaglyph", 3, GL_FLOAT, 3, GL_FLOAT);
 		gl.glGenFramebuffers(1, stereoFramebuffers, 0);
 		gl.glGenRenderbuffers(1, stereoFramebuffers, 1);
-
-		if(JCP.dubois) {
-			//Source of below: bino, a 3d video player:  https://github.com/eile/bino/blob/master/src/video_output_render.fs.glsl
-			// Source of this matrix: http://www.site.uottawa.ca/~edubois/anaglyph/LeastSquaresHowToPhotoshop.pdf
-			anaColors = new float[][] {
-				 {0.437f, -0.062f, -0.048f,
-				 0.449f, -0.062f, -0.050f,
-				 0.164f, -0.024f, -0.017f},
-				 
-				{-0.011f,  0.377f, -0.026f,
-				-0.032f,  0.761f, -0.093f,
-				-0.007f,  0.009f,  1.234f}};
-			anaColors = new float[][] {
-				 {0.456f, -0.04f, -0.015f,
-				 0.5f, -0.038f, -0.021f,
-				 0.176f, -0.016f, -0.005f},
-				 
-				{-0.043f,  0.378f, -0.072f,
-				-0.088f,  0.734f, -0.113f,
-				-0.002f,  0.018f,  1.226f}};
-		}else {
-			float lr=(float)JCP.leftAnaglyphColor.getRed()/255f, lg=(float)JCP.leftAnaglyphColor.getGreen()/255f, lb=(float)JCP.leftAnaglyphColor.getBlue()/255f,
-				rr=(float)JCP.rightAnaglyphColor.getRed()/255f, gr=(float)JCP.rightAnaglyphColor.getGreen()/255f, br=(float)JCP.rightAnaglyphColor.getBlue()/255f;
-			anaColors=new float[][] {{ lr,lr,lr,lg,lg,lg,lb,lb,lb},
-								{rr,rr,rr,gr,gr,gr,br,br,br}};
-		}
 		
 		zoomIndVerts=GLBuffers.newDirectFloatBuffer(4*3+4*4);
 	}
@@ -690,7 +664,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				}else {
 					gl.glEnable(GL_MULTISAMPLE);
 					Color anacolor=null;
-					if(stereoType==StereoType.ANAGLYPH && go3d)anacolor=(stereoi==0)?JCP.leftAnaglyphColor:JCP.rightAnaglyphColor;
+					if(stereoType==StereoType.ANAGLYPH && go3d) {
+						if(JCP.dubois)anacolor=(stereoi==0)?Color.RED:Color.CYAN;
+						else anacolor=(stereoi==0)?JCP.leftAnaglyphColor:JCP.rightAnaglyphColor;
+					}
 					if(overlay!=null) {
 						for(int i=0;i<overlay.size();i++) {
 							Roi oroi=overlay.get(i);
@@ -733,8 +710,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 
 
 				glos.programs.useProgram("anaglyph");
-				gl.glUniformMatrix3fv(glos.programs.getLocation("anaglyph", "ana"), 1, false, anaColors[stereoi], 0);
+				gl.glUniformMatrix3fv(glos.programs.getLocation("anaglyph", "ana"), 1, false, JCP.anaColors[stereoi], 0);
+				gl.glUniform1f(glos.programs.getLocation("anaglyph", "dubois"), JCP.dubois?1f:0f);
+				//gl.glEnable(GL3.GL_FRAMEBUFFER_SRGB);
 				drawGraphics(gl, "anaglyph", 0, "idm", vb);
+				//gl.glDisable(GL3.GL_FRAMEBUFFER_SRGB);
 				glos.programs.stopProgram();
 			}
 		} //stereoi for

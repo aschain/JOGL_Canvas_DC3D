@@ -105,7 +105,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 
 	private GL3 gl;
 	private JCGLObjects glos;
-	private float[] anaColors;
 	private FloatBuffer zoomIndVerts=null;
 	private int lim;
 	private int undersample=JCP.undersample;
@@ -115,7 +114,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private static final float CB_TRANSLATE=0.44f;
 	private StereoType stereoType=StereoType.OFF;
 	private boolean stereoUpdated=true,threeDupdated=true;
-	private int[] stereoFramebuffers=new int[1];
+	private int[] stereoFramebuffers=new int[2];
 
 	enum PixelType{BYTE, SHORT, FLOAT, INT_RGB10A2};
 	private static final String[] pixelTypeStrings=new String[] {"4 bytes (8bpc, 32bit)","4 shorts (16bpc 64bit)","4 floats (32bpc 128bit)","1 int RGB10A2 (10bpc, 32bit)"};
@@ -240,35 +239,17 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		//global written during reshape call
 
 		glos.programs.newProgram("image", "shaders", "texture", "texture");
-		glos.programs.newProgram("anaglyph", "shaders", "texture", "anaglyph");
+		glos.programs.newProgram("anaglyph", "shaders", "roiTexture", "anaglyph");
 		glos.programs.newProgram("roi", "shaders", "roiTexture", "roiTexture");
-		glos.programs.addLocation("anaglyph", "stereoi");
 		glos.programs.addLocation("anaglyph", "ana");
+		glos.programs.addLocation("anaglyph", "dubois");
 		
 		glos.newTexture("anaglyph");
 		glos.newBuffer(GL_ARRAY_BUFFER, "anaglyph");
 		glos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "anaglyph");
 		glos.newVao("anaglyph", 3, GL_FLOAT, 3, GL_FLOAT);
 		gl.glGenFramebuffers(1, stereoFramebuffers, 0);
-		
-
-		if(JCP.dubois) {
-		//Source of below: bino, a 3d video player:  https://github.com/eile/bino/blob/master/src/video_output_render.fs.glsl
-		// Source of this matrix: http://www.site.uottawa.ca/~edubois/anaglyph/LeastSquaresHowToPhotoshop.pdf
-		anaColors = new float[] {
-				 0.437f, -0.062f, -0.048f,
-				 0.449f, -0.062f, -0.050f,
-				 0.164f, -0.024f, -0.017f
-				 
-				-0.011f,  0.377f, -0.026f,
-				-0.032f,  0.761f, -0.093f,
-				-0.007f,  0.009f,  1.234f};
-		}else {
-			float r=(float)JCP.leftAnaglyphColor.getRed()/255f, g=(float)JCP.leftAnaglyphColor.getGreen()/255f, b=(float)JCP.leftAnaglyphColor.getBlue()/255f,
-				rr=(float)JCP.rightAnaglyphColor.getRed()/255f, gr=(float)JCP.rightAnaglyphColor.getGreen()/255f, br=(float)JCP.rightAnaglyphColor.getBlue()/255f;
-			anaColors=new float[] { r,r,r,g,g,g,b,b,b,
-								rr,rr,rr,gr,gr,gr,br,br,br};
-		}
+		gl.glGenRenderbuffers(1, stereoFramebuffers, 1);
 		
 		zoomIndVerts=GLBuffers.newDirectFloatBuffer(4*3+4*4);
 	}
@@ -487,21 +468,22 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					gl.glScissor((width/2)-(int)(width/CB_MAXSIZE/2f) + (int)(CB_TRANSLATE*width/2f*(stereoi==0?-1:1)), y, (int)(width/CB_MAXSIZE), (int)(height/CB_MAXSIZE));
 					glos.buffers.loadMatrix("global", ortho);
 				}else if(stereoType==StereoType.ANAGLYPH) {
-					glos.programs.useProgram("anaglyph");
-					gl.glUniform1i(glos.programs.getLocation("anaglyph", "stereoi"), stereoi);
-					gl.glUniformMatrix3fv(glos.programs.getLocation("anaglyph", "ana"), 2, false, anaColors, 0);
-					if(stereoi==1) {
-						gl.glBindFramebuffer(GL_FRAMEBUFFER, stereoFramebuffers[0]);
-						
-						gl.glBindTexture(GL_TEXTURE_2D, glos.textures.get("anaglyph"));
-						PixelTypeInfo info=getPixelTypeInfo(pixelType3d, 3);
-						gl.glTexImage2D(GL_TEXTURE_2D, 0, info.glInternalFormat, drawable.getSurfaceWidth(),drawable.getSurfaceHeight(), 0, GL_RGB, info.glPixelSize, null);
-						gl.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, glos.textures.get("anaglyph"), 0);
-
-						gl.glDrawBuffers(1, new int[] {GL_COLOR_ATTACHMENT0},0);
-						gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-						gl.glBindFragDataLocation(glos.programs.getProgram("anaglyph"), 0, "outputColor");
+					gl.glBindFramebuffer(GL_FRAMEBUFFER, stereoFramebuffers[0]);
+					gl.glBindRenderbuffer(GL_RENDERBUFFER, stereoFramebuffers[1]);
+					if(stereoi==0) {
+						PixelTypeInfo info=getPixelTypeInfo(pixelType3d,4);
+						gl.glBindTexture(GL_TEXTURE_3D, glos.textures.get("anaglyph"));
+						gl.glTexImage3D(GL_TEXTURE_3D, 0, info.glInternalFormat, drawable.getSurfaceWidth(),drawable.getSurfaceHeight(), 1, 0, GL_RGBA, info.glPixelSize, null);
+						gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+						gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+						gl.glFramebufferTexture3D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_3D, glos.textures.get("anaglyph"), 0, 0);
+						gl.glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, drawable.getSurfaceWidth(), drawable.getSurfaceHeight());
+						gl.glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, stereoFramebuffers[1]);
+						gl.glBindTexture(GL_TEXTURE_3D, 0);
 					}
+					gl.glViewport(0, 0, drawable.getSurfaceWidth(), drawable.getSurfaceHeight());
+					gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+					if(gl.glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)IJ.error("not ready");
 				}
 				
 				//Rotate
@@ -629,6 +611,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 							min=(float)luts[i].min;
 							max=(float)luts[i].max;
 						}
+						if(min==max) {if(min==0){max+=(1/topmax);}else{min-=(1/topmax);}}
 					}
 					lutMatrixPointer.putFloat(min);
 					lutMatrixPointer.putFloat(max);
@@ -666,7 +649,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				}else {
 					gl.glEnable(GL_MULTISAMPLE);
 					Color anacolor=null;
-					if(stereoType==StereoType.ANAGLYPH)anacolor=(stereoi==0)?JCP.leftAnaglyphColor:JCP.rightAnaglyphColor;
+					if(stereoType==StereoType.ANAGLYPH && go3d) {
+						if(JCP.dubois)anacolor=(stereoi==0)?Color.RED:Color.CYAN;
+						else anacolor=(stereoi==0)?JCP.leftAnaglyphColor:JCP.rightAnaglyphColor;
+					}
 					if(overlay!=null) {
 						for(int i=0;i<overlay.size();i++) {
 							Roi oroi=overlay.get(i);
@@ -693,15 +679,29 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			gl.glDisable(GL_SCISSOR_TEST);
 			gl.glFinish();
 			
-			if(go3d && stereoi==1 && stereoType==StereoType.ANAGLYPH) {
+			if(go3d && stereoType==StereoType.ANAGLYPH) {
 				gl.glBindFramebuffer(GL_FRAMEBUFFER, 0);
-				gl.glDrawBuffers(1, new int[] {GL_BACK_LEFT},0);
+				gl.glBindRenderbuffer(GL_RENDERBUFFER, 0);
+				gl.glViewport(0, 0, drawable.getSurfaceWidth(), drawable.getSurfaceHeight());
+				gl.glEnable(GL_BLEND);
 				gl.glBlendEquation(GL_MAX);
 				gl.glBlendFunc(GL_SRC_COLOR, GL_DST_COLOR);
-				glos.programs.useProgram("image");
-				drawGraphics(gl, 0, "anaglyph", 0, "idm");
+				FloatBuffer vb=GLBuffers.newDirectFloatBuffer(new float[] {
+						-1,	-yrat,	0, 	0,0,0.5f,
+						1,	-yrat,	0, 	1,0,0.5f,
+						1,	yrat,	0, 	1,1,0.5f,
+						-1,	yrat,	0,	0,1,0.5f
+				});
+
+
+				glos.programs.useProgram("anaglyph");
+				gl.glUniformMatrix3fv(glos.programs.getLocation("anaglyph", "ana"), 1, false, JCP.anaColors[stereoi], 0);
+				gl.glUniform1f(glos.programs.getLocation("anaglyph", "dubois"), JCP.dubois?1f:0f);
+				//gl.glEnable(GL3.GL_FRAMEBUFFER_SRGB);
+				drawGraphics(gl, "anaglyph", 0, "idm", vb);
+				//gl.glDisable(GL3.GL_FRAMEBUFFER_SRGB);
+				glos.programs.stopProgram();
 			}
-			
 		} //stereoi for
 		//IJ.log("\\Update1:Display took: "+(System.nanoTime()-starttime)/1000000L+"ms");
 		
@@ -765,11 +765,19 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		return -1;
 	}
 	
-	private void drawGraphics(GL3 gl, float z, String name, int index) {
-		drawGraphics(gl, z, name, index, "model");
+	private void drawGraphics(GL3 gl, String name, int index, String modelmatrix, Buffer vb) {
+
+		ShortBuffer eb=GLBuffers.newDirectShortBuffer(new short[] {0,1,2,2,3,0});
+		gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 1, glos.buffers.get(GL_UNIFORM_BUFFER, "global"));
+		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 2, glos.buffers.get(GL_UNIFORM_BUFFER, modelmatrix));
+		glos.drawTexVaoWithEBOVBO(name, index, eb, vb);
+		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 1, 0);
+		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 2, 0);
+		if(Prefs.interpolateScaledImages)gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	}
 	
-	private void drawGraphics(GL3 gl, float z, String name, int index, String modelMatrix) {
+	private void drawGraphics(GL3 gl, float z, String name, int index) {
 		float yrat=(float)srcRect.height/srcRect.width;
 		FloatBuffer vb=GLBuffers.newDirectFloatBuffer(new float[] {
 				-1,	-yrat,	z, 	0,1,0.5f,
@@ -777,16 +785,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				1,	yrat,	z, 	1,0,0.5f,
 				-1,	yrat,	z,	0,0,0.5f
 		});
-		ShortBuffer eb=GLBuffers.newDirectShortBuffer(new short[] {0,1,2,2,3,0});
-		gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 1, glos.buffers.get(GL_UNIFORM_BUFFER, "global"));
-		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 2, glos.buffers.get(GL_UNIFORM_BUFFER, modelMatrix));
 		glos.programs.useProgram("roi");
-		glos.drawTexVaoWithEBOVBO(name, index, eb, vb);
+		drawGraphics(gl, name, index, "model", vb);
 		glos.programs.stopProgram();
-		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 1, 0);
-		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 2, 0);
-		if(Prefs.interpolateScaledImages)gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	}
 	
 	static class PixelTypeInfo{
@@ -794,12 +795,14 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		public int glPixelSize;
 		public int sizeBytes;
 		public int components;
+		public int glFormat;
 		
 		public PixelTypeInfo(PixelType type, int COMPS) {
 			glInternalFormat=COMPS==4?GL_RGBA32F:COMPS==3?GL_RGB32F:COMPS==2?GL_RG32F:GL_R32F;
 			glPixelSize=GL_FLOAT;
 			sizeBytes=Buffers.SIZEOF_FLOAT;
 			components=COMPS;
+			glFormat=COMPS==4?GL_RGBA:COMPS==3?GL_RGB:COMPS==2?GL_RG:GL_RED;
 			
 			if(type==PixelType.SHORT) {
 				glInternalFormat=COMPS==4?GL_RGBA16:COMPS==3?GL_RGB16:COMPS==2?GL_RG16:GL_R16;
@@ -814,6 +817,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				glPixelSize=GL_UNSIGNED_INT_2_10_10_10_REV;
 				sizeBytes=Buffers.SIZEOF_INT;
 				components=1;
+				glFormat=GL_RGBA;
 			}
 		}
 	}

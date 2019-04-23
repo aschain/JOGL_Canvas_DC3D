@@ -278,25 +278,12 @@ public class JCGLObjects {
 		private void createRgbaTexture(int glTextureHandle, Buffer buffer, int width, int height, int depth, int COMPS) { 
 			GL3 gl3=gl.getGL3();
 			
-			int internalFormat=COMPS==4?GL_RGBA32F:COMPS==3?GL_RGB32F:COMPS==2?GL_RG32F:GL_R32F;
-			int pixelType=GL_FLOAT;
-			if(buffer instanceof ShortBuffer) {
-				internalFormat=COMPS==4?GL_RGBA16:COMPS==3?GL_RGB16:COMPS==2?GL_RG16:GL_R16;
-				pixelType=GL_UNSIGNED_SHORT;
-			}else if(buffer instanceof ByteBuffer) {
-				internalFormat=COMPS==4?GL_RGBA8:COMPS==3?GL_RGB8:COMPS==2?GL_RG8:GL_R8;
-				pixelType=GL_UNSIGNED_BYTE;
-			}else if(buffer instanceof IntBuffer) {
-				//if pixelType=PixelType.RGB10_A2_INT
-				internalFormat=GL_RGB10_A2;
-				pixelType=GL_UNSIGNED_INT_2_10_10_10_REV;
-			}
+			JOGLImageCanvas.PixelTypeInfo pinfo=JOGLImageCanvas.getPixelTypeInfo(buffer, COMPS);
 
 			gl3.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			gl3.glEnable(GL_TEXTURE_3D);
 			gl3.glBindTexture(GL_TEXTURE_3D, glTextureHandle); 
-			//gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-			gl3.glTexImage3D(GL_TEXTURE_3D, 0, internalFormat, width, height, depth, 0, (COMPS==4||pixelType==GL_UNSIGNED_INT_2_10_10_10_REV)?GL_RGBA:COMPS==3?GL_RGB:COMPS==2?GL_RG:GL_RED, pixelType, buffer); 
+			gl3.glTexImage3D(GL_TEXTURE_3D, 0, pinfo.glInternalFormat, width, height, depth, 0, pinfo.glFormat, pinfo.glPixelSize, buffer); 
 			//gl.glTexImage3D(GL_TEXTURE_2D, mipmapLevel, internalFormat, width, height, depth, numBorderPixels, pixelFormat, pixelType, buffer); 
 			
 			int magtype=GL_LINEAR;

@@ -266,6 +266,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		gl.glGenRenderbuffers(1, stereoFramebuffers, 1);
 		
 		zoomIndVerts=GLBuffers.newDirectFloatBuffer(4*3+4*4);
+		
+		if(isMirror) {
+			addMirrorListeners();
+			updateMirror();
+		}
 	}
 
 	@Override
@@ -287,13 +292,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		int sls=imp.getNSlices();
 		int frms=imp.getNFrames();
 		sb.setPixelType(go3d?pixelType3d:getPixelType(), go3d?undersample:1);
-		if(sb.initBuffersIfNeeded()) {
-			myImageUpdated=true;
-			if(isMirror) {
-				addMirrorListeners();
-				updateMirror();
-			}
-		}
 		if(isFrameStack) {sl=fr; fr=0; sls=frms; frms=1;}
 		float yrat=(float)srcRect.height/srcRect.width;
 		
@@ -404,7 +402,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				}else {
 					//sb.update(sl, fr);
 					//gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT);
-					glos.textures.createRgbaTexture("image", sb.getImageBuffer(sl, sl+1, fr, fr+1, null), tex4div(imageWidth), tex4div(imageHeight), 1, COMPS);
+					glos.textures.createRgbaTexture("image", sb.getSliceBuffer(sl+1, fr+1), tex4div(imageWidth), tex4div(imageHeight), 1, COMPS);
 					//sb.imageFBs[fr].rewind();
 				}
 			}

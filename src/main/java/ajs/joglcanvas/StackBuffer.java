@@ -102,7 +102,7 @@ public class StackBuffer {
 			if(imageFBs[i] instanceof FloatBuffer && pixelType!=PixelType.FLOAT)imageFBs[i]=null;
 			if(imageFBs[i] instanceof ShortBuffer && pixelType!=PixelType.SHORT)imageFBs[i]=null;
 			if(imageFBs[i] instanceof ByteBuffer && pixelType!=PixelType.BYTE)imageFBs[i]=null;
-			if(imageFBs[i] instanceof IntBuffer && pixelType!=PixelType.INT_RGB10A2)imageFBs[i]=null;
+			if(imageFBs[i] instanceof IntBuffer && !(pixelType==PixelType.INT_RGB10A2 || pixelType==PixelType.INT_RGBA8))imageFBs[i]=null;
 			if(imageFBs[i]==null) {
 				if(pixelType==PixelType.FLOAT)imageFBs[i]=GLBuffers.newDirectFloatBuffer(bsize);
 				else if(pixelType==PixelType.SHORT)imageFBs[i]=GLBuffers.newDirectShortBuffer(bsize);
@@ -211,9 +211,14 @@ public class StackBuffer {
 	protected void updateImageBufferSlice(int slice, int frame) {
 		updateImageBuffer(slice-1, slice, frame-1, frame);
 	}
-	
-	//If there is a buffer, it should be for one whole frame, otherwise one slice or whole frame
+
+
+
 	public void updateImageBuffer(int stsl, int endsl, int stfr, int endfr) {
+		getImageBuffer(stsl, endsl, stfr, endfr, imageFBs[stfr]);
+	}
+	
+	private Object getImageArray(int stsl, int endsl, int stfr, int endfr) {
 		int bits=imp.getBitDepth();
 		int iwidth=imp.getWidth(), iheight=imp.getHeight(), sls=imp.getNSlices(), frms=imp.getNFrames();
 		iwidth/=undersample; iheight/=undersample;
@@ -222,7 +227,6 @@ public class StackBuffer {
 		int COMPS=bits==24?3:chs;
 		if(pixelType==PixelType.INT_RGB10A2 || pixelType==PixelType.INT_RGBA8)COMPS=1;
 		int size=width*height*COMPS*(endsl-stsl)*(endfr-stfr);
-		sliceSize=size;
 		Object outPixels;
 		if(bits==8)outPixels=new byte[size];
 		else if(bits==16)outPixels=new short[size];
@@ -240,25 +244,46 @@ public class StackBuffer {
 				updatedSlices[fr*sls+csl]=true;
 			}
 		}
+		return outPixels;
+	}
+	
+	public Buffer getImageBuffer(int stsl, int endsl, int stfr, int endfr, Buffer buffer) {
+		int bits=imp.getBitDepth();
+		int iwidth=imp.getWidth(), iheight=imp.getHeight(), sls=imp.getNSlices(), frms=imp.getNFrames();
+		iwidth/=undersample; iheight/=undersample;
+		int width=tex4div(iwidth), height=tex4div(iheight);
+		int chs=imp.getNChannels();
+		int COMPS=bits==24?3:chs;
+		if(pixelType==PixelType.INT_RGB10A2 || pixelType==PixelType.INT_RGBA8)COMPS=1;
+		int size=width*height*COMPS*(endsl-stsl)*(endfr-stfr);
+		Object outPixels=getImageArray(stsl,endsl,stfr,endfr);
 
-		Buffer buffer=imageFBs[stfr];
-		int slfrs=sls;
-		if(endfr-stfr>1)slfrs=frms;
-		int bsize=width*height*COMPS*slfrs;
-		bufferSize=bsize;
-		if(buffer==null || buffer.capacity()!=bsize) {
-			if(pixelType==PixelType.BYTE) {
-				buffer=GLBuffers.newDirectByteBuffer(bsize);
-			}else if(pixelType==PixelType.SHORT) {
-				buffer=GLBuffers.newDirectShortBuffer(bsize);
-			}else if((pixelType==PixelType.INT_RGB10A2 || pixelType==PixelType.INT_RGBA8)) {
-				buffer=GLBuffers.newDirectIntBuffer(bsize);
-			}else if(pixelType==PixelType.FLOAT) {
-				buffer=GLBuffers.newDirectFloatBuffer(bsize);
+		int bsize=size;
+		int offset=0;
+		if(buffer==imageFBs[stfr]) {
+			bsize=width*height*COMPS*((endfr-stfr>1)?frms:sls);
+			offset=stsl*width*height*COMPS;
+			sliceSize=size;
+			bufferSize=bsize;
+			if(buffer==null || buffer.capacity()!=bsize) {
+				if(pixelType==PixelType.BYTE) {
+					buffer=GLBuffers.newDirectByteBuffer(bsize);
+				}else if(pixelType==PixelType.SHORT) {
+					buffer=GLBuffers.newDirectShortBuffer(bsize);
+				}else if((pixelType==PixelType.INT_RGB10A2 || pixelType==PixelType.INT_RGBA8)) {
+					buffer=GLBuffers.newDirectIntBuffer(bsize);
+				}else if(pixelType==PixelType.FLOAT) {
+					buffer=GLBuffers.newDirectFloatBuffer(bsize);
+				}
 			}
 		}
 		
-		int offset=stsl*width*height*COMPS;
+		return convertPixels(outPixels, buffer, offset, COMPS);
+	}
+	
+	private Buffer convertPixels(Object outPixels, Buffer buffer, int offset, int COMPS) {
+		int bits=imp.getBitDepth();
+		int size=bits==8?((byte[])outPixels).length:bits==16?((short[])outPixels).length:bits==32?((float[])outPixels).length:((int[])outPixels).length;
 		buffer.position(offset);
 		if(pixelType==PixelType.BYTE) {
 			if(bits==8)((ByteBuffer)buffer).put(((byte[])outPixels));
@@ -308,6 +333,7 @@ public class StackBuffer {
 			else IJ.error("Don't use less than 32 bit image with 32 bit pixels");
 		}
 		buffer.position(offset);
+		return buffer;
 	}
 
 	protected Object convertForUndersample(Object pixels, int undersample) {

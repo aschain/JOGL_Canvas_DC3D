@@ -383,9 +383,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						sb.resetSlices();
 					}
 					if(!sb.updatedSlices[fr*sls+sl]) {
-						sb.update(fr, sl);
+						sb.update(sl, fr);
 						try {
 							glos.textures.updateSubRgbaPBO("image",fr, sb.imageFBs[fr],sb.imageFBs[fr].position(), sb.sliceSize, sb.bufferSize);
+							sb.imageFBs[fr].rewind();
 						}catch(Exception e) {
 							if(e instanceof GLException) {
 								GLException gle=(GLException)e;
@@ -401,9 +402,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					}
 					glos.textures.loadTexFromPBO("image",fr, tex4div(imageWidth), tex4div(imageHeight), 1, sl, getPixelType(), COMPS);
 				}else {
-					sb.update(fr, sl);
+					//sb.update(sl, fr);
 					//gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT);
-					glos.textures.createRgbaTexture("image", sb.imageFBs[fr], tex4div(imageWidth), tex4div(imageHeight), 1, COMPS);
+					glos.textures.createRgbaTexture("image", sb.getImageBuffer(sl, sl+1, fr, fr+1, null), tex4div(imageWidth), tex4div(imageHeight), 1, COMPS);
+					//sb.imageFBs[fr].rewind();
 				}
 			}
 			myImageUpdated=false;

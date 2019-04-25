@@ -79,8 +79,7 @@ public class StackBuffer {
 		isFrameStack=(frms>1 && sls==1);
 		if(isFrameStack) {sls=frms;frms=1;}
 		imageFBs=new Buffer[frms];
-		updatedFrames=new boolean[frms];
-		updatedSlices=new boolean[frms*sls];
+		resetSlices();
 	}
 	
 	public void resetSlices() {
@@ -355,6 +354,14 @@ public class StackBuffer {
 				else ((float[])pixels)[pi]=((float[])newpixels)[i];
 			}
 		}
+	}
+	
+	public Buffer getBufferWrap(int ch, int sl, int fr) {
+		Object pixels=imp.getStack().getProcessor(imp.getStackIndex(ch+1, sl+1, fr+1)).getPixels();
+		if(pixels instanceof short[])return ShortBuffer.wrap((short[])pixels);
+		if(pixels instanceof float[])return FloatBuffer.wrap((float[])pixels);
+		if(pixels instanceof int[])return IntBuffer.wrap((int[])pixels);
+		return ByteBuffer.wrap((byte[])pixels);
 	}
 	
 	static public MinMax[] getMinMaxArray(LUT[] luts) {

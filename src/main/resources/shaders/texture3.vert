@@ -18,14 +18,9 @@ uniform Transform0{
 uniform Transform1{
 	mat4 model;
 };
-uniform Transform2{
-	mat4 aluts;
-};
 out vec3 texCoord;
-out mat4 luts;
 
 void main(){
 	gl_Position = proj * (view * (model * vec4(aPos.x, aPos.y, aPos.z, 1.0)));
 	texCoord = aTex;
-	luts=aluts;
 }

@@ -134,6 +134,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private static final String[] pixelTypeStrings=new String[] {"4 bytes (8bpc, 32bit)","4 shorts (16bpc 64bit)","4 floats (32bpc 128bit)","1 int RGB10A2 (10bpc, 32bit)"};
 	protected PixelType pixelType3d=PixelType.BYTE;
 	private int COMPS=0;
+	private FloatBuffer lutMatrixPointer=GLBuffers.newDirectFloatBuffer(6*3);
 	
 	private BIScreenGrabber myscreengrabber=null;
 	private AWTGLReadBufferUtil ss=null;
@@ -142,8 +143,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 
 	public JOGLImageCanvas(ImagePlus imp, boolean mirror) {
 		super(imp);
-		int bitDepth=imp.getBitDepth();
-		COMPS=bitDepth==24?3:imp.getNChannels();
+		//COMPS=imp.getBitDepth()==24?3:imp.getNChannels();
+		COMPS=1;
 		if(!mirror) {setOverlay(imp.getCanvas().getOverlay());}
 		updateLastPosition();
 		prevSrcRect=new Rectangle(0, 0, 0, 0);
@@ -234,7 +235,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		
 
 		glos=new JCGLObjects(drawable);
-		glos.newTexture("image");
+		glos.newTexture("image",imp.getNChannels());
 		glos.newBuffer(GL_ARRAY_BUFFER, "image", maxsize*4*Buffers.SIZEOF_FLOAT, null);
 		glos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "image", maxsize*Buffers.SIZEOF_SHORT, elementBuffer);
 		glos.newVao("image", 3, GL_FLOAT, 3, GL_FLOAT);
@@ -246,13 +247,14 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		
 		glos.newBuffer(GL_UNIFORM_BUFFER, "global", 16*2 * Buffers.SIZEOF_FLOAT, null);
 		glos.newBuffer(GL_UNIFORM_BUFFER, "model", 16 * Buffers.SIZEOF_FLOAT, null);
-		glos.newBuffer(GL_UNIFORM_BUFFER, "lut", 16 * Buffers.SIZEOF_FLOAT, null);
+		//glos.newBuffer(GL_UNIFORM_BUFFER, "lut", 24 * Buffers.SIZEOF_FLOAT, null);
 		glos.newBuffer(GL_UNIFORM_BUFFER, "idm", 16 * Buffers.SIZEOF_FLOAT, GLBuffers.newDirectFloatBuffer(FloatUtil.makeIdentity(new float[16])));
 		
 		glos.buffers.loadIdentity("model");
 		//global written during reshape call
 
 		glos.programs.newProgram("image", "shaders", "texture", "texture");
+		glos.programs.addLocation("image", "luts");
 		glos.programs.newProgram("anaglyph", "shaders", "roiTexture", "anaglyph");
 		glos.programs.newProgram("roi", "shaders", "roiTexture", "roiTexture");
 		glos.programs.addLocation("anaglyph", "ana");
@@ -289,8 +291,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		imp.lock();
 		int sl=imp.getZ()-1;
 		int fr=imp.getT()-1;
-		int sls=imp.getNSlices();
-		int frms=imp.getNFrames();
+		int chs=imp.getNChannels(),sls=imp.getNSlices(),frms=imp.getNFrames();
 		sb.setPixelType(go3d?pixelType3d:getPixelType(), go3d?undersample:1);
 		if(isFrameStack) {sl=fr; fr=0; sls=frms; frms=1;}
 		float yrat=(float)srcRect.height/srcRect.width;
@@ -365,15 +366,15 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			}
 		}
 		
-		if(!glos.textures.containsPboKey("image") || deletePBOs || glos.textures.getPboLength("image")!=frms) {
-			glos.textures.newPbo("image", frms);
+		if(!glos.textures.containsPboKey("image") || deletePBOs || glos.textures.getPboLength("image")!=frms*chs) {
+			glos.textures.newPbo("image", frms*chs);
 			sb.resetSlices();
 			deletePBOs=false;
 		}
 		if(go3d&&sls==1)go3d=false;
 		
 		if(myImageUpdated) {
-			if(go3d) {sb.updateBuffers(fr+1,true);}
+			if(go3d) {/*sb.updateBuffers(fr+1,true);*/}
 			else {
 				if(usePBOforSlices) {
 					//IJ.log("sl:"+(sl+1)+" fr:"+(fr+1)+" lps:"+lastPosition[1]+" lpf:"+lastPosition[2]);
@@ -381,10 +382,14 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						sb.resetSlices();
 					}
 					if(!sb.updatedSlices[fr*sls+sl]) {
-						sb.update(sl, fr);
+						//sb.update(sl, fr);
 						try {
-							glos.textures.updateSubRgbaPBO("image",fr, sb.imageFBs[fr],sb.imageFBs[fr].position(), sb.sliceSize, sb.bufferSize);
-							sb.imageFBs[fr].rewind();
+							for(int i=0;i<chs;i++) {
+								IJ.log("JIC "+i+" "+sl+" "+fr);
+								glos.textures.updateSubRgbaPBO("image",fr*chs+i, sb.getBufferWrap(i,sl,fr),0, sb.sliceSize/sb.components*sl, sb.sliceSize/sb.components, sb.bufferSize/sb.components);
+							}
+							sb.updatedSlices[fr*sls+sl]=true;
+							//sb.imageFBs[fr].rewind();
 						}catch(Exception e) {
 							if(e instanceof GLException) {
 								GLException gle=(GLException)e;
@@ -398,7 +403,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 							}
 						}
 					}
-					glos.textures.loadTexFromPBO("image",fr, tex4div(imageWidth), tex4div(imageHeight), 1, sl, getPixelType(), COMPS);
+					for(int i=0;i<chs;i++) {
+						glos.textures.loadTexFromPBO("image",fr*chs+i, "image",i, tex4div(imageWidth), tex4div(imageHeight), 1, sl, getPixelType(), 1, false);
+					}
 				}else {
 					//sb.update(sl, fr);
 					//gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT);
@@ -411,15 +418,21 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			needImageUpdate=false;
 		}
 		if(go3d) {
-			if(sb.updatingBuffers>0 && !sb.updatedFrames[fr])sb.updateBuffers(fr+1,false);
+			//if(sb.updatingBuffers>0 && !sb.updatedFrames[fr])sb.updateBuffers(fr+1,false);
 			for(int ifr=0;ifr<frms;ifr++) {
-				if(sb.updatedFrames[ifr]) {
-					glos.textures.updateRgbaPBO("image", ifr, sb.imageFBs[ifr]);
-					sb.updatedFrames[ifr]=false;
+				//if(sb.updatedFrames[ifr]) {
+					for(int isl=0;isl<sls;isl++) {
+						for(int ich=0;ich<chs;ich++) {
+							glos.textures.updateSubRgbaPBO("image",ifr*chs+ich, sb.getBufferWrap(ich,isl,ifr),0, sb.sliceSize/sb.components*isl, sb.sliceSize/sb.components, sb.bufferSize/sb.components);
+						}
+						sb.updatedSlices[fr*sls+sl]=true;
+					}
+					//sb.updatedFrames[ifr]=false;
 					IJ.showStatus("PBO load");
-				}
+				//}
 			}
-			glos.textures.loadTexFromPBO("image", fr, tex4div(imageWidth/undersample), tex4div(imageHeight/undersample), sls, 0, pixelType3d, COMPS);
+			
+			glos.textures.loadTexFromPBO("image", fr, tex4div(imageWidth/undersample), tex4div(imageHeight/undersample), sls, 0, pixelType3d, COMPS, true);
 		}
 		
 
@@ -579,22 +592,21 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			}
 			
 			//setluts
-			ByteBuffer lutMatrixPointer=(ByteBuffer)glos.buffers.ubuffers.get("lut");
+			//ByteBuffer lutMatrixPointer=(ByteBuffer)glos.buffers.ubuffers.get("lut");
 			lutMatrixPointer.rewind();
 			LUT[] luts=imp.getLuts();
-			boolean[] active=new boolean[COMPS];
-			for(int i=0;i<COMPS;i++)active[i]=true;
+			boolean[] active=new boolean[chs];
+			for(int i=0;i<chs;i++)active[i]=true;
 			if(imp.isComposite())active=((CompositeImage)imp).getActiveChannels();
 			int cmode=imp.getCompositeMode();
 			int bitd=imp.getBitDepth();
 			double topmax=Math.pow(2, bitd==24?8:bitd)-1.0;
-			for(int i=0;i<4;i++) {
+			for(int i=0;i<6;i++) {
 				float min=0,max=0,color=0;
 				if(luts==null || bitd==24) {
-					lutMatrixPointer.putFloat(0f);
-					lutMatrixPointer.putFloat(1f);
-					lutMatrixPointer.putFloat(i==0?1:i==1?2:i==2?4:0);
-					lutMatrixPointer.putFloat(0f);
+					lutMatrixPointer.put(0f);
+					lutMatrixPointer.put(1f);
+					lutMatrixPointer.put(i==0?1:i==1?2:i==2?4:0);
 				}else {
 					if(i<luts.length) {
 						int rgb=luts[i].getRGB(255);
@@ -611,17 +623,17 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						}
 						if(min==max) {if(min==0){max+=(1/topmax);}else{min-=(1/topmax);}}
 					}
-					lutMatrixPointer.putFloat(min);
-					lutMatrixPointer.putFloat(max);
-					lutMatrixPointer.putFloat(color);
-					lutMatrixPointer.putFloat(0f);
+					lutMatrixPointer.put(min);
+					lutMatrixPointer.put(max);
+					lutMatrixPointer.put(color);
 				}
 			}
 			
 			glos.bindUniformBuffer("global", 1);
 			glos.bindUniformBuffer("model", 2);
-			glos.bindUniformBuffer("lut", 3);
-			glos.drawTexVao("image", GL_UNSIGNED_SHORT, lim/4);
+			lutMatrixPointer.rewind();
+			gl.glUniform3fv(glos.programs.getLocation("anaglyph", "dubois"), 6, lutMatrixPointer);
+			glos.drawTexVao("image",GL_UNSIGNED_SHORT, lim/4, 0);
 			glos.unBindBuffer(GL_UNIFORM_BUFFER, 1);
 			glos.unBindBuffer(GL_UNIFORM_BUFFER, 2);
 			glos.unBindBuffer(GL_UNIFORM_BUFFER, 3);
@@ -1051,7 +1063,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		case 1 : return PixelType.BYTE;
 		case 8 : return PixelType.BYTE;
 		case 16 : return PixelType.SHORT;
-		case 24 : return PixelType.BYTE;
+		case 24 : return PixelType.INT_RGBA8;
 		case 32 : return PixelType.FLOAT;
 		}
 		return PixelType.BYTE;

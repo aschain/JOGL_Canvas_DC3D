@@ -361,7 +361,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					if(!sb.updatedSlices[fr*sls+sl]) {
 						sb.update(sl, fr);
 						try {
-							glos.textures.updateSubRgbaPBO("image",fr, sb.imageFBs[fr],sb.imageFBs[fr].position(), sb.sliceSize, sb.bufferSize);
+							glos.textures.updateSubRgbaPBO("image",fr, sb.imageFBs[fr],sb.imageFBs[fr].position(), sb.imageFBs[fr].position(), sb.sliceSize, sb.bufferSize);
 							sb.imageFBs[fr].rewind();
 						}catch(Exception e) {
 							if(e instanceof GLException) {
@@ -376,7 +376,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 							}
 						}
 					}
-					glos.textures.loadTexFromPBO("image",fr, tex4div(imageWidth), tex4div(imageHeight), 1, sl, getPixelType(), COMPS);
+					glos.textures.loadTexFromPBO("image",fr, tex4div(imageWidth), tex4div(imageHeight), 1, sl, getPixelType(), COMPS, false);
 				}else {
 					//sb.update(sl, fr);
 					//gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT);
@@ -397,7 +397,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					IJ.showStatus("PBO load");
 				}
 			}
-			glos.textures.loadTexFromPBO("image", fr, tex4div(imageWidth/undersample), tex4div(imageHeight/undersample), sls, 0, pixelType3d, COMPS);
+			glos.textures.loadTexFromPBO("image", fr, tex4div(imageWidth/undersample), tex4div(imageHeight/undersample), sls, 0, pixelType3d, COMPS, false);
 		}
 		
 
@@ -598,7 +598,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			glos.bindUniformBuffer("global", 1);
 			glos.bindUniformBuffer("model", 2);
 			glos.bindUniformBuffer("lut", 3);
-			glos.drawTexVao("image",GL_UNSIGNED_SHORT, lim/4);
+			glos.drawTexVao("image",GL_UNSIGNED_SHORT, lim/4, 0);
 			glos.unBindBuffer(GL_UNIFORM_BUFFER, 1);
 			glos.unBindBuffer(GL_UNIFORM_BUFFER, 2);
 			glos.unBindBuffer(GL_UNIFORM_BUFFER, 3);

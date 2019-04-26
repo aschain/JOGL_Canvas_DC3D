@@ -3,6 +3,7 @@ package ajs.joglcanvas;
 import static com.jogamp.opengl.GL3.*;
 import static com.jogamp.opengl.GL4.*;
 
+import java.io.File;
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
@@ -606,7 +607,9 @@ public class JCGLObjects {
         	
         	public Program(String root, String vertex, String fragment) {
         	GL3 gl3=gl.getGL3();
-            ShaderCode vertShader = ShaderCode.create(gl3, GL_VERTEX_SHADER, this.getClass(), root, null, vertex+(glver==GLVer.GL4?"4":"3"),
+        	//new File(JCGLObjects.class.getClassLoader().getResource(root+"/"+fragment+".frag").toURI()).exists();
+        	root=root+"/"+(glver==GLVer.GL4?"GL4":"GL3");
+            ShaderCode vertShader = ShaderCode.create(gl3, GL_VERTEX_SHADER, this.getClass(), root, null, vertex,
                     "vert", null, true);
             ShaderCode fragShader = ShaderCode.create(gl3, GL_FRAGMENT_SHADER, this.getClass(), root, null, fragment,
                     "frag", null, true);
@@ -625,7 +628,7 @@ public class JCGLObjects {
             if(glver==GLVer.GL3) {
         		gl3.glUniformBlockBinding(name, gl3.glGetUniformBlockIndex(name, "Transform0"), 1);
         		gl3.glUniformBlockBinding(name, gl3.glGetUniformBlockIndex(name, "Transform1"), 2);
-        		if(vertex.equals("texture"))gl3.glUniformBlockBinding(name, gl3.glGetUniformBlockIndex(name, "Transform2"), 3);
+        		if(fragment.equals("texture"))gl3.glUniformBlockBinding(name, gl3.glGetUniformBlockIndex(name, "lutblock"), 3);
             }
             
         	}

@@ -4,7 +4,6 @@ import ij.CompositeImage;
 import ij.IJ;
 import ij.ImageListener;
 import ij.ImagePlus;
-import ij.ImageStack;
 import ij.Menus;
 import ij.Prefs;
 import ij.gui.ImageCanvas;
@@ -12,7 +11,6 @@ import ij.gui.Roi;
 import ij.gui.ScrollbarWithLabel;
 import ij.gui.StackWindow;
 import ij.measure.Calibration;
-import ij.process.ImageProcessor;
 import ij.process.LUT;
 
 import java.awt.BorderLayout;
@@ -56,26 +54,10 @@ import java.nio.ShortBuffer;
 import java.nio.ByteBuffer;
 
 import com.jogamp.common.nio.Buffers;
-import com.jogamp.opengl.GL;
 import com.jogamp.opengl.GL3;
-
-import static com.jogamp.opengl.GL.GL_R8;
-import static com.jogamp.opengl.GL.GL_RG8;
-import static com.jogamp.opengl.GL.GL_RGB10_A2;
-import static com.jogamp.opengl.GL.GL_RGB8;
-import static com.jogamp.opengl.GL.GL_RGBA8;
-import static com.jogamp.opengl.GL.GL_UNSIGNED_BYTE;
-import static com.jogamp.opengl.GL.GL_UNSIGNED_SHORT;
-import static com.jogamp.opengl.GL2ES2.GL_UNSIGNED_INT_2_10_10_10_REV;
-import static com.jogamp.opengl.GL2GL3.GL_R16;
-import static com.jogamp.opengl.GL2GL3.GL_RG16;
-import static com.jogamp.opengl.GL2GL3.GL_RGB16;
-import static com.jogamp.opengl.GL2GL3.GL_RGBA16;
 import static com.jogamp.opengl.GL3.*;
 import com.jogamp.opengl.GLAutoDrawable;
 import com.jogamp.opengl.util.texture.awt.AWTTextureIO;
-
-import ajs.joglcanvas.JOGLImageCanvas.PixelType;
 
 import com.jogamp.opengl.GLEventListener;
 import com.jogamp.opengl.GLException;
@@ -142,8 +124,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 
 	public JOGLImageCanvas(ImagePlus imp, boolean mirror) {
 		super(imp);
-		int bitDepth=imp.getBitDepth();
-		COMPS=bitDepth==24?3:imp.getNChannels();
+		COMPS=imp.getBitDepth()==24?3:imp.getNChannels();
 		if(!mirror) {setOverlay(imp.getCanvas().getOverlay());}
 		updateLastPosition();
 		prevSrcRect=new Rectangle(0, 0, 0, 0);
@@ -246,7 +227,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		
 		glos.newBuffer(GL_UNIFORM_BUFFER, "global", 16*2 * Buffers.SIZEOF_FLOAT, null);
 		glos.newBuffer(GL_UNIFORM_BUFFER, "model", 16 * Buffers.SIZEOF_FLOAT, null);
-		glos.newBuffer(GL_UNIFORM_BUFFER, "lut", 16 * Buffers.SIZEOF_FLOAT, null);
+		glos.newBuffer(GL_UNIFORM_BUFFER, "lut", 6*4 * Buffers.SIZEOF_FLOAT, null);
 		glos.newBuffer(GL_UNIFORM_BUFFER, "idm", 16 * Buffers.SIZEOF_FLOAT, GLBuffers.newDirectFloatBuffer(FloatUtil.makeIdentity(new float[16])));
 		
 		glos.buffers.loadIdentity("model");
@@ -287,10 +268,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		//starttime=System.nanoTime();
 		if(imp.isLocked())return;
 		imp.lock();
-		int sl=imp.getZ()-1;
-		int fr=imp.getT()-1;
-		int sls=imp.getNSlices();
-		int frms=imp.getNFrames();
+		int sl=imp.getZ()-1, fr=imp.getT()-1,chs=imp.getNChannels(),sls=imp.getNSlices(),frms=imp.getNFrames();
 		sb.setPixelType(go3d?pixelType3d:getPixelType(), go3d?undersample:1);
 		if(isFrameStack) {sl=fr; fr=0; sls=frms; frms=1;}
 		float yrat=(float)srcRect.height/srcRect.width;
@@ -588,13 +566,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			int cmode=imp.getCompositeMode();
 			int bitd=imp.getBitDepth();
 			double topmax=Math.pow(2, bitd==24?8:bitd)-1.0;
-			for(int i=0;i<4;i++) {
+			for(int i=0;i<6;i++) {
 				float min=0,max=0,color=0;
 				if(luts==null || bitd==24) {
-					lutMatrixPointer.putFloat(0f);
-					lutMatrixPointer.putFloat(1f);
-					lutMatrixPointer.putFloat(i==0?1:i==1?2:i==2?4:0);
-					lutMatrixPointer.putFloat(0f);
+					max=1f;
+					color=(i==0?1:i==1?2:i==2?4:0);
 				}else {
 					if(i<luts.length) {
 						int rgb=luts[i].getRGB(255);
@@ -611,17 +587,18 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						}
 						if(min==max) {if(min==0){max+=(1/topmax);}else{min-=(1/topmax);}}
 					}
-					lutMatrixPointer.putFloat(min);
-					lutMatrixPointer.putFloat(max);
-					lutMatrixPointer.putFloat(color);
-					lutMatrixPointer.putFloat(0f);
 				}
+				lutMatrixPointer.putFloat(min);
+				lutMatrixPointer.putFloat(max);
+				lutMatrixPointer.putFloat(color);
+				lutMatrixPointer.putFloat(0f); //padding for vec3 I guess?
 			}
+			lutMatrixPointer.rewind();
 			
 			glos.bindUniformBuffer("global", 1);
 			glos.bindUniformBuffer("model", 2);
 			glos.bindUniformBuffer("lut", 3);
-			glos.drawTexVao("image", GL_UNSIGNED_SHORT, lim/4);
+			glos.drawTexVao("image",GL_UNSIGNED_SHORT, lim/4);
 			glos.unBindBuffer(GL_UNIFORM_BUFFER, 1);
 			glos.unBindBuffer(GL_UNIFORM_BUFFER, 2);
 			glos.unBindBuffer(GL_UNIFORM_BUFFER, 3);

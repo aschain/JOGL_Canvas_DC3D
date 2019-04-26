@@ -6,7 +6,9 @@ precision highp int;
 layout(std140, column_major) uniform;
 
 in vec3 texCoord;
-in mat4 luts;
+uniform lutblock{
+	vec3 luts[6];
+};
 // Outgoing final color.
 out vec4 outputColor;
 

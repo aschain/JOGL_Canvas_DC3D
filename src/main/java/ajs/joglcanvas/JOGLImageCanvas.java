@@ -385,7 +385,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						//sb.update(sl, fr);
 						try {
 							for(int i=0;i<chs;i++) {
-								IJ.log("JIC "+i+" "+sl+" "+fr);
 								glos.textures.updateSubRgbaPBO("image",fr*chs+i, sb.getBufferWrap(i,sl,fr),0, sb.sliceSize/sb.components*sl, sb.sliceSize/sb.components, sb.bufferSize/sb.components);
 							}
 							sb.updatedSlices[fr*sls+sl]=true;
@@ -632,7 +631,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			glos.bindUniformBuffer("global", 1);
 			glos.bindUniformBuffer("model", 2);
 			lutMatrixPointer.rewind();
-			gl.glUniform3fv(glos.programs.getLocation("anaglyph", "dubois"), 6, lutMatrixPointer);
+			gl.glUniform3fv(glos.programs.getLocation("image", "luts"), 6, lutMatrixPointer);
 			glos.drawTexVao("image",GL_UNSIGNED_SHORT, lim/4, 0);
 			glos.unBindBuffer(GL_UNIFORM_BUFFER, 1);
 			glos.unBindBuffer(GL_UNIFORM_BUFFER, 2);

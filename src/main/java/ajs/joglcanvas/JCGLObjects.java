@@ -320,7 +320,6 @@ public class JCGLObjects {
 			int[] ths=handles.get(texName);
 			
 			JOGLImageCanvas.PixelTypeInfo pinfo=JOGLImageCanvas.getPixelTypeInfo(type, COMPS);
-			IJ.log("LPBO "+pn+" "+phs[pn]);
 			
 			gl3.glEnable(GL_TEXTURE_3D);
 			gl3.glActiveTexture(GL_TEXTURE0);
@@ -340,10 +339,10 @@ public class JCGLObjects {
 			gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
 			gl3.glTexParameterfv(GL_TEXTURE_3D, GL_TEXTURE_BORDER_COLOR, new float[] {0f,0f,0f,0f},0);
 			//gl3.glGenerateMipmap(GL_TEXTURE_3D);
+			if(endian)gl3.glPixelStorei(GL_UNPACK_SWAP_BYTES, GL_FALSE);
 			gl3.glDisable(GL_TEXTURE_3D);
 			gl3.glBindTexture(GL_TEXTURE_3D, 0); 
 			gl3.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
-			if(endian)gl3.glPixelStorei(GL_UNPACK_SWAP_BYTES, GL_FALSE);
 		}
 		
 		public void updateRgbaPBO(String name, int index, Buffer buffer) {

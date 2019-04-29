@@ -591,7 +591,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				lutMatrixPointer.putFloat(min);
 				lutMatrixPointer.putFloat(max);
 				lutMatrixPointer.putFloat(color);
-				lutMatrixPointer.putFloat(0f); //padding for vec3 I guess?
+				lutMatrixPointer.putFloat(0f); //padding for vec3 std140
 			}
 			lutMatrixPointer.rewind();
 			

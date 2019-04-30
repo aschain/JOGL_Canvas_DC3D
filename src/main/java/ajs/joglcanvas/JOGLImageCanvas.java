@@ -380,7 +380,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				}else {
 					//sb.update(sl, fr);
 					//gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT);
-					glos.textures.createRgbaTexture("image", sb.getSliceBuffer(sl+1, fr+1), tex4div(imageWidth), tex4div(imageHeight), 1, COMPS);
+					glos.textures.createRgbaTexture("image", sb.getSliceBuffer(0, sl+1, fr+1), tex4div(imageWidth), tex4div(imageHeight), 1, COMPS);
 					//sb.imageFBs[fr].rewind();
 				}
 			}

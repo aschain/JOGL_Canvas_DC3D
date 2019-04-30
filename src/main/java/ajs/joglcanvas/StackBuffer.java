@@ -102,9 +102,9 @@ public class StackBuffer {
 		imageFBs=new Buffer[isFrameStack?1:imp.getNFrames()];
 	}
 	
-	public void update(int fr, int sl) {
+	public void update(int sl, int fr) {
 		checkBuffers();
-		updateImageBufferSlice(fr+1, sl+1);
+		updateImageBufferSlice(sl+1, fr+1);
 	}
 	
 	private void checkBuffers() {
@@ -231,6 +231,15 @@ public class StackBuffer {
 		convertPixels(outPixels, imageFBs[stfr], sliceSize*stsl, components);
 	}
 	
+	/**
+	 * 
+	 * @param stsl
+	 * @param endsl
+	 * @param stfr
+	 * @param endfr
+	 * @param update
+	 * @return
+	 */
 	private Object getImageArray(int stsl, int endsl, int stfr, int endfr, boolean update) {
 		int iwidth=imp.getWidth()/undersample, iheight=imp.getHeight()/undersample, sls=imp.getNSlices(), chs=imp.getNChannels();
 		int size=bufferWidth*bufferHeight*components*(endsl-stsl)*(endfr-stfr);
@@ -255,8 +264,15 @@ public class StackBuffer {
 		return outPixels;
 	}
 	
-	public Buffer getSliceBuffer(int slice, int frame) {
-		Object outPixels=getImageArray(slice-1,slice,frame-1,frame, true);
+	/**
+	 * channel slice and frame are 1-indexed
+	 * 0 for channel means make a multichannel banded array
+	 * @return
+	 */
+	public Buffer getSliceBuffer(int channel, int slice, int frame) {
+		Object outPixels=null;
+		if(channel>0) outPixels=imp.getStack().getProcessor(imp.getStackIndex(channel, slice, frame));
+		else outPixels=getImageArray(slice-1, slice, frame-1, frame, false);
 		if(outPixels instanceof float[])return FloatBuffer.wrap((float[])outPixels);
 		if(outPixels instanceof short[])return ShortBuffer.wrap((short[])outPixels);
 		if(outPixels instanceof int[])return IntBuffer.wrap((int[])outPixels);

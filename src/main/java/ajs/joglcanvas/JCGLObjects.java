@@ -347,9 +347,19 @@ public class JCGLObjects {
 		}
 		
 		public void updateRgbaPBO(String name, int index, Buffer buffer) {
-			updateSubRgbaPBO(name, index, buffer, 0, buffer.limit(), buffer.limit(), buffer.limit());
+			updateSubRgbaPBO(name, index, buffer, 0, 0, buffer.limit(), buffer.limit());
 		}
 		
+		/**
+		 * 
+		 * @param name
+		 * @param index
+		 * @param buffer
+		 * @param bufferOffset
+		 * @param PBOoffset
+		 * @param length
+		 * @param bsize
+		 */
 		public void updateSubRgbaPBO(String name, int index, Buffer buffer, int bufferOffset, int PBOoffset, int length, int bsize) {
 			int[] phs=pbos.get(name);
 			int size=getSizeofType(buffer);

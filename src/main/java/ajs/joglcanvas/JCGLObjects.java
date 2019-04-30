@@ -594,6 +594,10 @@ public class JCGLObjects {
         	programs.put(name, new Program(root, vertex, fragment));
         }
         
+        public void addProgram(String name, int program, Hashtable<String, Integer> locs) {
+        	programs.put(name, new Program(program, locs));
+        }
+        
         public void addLocation(String programName, String var) {
         	programs.get(programName).addLocation(var);
         }
@@ -640,7 +644,6 @@ public class JCGLObjects {
             shaderProgram.add(fragShader);
 
             shaderProgram.init(gl3);
-
             name=shaderProgram.program();
 
             shaderProgram.link(gl3, System.err);
@@ -651,6 +654,11 @@ public class JCGLObjects {
         		if(fragment.equals("texture"))gl3.glUniformBlockBinding(name, gl3.glGetUniformBlockIndex(name, "lutblock"), 3);
             }
             
+        	}
+        	
+        	public Program(int pname, Hashtable<String, Integer> locs) {
+        		name=pname;
+        		locations=locs;
         	}
         	
         	public void addLocation(String var) {

@@ -246,6 +246,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		gl.glGenFramebuffers(1, stereoFramebuffers, 0);
 		gl.glGenRenderbuffers(1, stereoFramebuffers, 1);
 		
+		rgldu=new RoiGLDrawUtility(imp, drawable);
+		
 		zoomIndVerts=GLBuffers.newDirectFloatBuffer(4*3+4*4);
 		
 		if(isMirror) {
@@ -960,7 +962,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	void drawMyZoomIndicator(GLAutoDrawable drawable) {
 		if(myHZI) return;
 		setGL(drawable);
-		if(rgldu==null)rgldu=new RoiGLDrawUtility(imp);
 		float x1 = 10;
 		float y1 = 10;
 		double aspectRatio = (double)imageHeight/imageWidth;
@@ -1011,7 +1012,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	
 	private void drawRoiGL(GLAutoDrawable drawable, Roi roi, float z, boolean drawHandles, Color anacolor) {
 		if(roi==null)return;
-		if(rgldu==null)rgldu=new RoiGLDrawUtility(imp);
 		
 		setGL(drawable);
 		glos.bindUniformBuffer("global", 1);

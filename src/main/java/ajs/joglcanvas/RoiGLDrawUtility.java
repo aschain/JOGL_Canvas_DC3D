@@ -33,13 +33,19 @@ public class RoiGLDrawUtility {
 	boolean isAnaglyph=false;
 	Color anacolor=null;
 
-	public RoiGLDrawUtility(ImagePlus imp) {
+	public RoiGLDrawUtility(ImagePlus imp, GLAutoDrawable drawable) {
 		this.imp=imp;
 		Rectangle srcRect=imp.getCanvas().getSrcRect();
 		w=(float)srcRect.width; h=(float)srcRect.height;
 		offx=(float)srcRect.x; offy=(float)srcRect.y;
 		px=2f/((float)imp.getCanvas().getMagnification()*w);
 		yrat=(float)srcRect.height/srcRect.width;
+		rglos= new JCGLObjects(drawable);
+		rglos.newBuffer(GL_ARRAY_BUFFER, "roiGL");
+		rglos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "roiGL");
+		rglos.newVao("roiGL", 3, GL_FLOAT, 4, GL_FLOAT);
+		rglos.programs.newProgram("color", "shaders", "color", "color");
+		this.gl=drawable.getGL().getGL3();
 	}
 	
 	public void updateSrcRect(GLAutoDrawable drawable) {
@@ -55,11 +61,12 @@ public class RoiGLDrawUtility {
 	}
 	
 	public void setGL(GLAutoDrawable drawable) {
-		gl=drawable.getGL().getGL3();
+		setGL(drawable.getGL());
 	}
 	
-	public void setGL(GL gl1) {
-		gl=gl1.getGL3();
+	public void setGL(GL gl) {
+		this.gl=gl.getGL3();
+		rglos.setGL(gl);
 	}
 
 	public void drawRoiGL(GLAutoDrawable drawable, Roi roi, float z, boolean drawHandles, Color acolor) {
@@ -67,7 +74,6 @@ public class RoiGLDrawUtility {
 		if(roi==null)return;
 		isAnaglyph=(acolor!=null);
 		this.anacolor=acolor;
-		setGL(drawable);
 		updateSrcRect(drawable);
 		
 		gl.glDisable(GL_MULTISAMPLE);
@@ -218,13 +224,6 @@ public class RoiGLDrawUtility {
 	 */
 	public void drawGLfb(GL3 gl, FloatBuffer fb, int toDraw) {
 		setGL(gl);
-		if(rglos==null) {
-			rglos= new JCGLObjects(gl);
-			rglos.newBuffer(GL_ARRAY_BUFFER, "roiGL");
-			rglos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "roiGL");
-			rglos.newVao("roiGL", 3, GL_FLOAT, 4, GL_FLOAT);
-			rglos.programs.newProgram("color", "shaders", "color", "color");
-		}else rglos.setGL(gl);
 		rglos.drawVao(toDraw, "roiGL", fb, "color");
 	}
 	

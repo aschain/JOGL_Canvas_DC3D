@@ -342,6 +342,7 @@ public class StackBuffer {
 	}
 	
 	protected void addPixels(Object pixels, int width, Object newpixels, int nwidth, int nheight, int offset, int c, int bands) {
+		if(width==nwidth && offset==0 && c==0 && bands==1) {pixels=newpixels; return;}
 		boolean dobyte=(pixels instanceof byte[]);
 		boolean doshort=(pixels instanceof short[]);
 		boolean doint=(pixels instanceof int[]);

@@ -130,9 +130,20 @@ public class JCGLObjects {
 	 * @return
 	 */
 	private Buffer getElementBufferFromVBO(Buffer vertexBuffer, int vertexSize) {
-		ShortBuffer eb=GLBuffers.newDirectShortBuffer(vertexBuffer.capacity()/vertexSize);
-		for(int i=0;i<vertexBuffer.capacity()/vertexSize;i++)eb.put((short)i);
-		return eb;
+		int size=vertexBuffer.capacity()/vertexSize;
+		if(size<255) {
+			ByteBuffer ebb=GLBuffers.newDirectByteBuffer(size);
+			for(int i=0;i<size;i++)ebb.put((byte)i);
+			return ebb;
+		}else if(size<65535) {
+			ShortBuffer ebs=GLBuffers.newDirectShortBuffer(size);
+			for(int i=0;i<size;i++)ebs.put((short)i);
+			return ebs;
+		}else {
+			IntBuffer ebi=GLBuffers.newDirectIntBuffer(size);
+			for(int i=0;i<size;i++)ebi.put((int)i);
+			return ebi;
+		}
 	}
 	
 	public void drawTexVaoWithEBOVBO(String name, int index, Buffer elementBuffer, Buffer vertexBuffer) {
@@ -157,7 +168,8 @@ public class JCGLObjects {
 	public void drawTexVao(String name, int texIndex, int glElementBufferType, int count, int chs) {
 		GL3 gl3=gl.getGL3();
 		int gltype=GL_TEXTURE_3D;
-		gl3.glEnable(gltype);
+		//gl3.glEnable(gltype);
+		gl3.glActiveTexture(GL_TEXTURE0);
 		gl3.glBindTexture(gltype, textures.get(name, texIndex));
 		
 		for(int i=0;i<chs;i++) {
@@ -179,11 +191,10 @@ public class JCGLObjects {
 			gl3.glVertexAttribPointer(1, sizes[2], sizes[3], false, sizes[4]+sizes[5], sizes[4]);
 			gl3.glEnableVertexAttribArray(1);
 		}
-		
         gl3.glDrawElements(GL_TRIANGLES, count, glElementBufferType, 0);
 		gl3.glBindVertexArray(0);
 		gl3.glBindTexture(gltype, 0);
-		gl3.glDisable(gltype);
+		//gl3.glDisable(gltype);
 	}
 	
 	public void drawVao(int glDraw, String vname, Buffer vb, String pname) {
@@ -290,7 +301,7 @@ public class JCGLObjects {
 			JOGLImageCanvas.PixelTypeInfo pinfo=JOGLImageCanvas.getPixelTypeInfo(buffer, COMPS);
 
 			gl3.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-			gl3.glEnable(GL_TEXTURE_3D);
+			//gl3.glEnable(GL_TEXTURE_3D);
 			gl3.glBindTexture(GL_TEXTURE_3D, glTextureHandle); 
 			gl3.glTexImage3D(GL_TEXTURE_3D, 0, pinfo.glInternalFormat, width, height, depth, 0, pinfo.glFormat, pinfo.glPixelSize, buffer); 
 			//gl.glTexImage3D(GL_TEXTURE_2D, mipmapLevel, internalFormat, width, height, depth, numBorderPixels, pixelFormat, pixelType, buffer); 
@@ -306,7 +317,7 @@ public class JCGLObjects {
 			gl3.glTexParameterfv(GL_TEXTURE_3D, GL_TEXTURE_BORDER_COLOR, new float[] {0f,0f,0f,0f},0);
 			gl3.glGenerateMipmap(GL_TEXTURE_3D);
 			gl3.glBindTexture(GL_TEXTURE_3D, 0); 
-			gl3.glDisable(GL_TEXTURE_3D);
+			//gl3.glDisable(GL_TEXTURE_3D);
 		} 
 		
 		public void loadTexFromPBO(String sameName, int pn, int width, int height, int depth, int offsetSlice, PixelType type, int COMPS, boolean endian) {
@@ -322,7 +333,7 @@ public class JCGLObjects {
 			
 			JOGLImageCanvas.PixelTypeInfo pinfo=JOGLImageCanvas.getPixelTypeInfo(type, COMPS);
 			
-			gl3.glEnable(GL_TEXTURE_3D);
+			//gl3.glEnable(GL_TEXTURE_3D);
 			gl3.glActiveTexture(GL_TEXTURE0);
 			gl3.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, phs[pn]);
 			gl3.glBindTexture(GL_TEXTURE_3D, ths[tn]); 
@@ -341,7 +352,7 @@ public class JCGLObjects {
 			gl3.glTexParameterfv(GL_TEXTURE_3D, GL_TEXTURE_BORDER_COLOR, new float[] {0f,0f,0f,0f},0);
 			//gl3.glGenerateMipmap(GL_TEXTURE_3D);
 			if(endian)gl3.glPixelStorei(GL_UNPACK_SWAP_BYTES, GL_FALSE);
-			gl3.glDisable(GL_TEXTURE_3D);
+			//gl3.glDisable(GL_TEXTURE_3D);
 			gl3.glBindTexture(GL_TEXTURE_3D, 0); 
 			gl3.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 		}

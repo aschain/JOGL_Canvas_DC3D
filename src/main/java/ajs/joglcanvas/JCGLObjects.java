@@ -198,10 +198,17 @@ public class JCGLObjects {
 	public void drawVao(int glDraw, String name, Buffer vertexBuffer) {
 		GL3 gl3=gl.getGL3();
 		int[] sizes=vaos.vsizes.get(name);
-		Buffer elementBuffer=getElementBufferFromVBO(vertexBuffer, (sizes[4]+sizes[5])/getSizeofType(vertexBuffer));
-		bindEBOVBO(name, elementBuffer, vertexBuffer);
 		gl3.glBindVertexArray(vaos.get(name));
-		gl3.glDrawElements(glDraw, elementBuffer.capacity(), getGLType(elementBuffer), 0);
+		if(glver==GLVer.GL4) {
+			Buffer elementBuffer=getElementBufferFromVBO(vertexBuffer, (sizes[4]+sizes[5])/getSizeofType(vertexBuffer));
+			bindEBOVBO(name, elementBuffer, vertexBuffer);
+			gl3.glDrawElements(glDraw, elementBuffer.capacity(), getGLType(elementBuffer), 0);
+		}else {
+			if(buffers.array.containsKey(name))gl.glBindBuffer(GL_ARRAY_BUFFER, buffers.array.get(name)[0]);
+			gl.glBufferData(GL_ARRAY_BUFFER, vertexBuffer.capacity()*getSizeofType(vertexBuffer), vertexBuffer, GL_DYNAMIC_DRAW);
+			int count=vertexBuffer.capacity()/((sizes[4]+sizes[5])/getSizeofType(vertexBuffer));
+			gl.glDrawArrays(glDraw, 0, count);
+		}
 		gl3.glBindVertexArray(0);
 		unBindEBOVBO(name);
 	}

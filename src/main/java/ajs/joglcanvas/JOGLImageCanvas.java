@@ -1049,8 +1049,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			icc.setMinimumSize(new Dimension(10,10));
 			icc.setSize(width, height);
 			icc.setPreferredSize(new Dimension(width,height));
-			//icc.repaint();
-			if(isMirror) {icc.getParent().repaint();}
 		}
 		else super.setSize(width, height);
 		dstWidth = width;
@@ -1407,8 +1405,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		magnification=imp.getCanvas().getMagnification();
 		Dimension s=imp.getCanvas().getSize();
 		Insets ins=icc.getParent().getInsets();
-		setSize(s);
-		icc.getParent().setSize(s.width+ins.left+ins.right,s.height+ins.top+ins.bottom);
+		if(!icc.getSize().equals(s)) {
+			setSize(s);
+			icc.getParent().setSize(s.width+ins.left+ins.right,s.height+ins.top+ins.bottom);
+		}
 	}
 	
 	private void updateLastPosition() {

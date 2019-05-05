@@ -234,6 +234,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		//global written during reshape call
 
 		glos.programs.newProgram("image", "shaders", "texture", "texture");
+		glos.programs.newProgram("image2d", "shaders", "texture", "texture2d");
 		glos.programs.newProgram("anaglyph", "shaders", "roiTexture", "anaglyph");
 		glos.programs.newProgram("roi", "shaders", "roiTexture", "roiTexture");
 		glos.programs.addLocation("anaglyph", "ana");
@@ -431,8 +432,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		int views=1;
 		if(go3d && stereoType.ordinal()>0)views=2;
 		for(int stereoi=0;stereoi<views;stereoi++) {
-			glos.programs.useProgram("image");
 			if(go3d) {
+				glos.programs.useProgram("image");
 				if(stereoType==StereoType.QUADBUFFER) {
 					if(stereoi==1)
 						gl.glDrawBuffer(GL_RIGHT);
@@ -548,6 +549,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				}
 				
 			}else {
+				glos.programs.useProgram("image2d");
 				gl.glDisable(GL_BLEND);
 				lim=initVerts.length;
 				boolean push=false;
@@ -602,7 +604,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			glos.bindUniformBuffer("global", 1);
 			glos.bindUniformBuffer("model", 2);
 			glos.bindUniformBuffer("lut", 3);
-			glos.drawTexVao("image",GL_UNSIGNED_SHORT, lim/4);
+			glos.drawTexVao("image",GL_UNSIGNED_SHORT, lim/4, go3d?GL_TEXTURE_3D:GL_TEXTURE_2D);
 			glos.unBindBuffer(GL_UNIFORM_BUFFER, 1);
 			glos.unBindBuffer(GL_UNIFORM_BUFFER, 2);
 			glos.unBindBuffer(GL_UNIFORM_BUFFER, 3);
@@ -747,13 +749,13 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private void drawGraphics(GL3 gl, String name, int index, String modelmatrix, Buffer vb) {
 
 		ShortBuffer eb=GLBuffers.newDirectShortBuffer(new short[] {0,1,2,2,3,0});
-		gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 1, glos.buffers.get(GL_UNIFORM_BUFFER, "global"));
 		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 2, glos.buffers.get(GL_UNIFORM_BUFFER, modelmatrix));
-		glos.drawTexVaoWithEBOVBO(name, index, eb, vb);
+		glos.drawTexVaoWithEBOVBO(name, index, eb, vb, GL_TEXTURE_2D);
 		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 1, 0);
 		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 2, 0);
-		if(Prefs.interpolateScaledImages)gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		if(Prefs.interpolateScaledImages)gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	}
 	
 	private void drawGraphics(GL3 gl, float z, String name, int index) {

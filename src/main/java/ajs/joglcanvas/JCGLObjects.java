@@ -105,21 +105,21 @@ public class JCGLObjects {
 		programs.newProgram(name, root, vertex, fragment);
 	}
 	
-	public void drawTexVao(String name, int glElementBufferType, int count) {
-		drawTexVao(name, 0, glElementBufferType, count);
+	public void drawTexVao(String name, int glElementBufferType, int count, int gltype) {
+		drawTexVao(name, 0, glElementBufferType, count, gltype);
 	}
 	
-	public void drawTexVao(String name, int index, Buffer vertexBuffer) {
+	public void drawTexVao(String name, int index, Buffer vertexBuffer, int gltype) {
 		vertexBuffer.rewind();
 		int[] sizes=vaos.vsizes.get(name);
 		Buffer eb=getElementBufferFromVBO(vertexBuffer, (sizes[4]+sizes[5])/getSizeofType(vertexBuffer));
 		eb.rewind();
-		drawTexVaoWithEBOVBO(name, index, eb, vertexBuffer);
+		drawTexVaoWithEBOVBO(name, index, eb, vertexBuffer, gltype);
 	}
 	
-	public void drawTexVao(String name, int index, Buffer vb, String pname) {
+	public void drawTexVao(String name, int index, Buffer vb, String pname, int gltype) {
 		programs.useProgram(pname);
-		drawTexVao(name, index, vb);
+		drawTexVao(name, index, vb, gltype);
 		programs.stopProgram();
 	}
 	
@@ -146,9 +146,9 @@ public class JCGLObjects {
 		}
 	}
 	
-	public void drawTexVaoWithEBOVBO(String name, int index, Buffer elementBuffer, Buffer vertexBuffer) {
+	public void drawTexVaoWithEBOVBO(String name, int index, Buffer elementBuffer, Buffer vertexBuffer, int gltype) {
 		bindEBOVBO(name, elementBuffer, vertexBuffer);
-		drawTexVao(name, index, getGLType(elementBuffer), elementBuffer.capacity());
+		drawTexVao(name, index, getGLType(elementBuffer), elementBuffer.capacity(), gltype);
 		unBindEBOVBO(name);
 	}
 	
@@ -165,10 +165,13 @@ public class JCGLObjects {
 		if(buffers.array.containsKey(name))gl.glBindBuffer(GL_ARRAY_BUFFER, 0);
 	}
 
-	public void drawTexVao(String name, int texIndex, int glElementBufferType, int count) {
+	public void drawTexVao(String name, int texIndex, int glElementBufferType, int count, int gltype) {
 		GL3 gl3=gl.getGL3();
-		int gltype=GL_TEXTURE_3D;
+		//int gltype=GL_TEXTURE_3D;
 		//gl3.glEnable(gltype);
+		int[] pr=new int[1];gl3.glGetIntegerv(GL_CURRENT_PROGRAM, pr,0);
+		gl3.glUniform1i(gl3.glGetUniformLocation(pr[0], "mytex"), 0);
+		
 		gl3.glActiveTexture(GL_TEXTURE0);
 		gl3.glBindTexture(gltype, textures.get(name, texIndex));
 		gl3.glBindVertexArray(vaos.get(name));
@@ -299,24 +302,28 @@ public class JCGLObjects {
 			
 			JOGLImageCanvas.PixelTypeInfo pinfo=JOGLImageCanvas.getPixelTypeInfo(buffer, COMPS);
 
+			int gltype=GL_TEXTURE_3D;
+			if(depth==1)gltype=GL_TEXTURE_2D;
+			
 			gl3.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-			//gl3.glEnable(GL_TEXTURE_3D);
-			gl3.glBindTexture(GL_TEXTURE_3D, glTextureHandle); 
-			gl3.glTexImage3D(GL_TEXTURE_3D, 0, pinfo.glInternalFormat, width, height, depth, 0, pinfo.glFormat, pinfo.glPixelSize, buffer); 
-			//gl.glTexImage3D(GL_TEXTURE_2D, mipmapLevel, internalFormat, width, height, depth, numBorderPixels, pixelFormat, pixelType, buffer); 
+			//gl3.glEnable(gltype);
+			gl3.glBindTexture(gltype, glTextureHandle); 
+			if(depth==1) gl3.glTexImage2D(gltype, 0, pinfo.glInternalFormat, width, height, 0, pinfo.glFormat, pinfo.glPixelSize, buffer); 
+			else gl3.glTexImage3D(gltype, 0, pinfo.glInternalFormat, width, height, depth, 0, pinfo.glFormat, pinfo.glPixelSize, buffer); 
+			//gl.glTexImage3D(gltype, mipmapLevel, internalFormat, width, height, depth, numBorderPixels, pixelFormat, pixelType, buffer); 
 			
 			int magtype=GL_LINEAR;
 			if(!Prefs.interpolateScaledImages)magtype=GL_NEAREST;
 			
-			gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, magtype);
-			gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, magtype);//GL_NEAREST_MIPMAP_LINEAR
-			gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-			gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-			gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
-			gl3.glTexParameterfv(GL_TEXTURE_3D, GL_TEXTURE_BORDER_COLOR, new float[] {0f,0f,0f,0f},0);
-			gl3.glGenerateMipmap(GL_TEXTURE_3D);
-			gl3.glBindTexture(GL_TEXTURE_3D, 0); 
-			//gl3.glDisable(GL_TEXTURE_3D);
+			gl3.glTexParameteri(gltype, GL_TEXTURE_MAG_FILTER, magtype);
+			gl3.glTexParameteri(gltype, GL_TEXTURE_MIN_FILTER, magtype);//GL_NEAREST_MIPMAP_LINEAR
+			gl3.glTexParameteri(gltype, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+			gl3.glTexParameteri(gltype, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+			gl3.glTexParameteri(gltype, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
+			gl3.glTexParameterfv(gltype, GL_TEXTURE_BORDER_COLOR, new float[] {0f,0f,0f,0f},0);
+			gl3.glGenerateMipmap(gltype);
+			gl3.glBindTexture(gltype, 0); 
+			//gl3.glDisable(gltype);
 		} 
 		
 		public void loadTexFromPBO(String sameName, int pn, int width, int height, int depth, int offsetSlice, PixelType type, int COMPS) {
@@ -331,26 +338,29 @@ public class JCGLObjects {
 			int[] ths=handles.get(texName);
 			
 			JOGLImageCanvas.PixelTypeInfo pinfo=JOGLImageCanvas.getPixelTypeInfo(type, COMPS);
+			int gltype=GL_TEXTURE_3D;
+			if(depth==1)gltype=GL_TEXTURE_2D;
 			
-			//gl3.glEnable(GL_TEXTURE_3D);
+			//gl3.glEnable(gltype);
 			gl3.glActiveTexture(GL_TEXTURE0);
 			gl3.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, phs[pn]);
-			gl3.glBindTexture(GL_TEXTURE_3D, ths[tn]); 
+			gl3.glBindTexture(gltype, ths[tn]); 
 			gl3.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-			gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_BASE_LEVEL, 0);
-			gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAX_LEVEL, 0);
-			gl3.glTexImage3D(GL_TEXTURE_3D, 0, pinfo.glInternalFormat, width, height, depth, 0, pinfo.glFormat, pinfo.glPixelSize, offsetSlice*pinfo.components*width*height*pinfo.sizeBytes);
+			gl3.glTexParameteri(gltype, GL_TEXTURE_BASE_LEVEL, 0);
+			gl3.glTexParameteri(gltype, GL_TEXTURE_MAX_LEVEL, 0);
+			if(depth==1)gl3.glTexImage2D(gltype, 0, pinfo.glInternalFormat, width, height, 0, pinfo.glFormat, pinfo.glPixelSize, offsetSlice*pinfo.components*width*height*pinfo.sizeBytes);
+			else gl3.glTexImage3D(gltype, 0, pinfo.glInternalFormat, width, height, depth, 0, pinfo.glFormat, pinfo.glPixelSize, offsetSlice*pinfo.components*width*height*pinfo.sizeBytes);
 			int magtype=GL_LINEAR;
 			if(!Prefs.interpolateScaledImages)magtype=GL_NEAREST;
-			gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, magtype); 
-			gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, magtype);//GL_NEAREST_MIPMAP_LINEAR 
-			gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-			gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-			gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
-			gl3.glTexParameterfv(GL_TEXTURE_3D, GL_TEXTURE_BORDER_COLOR, new float[] {0f,0f,0f,0f},0);
-			//gl3.glGenerateMipmap(GL_TEXTURE_3D);
-			//gl3.glDisable(GL_TEXTURE_3D);
-			gl3.glBindTexture(GL_TEXTURE_3D, 0); 
+			gl3.glTexParameteri(gltype, GL_TEXTURE_MAG_FILTER, magtype); 
+			gl3.glTexParameteri(gltype, GL_TEXTURE_MIN_FILTER, magtype);//GL_NEAREST_MIPMAP_LINEAR 
+			gl3.glTexParameteri(gltype, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+			gl3.glTexParameteri(gltype, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+			gl3.glTexParameteri(gltype, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
+			gl3.glTexParameterfv(gltype, GL_TEXTURE_BORDER_COLOR, new float[] {0f,0f,0f,0f},0);
+			//gl3.glGenerateMipmap(gltype);
+			//gl3.glDisable(gltype);
+			gl3.glBindTexture(gltype, 0); 
 			gl3.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 		}
 		

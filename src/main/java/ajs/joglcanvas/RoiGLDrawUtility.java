@@ -79,9 +79,8 @@ public class RoiGLDrawUtility {
 		if(roi==null)return;
 		int sls=imp.getNSlices(), ch=imp.getC(), sl=imp.getZ(), fr=imp.getT();
 		int rch=roi.getCPosition(), rsl=roi.getZPosition(), rfr=roi.getTPosition();
-		IJ.log(""+ch+" "+sl+" "+fr+" "+rch+" "+rsl+" "+rfr);
 		if(!(rfr==0 || rfr==fr))return;
-		if(!(go3d && ((rch==0 || ch==rch) && (rsl==0 || rsl==sl)) ))return;
+		if(!go3d && !((rch==0 || ch==rch) && (rsl==0 || rsl==sl)))return;
 		setGL(drawable);
 		isAnaglyph=(acolor!=null);
 		this.anacolor=acolor;
@@ -94,8 +93,6 @@ public class RoiGLDrawUtility {
 		Calibration cal=imp.getCalibration();
 		float zf=(float)(cal.pixelDepth/cal.pixelWidth)/w;
 		if(go3d) {
-			sl--;
-			if(rsl==0)sl=rsl-1;
 			z=((float)sls-2f*(rsl==0?(sl-1):(rsl-1)))*zf;
 		}
 		
@@ -146,7 +143,7 @@ public class RoiGLDrawUtility {
 				pzs[i]=-1f;
 				int pos=proi.getPointPosition(i);
 				if(!go3d && (imp.getCurrentSlice()==pos || pos==0))pzs[i]=0f;
-				if(go3d && (pos>=imp.getStackIndex(1, 1, fr) && pos<imp.getStackIndex(1, 1, fr+1))) {
+				if(go3d && (pos>((fr-1)*sls*chs) && pos<(fr*sls*chs))) {
 					int psl=(pos-(fr-1)*sls*chs-ch)/chs;
 					pzs[i]=((float)sls-2f*psl)*zf;
 				}

@@ -21,15 +21,15 @@ import java.nio.ByteBuffer;
 public class StackBuffer {
 	
 	private ImagePlus imp;
-	private boolean isFrameStack=false;
 	private JOGLImageCanvas dcic;
 	public Buffer[] imageFBs;
 	public boolean[] updatedFrames;
-	public boolean[] updatedSlices;
+	private boolean[] updatedSlices;
 	protected int updatingBuffers=0;
 	private boolean stopupdate=false;
 	private PixelType pixelType=PixelType.BYTE;
 	private int undersample=1;
+	public boolean isFrameStack=false;
 	public int sliceSize,bufferSize,bufferWidth,bufferHeight,components;
 	
 	public StackBuffer(ImagePlus imp, JOGLImageCanvas dcic) {
@@ -100,6 +100,15 @@ public class StackBuffer {
 		stopUpdate();
 		isFrameStack=imp.getNFrames()>1 && imp.getNSlices()==1;
 		imageFBs=new Buffer[isFrameStack?1:imp.getNFrames()];
+	}
+	
+	public boolean isSliceUpdated(int sl, int fr) {
+		if(isFrameStack)return updatedSlices[fr];
+		else return updatedSlices[fr*imp.getNSlices()+sl];
+	}
+	
+	public boolean isFrameUpdated(int fr) {
+		return updatedFrames[fr];
 	}
 	
 	public void update(int sl, int fr) {
@@ -228,7 +237,7 @@ public class StackBuffer {
 
 	public void updateImageBuffer(int stsl, int endsl, int stfr, int endfr) {
 		Object outPixels=getImageArray(stsl,endsl,stfr,endfr, true);
-		convertPixels(outPixels, imageFBs[stfr], sliceSize*stsl, components);
+		convertPixels(outPixels, imageFBs[isFrameStack?0:stfr], sliceSize*(isFrameStack?stfr:stsl), components);
 	}
 	
 	/**
@@ -241,6 +250,7 @@ public class StackBuffer {
 	 * @return
 	 */
 	private Object getImageArray(int stsl, int endsl, int stfr, int endfr, boolean update) {
+		if(isFrameStack) {stsl=stfr; endsl=endfr; stsl=0; endsl=1;}
 		int iwidth=imp.getWidth()/undersample, iheight=imp.getHeight()/undersample, sls=imp.getNSlices(), chs=imp.getNChannels();
 		int size=bufferWidth*bufferHeight*components*(endsl-stsl)*(endfr-stfr);
 		Object outPixels;

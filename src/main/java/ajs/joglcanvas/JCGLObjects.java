@@ -3,7 +3,6 @@ package ajs.joglcanvas;
 import static com.jogamp.opengl.GL3.*;
 import static com.jogamp.opengl.GL4.*;
 
-import java.io.File;
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
@@ -309,7 +308,7 @@ public class JCGLObjects {
 
 			gl3.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			//gl3.glEnable(GL_TEXTURE_3D);
-			gl3.glBindTexture(GL_TEXTURE_3D, glTextureHandle); 
+			gl3.glBindTexture(GL_TEXTURE_3D, glTextureHandle);
 			gl3.glTexImage3D(GL_TEXTURE_3D, 0, pinfo.glInternalFormat, width, height, depth, 0, pinfo.glFormat, pinfo.glPixelSize, buffer); 
 			//gl.glTexImage3D(GL_TEXTURE_2D, mipmapLevel, internalFormat, width, height, depth, numBorderPixels, pixelFormat, pixelType, buffer); 
 			
@@ -323,7 +322,7 @@ public class JCGLObjects {
 			gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
 			gl3.glTexParameterfv(GL_TEXTURE_3D, GL_TEXTURE_BORDER_COLOR, new float[] {0f,0f,0f,0f},0);
 			gl3.glGenerateMipmap(GL_TEXTURE_3D);
-			gl3.glBindTexture(GL_TEXTURE_3D, 0); 
+			gl3.glBindTexture(GL_TEXTURE_3D, 0);
 			//gl3.glDisable(GL_TEXTURE_3D);
 		} 
 		

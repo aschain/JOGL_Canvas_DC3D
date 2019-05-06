@@ -83,7 +83,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	protected boolean isMirror=false;
 	private Frame mirror=null;
 	private boolean mirrorMagUnlock=false;
-	private boolean isFrameStack=false;
 	private Rectangle prevSrcRect=null;
 	private boolean[] ltr=null;
 
@@ -272,7 +271,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		imp.lock();
 		int sl=imp.getZ()-1, fr=imp.getT()-1,chs=imp.getNChannels(),sls=imp.getNSlices(),frms=imp.getNFrames();
 		sb.setPixelType(go3d?pixelType3d:getPixelType(), go3d?undersample:1);
-		if(isFrameStack) {sl=fr; fr=0; sls=frms; frms=1;}
+		//if(sb.isFrameStack) {sl=fr; fr=0; sls=frms; frms=1;}
 		float yrat=(float)srcRect.height/srcRect.width;
 		
 		int srcRectWidthMag = (int)(srcRect.width*magnification+0.5);
@@ -355,16 +354,17 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(myImageUpdated) {
 			if(go3d) {sb.updateBuffers(fr+1,true);}
 			else {
+				int cfr=sb.isFrameStack?0:fr;
 				if(usePBOforSlices) {
 					//IJ.log("sl:"+(sl+1)+" fr:"+(fr+1)+" lps:"+lastPosition[1]+" lpf:"+lastPosition[2]);
 					if((lastPosition[0]==imp.getC()||imp.getCompositeMode()!=IJ.COMPOSITE) && lastPosition[1]==(imp.getZ()) && lastPosition[2]==imp.getT()) {
 						sb.resetSlices();
 					}
-					if(!sb.updatedSlices[fr*sls+sl]) {
+					if(!sb.isSliceUpdated(sl,fr)) {
 						sb.update(sl, fr);
 						try {
-							glos.textures.updateSubRgbaPBO("image",fr, sb.imageFBs[fr],sb.imageFBs[fr].position(), sb.imageFBs[fr].position(), sb.sliceSize, sb.bufferSize);
-							sb.imageFBs[fr].rewind();
+							glos.textures.updateSubRgbaPBO("image",cfr, sb.imageFBs[cfr],sb.imageFBs[cfr].position(), sb.imageFBs[cfr].position(), sb.sliceSize, sb.bufferSize);
+							sb.imageFBs[cfr].rewind();
 						}catch(Exception e) {
 							if(e instanceof GLException) {
 								GLException gle=(GLException)e;
@@ -378,7 +378,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 							}
 						}
 					}
-					glos.textures.loadTexFromPBO("image",fr, tex4div(imageWidth), tex4div(imageHeight), 1, sl, getPixelType(), COMPS, false);
+					glos.textures.loadTexFromPBO("image",cfr, tex4div(imageWidth), tex4div(imageHeight), 1, sb.isFrameStack?fr:sl, getPixelType(), COMPS, false);
 				}else {
 					//sb.update(sl, fr);
 					//gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT);
@@ -626,27 +626,24 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						}
 					}
 				}else {
-					gl.glEnable(GL_MULTISAMPLE);
 					Color anacolor=null;
 					if(stereoType==StereoType.ANAGLYPH && go3d) {
 						if(JCP.dubois)anacolor=(stereoi==0)?Color.RED:Color.CYAN;
 						else anacolor=(stereoi==0)?JCP.leftAnaglyphColor:JCP.rightAnaglyphColor;
 					}
+					rgldu.setImp(imp);
+					glos.bindUniformBuffer("global", 1);
+					glos.bindUniformBuffer("model", 2);
+					
+					rgldu.drawRoiGL(drawable, roi, true, anacolor, go3d);
 					if(overlay!=null) {
 						for(int i=0;i<overlay.size();i++) {
-							Roi oroi=overlay.get(i);
-							int rc=oroi.getCPosition(), rz=oroi.getZPosition(),rt=oroi.getTPosition();
-							if(go3d) {
-								if(rt==0||rt==fr) {
-									drawRoiGL(drawable, oroi, ((float)sls-2f*(float)(rz-1))*zf, false, anacolor);
-								}
-							}else {
-								if((rc==0||rc==imp.getC()) && (rz==0||(rz)==imp.getZ()) && (rt==0||(rt)==imp.getT()))drawRoiGL(drawable, oroi, z, false, anacolor);
-							}
+							rgldu.drawRoiGL(drawable, overlay.get(i), false, anacolor, go3d);
 						}
 					}
-					drawRoiGL(drawable, roi, z, true, anacolor);
-					gl.glDisable(GL_MULTISAMPLE);
+					
+					gl.glBindBufferBase(GL_UNIFORM_BUFFER, 1, 0);
+					gl.glBindBufferBase(GL_UNIFORM_BUFFER, 2, 0);
 				}
 			}
 			boolean nzi=(!myHZI && (srcRect.width<imageWidth || srcRect.height<imageHeight));
@@ -1010,19 +1007,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 1, 0);
 		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 2, 0);
 		
-	}
-	
-	private void drawRoiGL(GLAutoDrawable drawable, Roi roi, float z, boolean drawHandles, Color anacolor) {
-		if(roi==null)return;
-		
-		setGL(drawable);
-		glos.bindUniformBuffer("global", 1);
-		glos.bindUniformBuffer("model", 2);
-		
-		rgldu.drawRoiGL(drawable, roi, z, drawHandles, anacolor);
-		
-		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 1, 0);
-		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 2, 0);
 	}
 	
 	private PixelType getPixelType() {

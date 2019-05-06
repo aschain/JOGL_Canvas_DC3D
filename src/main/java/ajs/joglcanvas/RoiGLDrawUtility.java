@@ -14,12 +14,14 @@ import com.jogamp.opengl.GLAutoDrawable;
 import com.jogamp.opengl.util.GLBuffers;
 import com.jogamp.opengl.util.awt.TextRenderer;
 
+import ij.IJ;
 import ij.ImagePlus;
 import ij.gui.Arrow;
 import ij.gui.OvalRoi;
 import ij.gui.PointRoi;
 import ij.gui.Roi;
 import ij.gui.TextRoi;
+import ij.measure.Calibration;
 import ij.process.FloatPolygon;
 
 public class RoiGLDrawUtility {
@@ -56,12 +58,16 @@ public class RoiGLDrawUtility {
 		yrat=(float)srcRect.height/srcRect.width;
 	}
 	
-	public void drawRoiGL(GLAutoDrawable drawable, Roi roi, float z, boolean drawHandles) {
-		drawRoiGL(drawable,roi,z,drawHandles,null);
-	}
+	//public void drawRoiGL(GLAutoDrawable drawable, Roi roi, float z, boolean drawHandles) {
+	//	drawRoiGL(drawable,roi,z,drawHandles,null, imp, false);
+	//}
 	
 	public void setGL(GLAutoDrawable drawable) {
 		setGL(drawable.getGL());
+	}
+	
+	public void setImp(ImagePlus imp) {
+		this.imp=imp;
 	}
 	
 	public void setGL(GL gl) {
@@ -69,15 +75,30 @@ public class RoiGLDrawUtility {
 		rglos.setGL(gl);
 	}
 
-	public void drawRoiGL(GLAutoDrawable drawable, Roi roi, float z, boolean drawHandles, Color acolor) {
-		setGL(drawable);
+	public void drawRoiGL(GLAutoDrawable drawable, Roi roi, boolean drawHandles, Color acolor, boolean go3d) {
 		if(roi==null)return;
+		int sls=imp.getNSlices(), ch=imp.getC(), sl=imp.getZ(), fr=imp.getT();
+		int rch=roi.getCPosition(), rsl=roi.getZPosition(), rfr=roi.getTPosition();
+		IJ.log(""+ch+" "+sl+" "+fr+" "+rch+" "+rsl+" "+rfr);
+		if(!(rfr==0 || rfr==fr))return;
+		if(!(go3d && ((rch==0 || ch==rch) && (rsl==0 || rsl==sl)) ))return;
+		setGL(drawable);
 		isAnaglyph=(acolor!=null);
 		this.anacolor=acolor;
 		updateSrcRect(drawable);
+		boolean ms=gl.glIsEnabled(GL_MULTISAMPLE);
 		
 		gl.glDisable(GL_MULTISAMPLE);
 
+		float z=0f;
+		Calibration cal=imp.getCalibration();
+		float zf=(float)(cal.pixelDepth/cal.pixelWidth)/w;
+		if(go3d) {
+			sl--;
+			if(rsl==0)sl=rsl-1;
+			z=((float)sls-2f*(rsl==0?(sl-1):(rsl-1)))*zf;
+		}
+		
 		int tp=roi.getType();
 
 		if(roi instanceof TextRoi){
@@ -118,7 +139,19 @@ public class RoiGLDrawUtility {
 		}
 		
 		if(tp==Roi.POINT) {
-			drawPoints((PointRoi)roi, xpoints, ypoints, z);
+			PointRoi proi=(PointRoi)roi;
+			float[] pzs=new float[n];
+			int chs=imp.getNChannels();
+			for(int i=0;i<n;i++) {
+				pzs[i]=-1f;
+				int pos=proi.getPointPosition(i);
+				if(!go3d && (imp.getCurrentSlice()==pos || pos==0))pzs[i]=0f;
+				if(go3d && (pos>=imp.getStackIndex(1, 1, fr) && pos<imp.getStackIndex(1, 1, fr+1))) {
+					int psl=(pos-(fr-1)*sls*chs-ch)/chs;
+					pzs[i]=((float)sls-2f*psl)*zf;
+				}
+			}
+			drawPoints((PointRoi)roi, xpoints, ypoints, pzs);
 			drawHandles=false;
 		}else {
 			gl.glDisable(GL_BLEND);
@@ -181,6 +214,7 @@ public class RoiGLDrawUtility {
 				drawHandle(xhandles[i],yhandles[i],z,Roi.HANDLE_SIZE);
 			}
 		}
+		if(!ms)gl.glDisable(GL_MULTISAMPLE);
 	}
 	
 	public float[] getSubGLCoords(FloatPolygon fp, int start, int end, float z, boolean convert) {
@@ -257,8 +291,10 @@ public class RoiGLDrawUtility {
 	}
 	
 	/** draws points. x,y,z are all opengl float positions*/
-	public void drawPoints(PointRoi roi, float[] x, float[] y, float z) {
-		for(int n=0;n<x.length;n++)drawPoint(roi, x[n],y[n],z, n);
+	public void drawPoints(PointRoi roi, float[] x, float[] y, float[] z) {
+		for(int n=0;n<x.length;n++) {
+			if(z[n]>-0.5f)drawPoint(roi, x[n],y[n],z[n], n);
+		}
 	}
 	
 	/** draws a point. x,y,z are all opengl float positions*/

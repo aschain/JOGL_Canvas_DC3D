@@ -170,11 +170,12 @@ public class JCGLObjects {
 		//gl3.glEnable(gltype);
 		gl3.glActiveTexture(GL_TEXTURE0);
 		gl3.glBindTexture(gltype, textures.get(name, texIndex));
+		int[] pr=new int[1];gl3.glGetIntegerv(GL_CURRENT_PROGRAM, pr,0);
+		gl3.glUniform1i(gl3.glGetUniformLocation(pr[0], "mytex"),0);
 		
 		for(int i=0;i<chs;i++) {
 			gl3.glActiveTexture(GL_TEXTURE0+i);
 			gl3.glBindTexture(gltype, textures.get(name, texIndex+i));
-			int[] pr=new int[1];gl3.glGetIntegerv(GL_CURRENT_PROGRAM, pr,0);
 			gl3.glUniform1i(gl3.glGetUniformLocation(pr[0], "mytex["+i+"]"),i);
 		}
 
@@ -648,11 +649,12 @@ public class JCGLObjects {
         	
         	public Program(String root, String vertex, String fragment) {
         	GL3 gl3=gl.getGL3();
-        	//new File(JCGLObjects.class.getClassLoader().getResource(root+"/"+fragment+".frag").toURI()).exists();
-        	root=root+"/"+(glver==GLVer.GL4?"GL4":"GL3");
-            ShaderCode vertShader = ShaderCode.create(gl3, GL_VERTEX_SHADER, this.getClass(), root, null, vertex,
+        	
+        	String add="3";
+        	if(glver==GLVer.GL4)add="4";
+            ShaderCode vertShader = ShaderCode.create(gl3, GL_VERTEX_SHADER, this.getClass(), root, null, vertex+add,
                     "vert", null, true);
-            ShaderCode fragShader = ShaderCode.create(gl3, GL_FRAGMENT_SHADER, this.getClass(), root, null, fragment,
+            ShaderCode fragShader = ShaderCode.create(gl3, GL_FRAGMENT_SHADER, this.getClass(), root, null, fragment+add,
                     "frag", null, true);
 
             ShaderProgram shaderProgram = new ShaderProgram();

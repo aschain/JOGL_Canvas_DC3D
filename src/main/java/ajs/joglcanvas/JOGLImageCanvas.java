@@ -1116,14 +1116,14 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	}
 	
 	private void drawTexGL6f(GL2 gl2, FloatBuffer vb, int toDraw) {
-		vb.rewind();
+		((Buffer)vb).rewind();
 		gl2.glEnableClientState(GL2.GL_VERTEX_ARRAY);
 		gl2.glVertexPointer(3, GL2.GL_FLOAT, 6*Buffers.SIZEOF_FLOAT, vb);
 		gl2.glEnableClientState(GL2.GL_TEXTURE_COORD_ARRAY);
-		vb.position(3);
+		((Buffer)vb).position(3);
 		gl2.glTexCoordPointer(3, GL2.GL_FLOAT, 6*Buffers.SIZEOF_FLOAT,vb);
 		gl2.glDrawArrays(toDraw, 0, vb.limit()/6);
-		vb.rewind();
+		((Buffer)vb).rewind();
 	}
 
 	//Based on jogamp forum user Moa's code, http://forum.jogamp.org/GL-RGBA32F-with-glTexImage2D-td4035766.html

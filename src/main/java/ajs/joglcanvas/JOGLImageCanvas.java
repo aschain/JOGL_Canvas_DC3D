@@ -54,6 +54,7 @@ import java.nio.ShortBuffer;
 import java.nio.ByteBuffer;
 
 import com.jogamp.common.nio.Buffers;
+import com.jogamp.opengl.GL2;
 import com.jogamp.opengl.GL3;
 import static com.jogamp.opengl.GL3.*;
 import com.jogamp.opengl.GLAutoDrawable;
@@ -181,6 +182,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		JCP.version=drawable.getGL().glGetString(GL_VERSION);
 		gl.glClearColor(0f, 0f, 0f, 0f);
 		gl.glDisable(GL_DEPTH_TEST);
+		gl.glDisable(GL_MULTISAMPLE);
 		
 		Calibration cal=imp.getCalibration();
 		long zmaxsls=(long)((double)imp.getNSlices()*cal.pixelDepth/cal.pixelWidth);
@@ -608,12 +610,12 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			glos.unBindBuffer(GL_UNIFORM_BUFFER, 3);
 			glos.programs.stopProgram();
 
-			gl.glEnable(GL_BLEND);
 			
 			if(roi!=null || overlay!=null) { 
 				float z=0f;
 				float zf=(float)(cal.pixelDepth/cal.pixelWidth)/srcRect.width;
 				if(go3d) z=((float)sls-2f*sl)*zf;
+				gl.glEnable(GL_BLEND);
 				gl.glBlendEquation(GL_FUNC_ADD);
 				gl.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 				if(!JCP.openglroi) {
@@ -631,6 +633,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						if(JCP.dubois)anacolor=(stereoi==0)?Color.RED:Color.CYAN;
 						else anacolor=(stereoi==0)?JCP.leftAnaglyphColor:JCP.rightAnaglyphColor;
 					}
+					gl.glDisable(GL_BLEND);
 					rgldu.setImp(imp);
 					glos.bindUniformBuffer("global", 1);
 					glos.bindUniformBuffer("model", 2);
@@ -983,9 +986,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		w1=w1/w*2f; h1=h1/h*2f*yrat;
 		x2=x2/w*2f; y2=y2/h*2f*yrat;
 		w2=w2/w*2f; h2=h2/h*2f*yrat;
-
+		
+		drawable.getGL().getGL3().glDisable(GL_BLEND);
 		zoomIndVerts.rewind();
-		float[] color=new float[] {(float)128/255, (float)128/255, 1f, 77f/255f};
+		float[] color=new float[] {(float)128/255, (float)128/255, 1f, 1f};
 		zoomIndVerts.put(x1).put(y1).put(0f).put(color);
 		zoomIndVerts.put(x1+w1).put(y1).put(0f).put(color);
 		zoomIndVerts.put(x1+w1).put(y1-h1).put(0f).put(color);

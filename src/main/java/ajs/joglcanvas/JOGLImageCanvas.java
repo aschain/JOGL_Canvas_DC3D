@@ -134,7 +134,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		icc=new GLCanvas(JCP.glCapabilities);
 		float[] res=new float[] {1.0f,1.0f};
 		icc.setSurfaceScale(res);
-		res=icc.getRequestedSurfaceScale(res);
+		//res=icc.getRequestedSurfaceScale(res);
 		//IJ.log("GetRequestedSurfaceScale:"+res[0]+" "+res[1]);
 		icc.addMouseListener(this);
 		icc.addMouseMotionListener(this);
@@ -152,23 +152,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	}
 
 	//GLEventListener methods
-	@Override
-	public void reshape(GLAutoDrawable drawable, int x, int y, int width, int height) {
-		setGL(drawable);
-		float[] ortho = FloatUtil.makeOrtho(new float[16], 0, false, -1f, 1f, -(float)srcRect.height/srcRect.width, (float)srcRect.height/srcRect.width, -1f, 1f);
-		glos.buffers.loadMatrix("global", ortho);
-		glos.buffers.loadIdentity("global",16*Buffers.SIZEOF_FLOAT);
-		gl.glViewport(x, y, width, height);
-		int srcRectWidthMag = (int)(srcRect.width*magnification+0.5);
-		int srcRectHeightMag = (int)(srcRect.height*magnification+0.5);
-		//int[] vps=new int[4];
-		//gl.glGetIntegerv(GL_VIEWPORT, vps, 0);
-		//if(dpimag>1.0)IJ.log("bef VPS: "+vps[0]+" "+vps[1]+" "+vps[2]+" "+vps[3]);
-		if(dpimag>1.0 && !IJ.isMacOSX())gl.glViewport(0, 0, (int)(srcRectWidthMag*dpimag+0.5), (int)(srcRectHeightMag*dpimag+0.5));
-		//gl.glGetIntegerv(GL_VIEWPORT, vps, 0);
-		//if(dpimag>1.0)IJ.log("aft VPS: "+vps[0]+" "+vps[1]+" "+vps[2]+" "+vps[3]);
-	}
-
 	@Override
 	public void init(GLAutoDrawable drawable) {
 		GraphicsConfiguration gc=icc.getParent().getGraphicsConfiguration();
@@ -256,12 +239,35 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			updateMirror();
 		}
 	}
+	
+	@Override
+	public void reshape(GLAutoDrawable drawable, int x, int y, int width, int height) {
+		setGL(drawable);
+		resetGlobalMatricies();
+		gl.glViewport(x, y, width, height);
+		if(dpimag>1.0 && !IJ.isMacOSX()) {
+			//int[] vps=new int[4];
+			//gl.glGetIntegerv(GL_VIEWPORT, vps, 0);
+			//if(dpimag>1.0)IJ.log("bef VPS: "+vps[0]+" "+vps[1]+" "+vps[2]+" "+vps[3]);
+			int srcRectWidthMag = (int)(srcRect.width*magnification+0.5);
+			int srcRectHeightMag = (int)(srcRect.height*magnification+0.5);
+			gl.glViewport(0, 0, (int)(srcRectWidthMag*dpimag+0.5), (int)(srcRectHeightMag*dpimag+0.5));
+			//gl.glGetIntegerv(GL_VIEWPORT, vps, 0);
+			//if(dpimag>1.0)IJ.log("aft VPS: "+vps[0]+" "+vps[1]+" "+vps[2]+" "+vps[3]);
+		}
+	}
+	
+	private void resetGlobalMatricies() {
+		float[] ortho = FloatUtil.makeOrtho(new float[16], 0, false, -1f, 1f, -(float)srcRect.height/srcRect.width, (float)srcRect.height/srcRect.width, -1f, 1f);
+		glos.buffers.loadMatrix("global", ortho);
+		glos.buffers.loadIdentity("global",16*Buffers.SIZEOF_FLOAT);
+	}
 
 	@Override
 	public void dispose(GLAutoDrawable drawable) {
 		glos.setGL(drawable);
 		glos.dispose();
-        
+		
 		imp.unlock();
 	}
 
@@ -283,7 +289,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		
 		if(stereoUpdated) {
 			if(stereoType!=StereoType.CARDBOARD) {
-				glos.buffers.loadIdentity("global", 0);
+				resetGlobalMatricies();
 			}
 			if(stereoType==StereoType.ANAGLYPH) {
 			}
@@ -292,7 +298,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(threeDupdated) {
 			if(!go3d) {
 				glos.buffers.loadIdentity("model", 0);
-				glos.buffers.loadIdentity("global", 0);
+				resetGlobalMatricies();
 			}
 			threeDupdated=false;
 		}
@@ -363,7 +369,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						sb.resetSlices();
 					}
 					if(!sb.isSliceUpdated(sl,fr)) {
-						sb.update(sl, fr);
+						sb.updateImageBufferSlice(sl+1, fr+1);
 						try {
 							glos.textures.updateSubRgbaPBO("image",cfr, sb.imageFBs[cfr],sb.imageFBs[cfr].position(), sb.imageFBs[cfr].position(), sb.sliceSize, sb.bufferSize);
 							sb.imageFBs[cfr].rewind();
@@ -574,7 +580,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			double topmax=Math.pow(2, bitd==24?8:bitd)-1.0;
 			for(int i=0;i<6;i++) {
 				float min=0,max=0,color=0;
-				if(luts==null || bitd==24) {
+				if(luts==null || luts.length==0 ||bitd==24) {
 					max=1f;
 					color=(i==0?1:i==1?2:i==2?4:0);
 				}else {

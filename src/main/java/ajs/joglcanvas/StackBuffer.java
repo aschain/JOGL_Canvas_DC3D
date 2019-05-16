@@ -111,11 +111,6 @@ public class StackBuffer {
 		return updatedFrames[fr];
 	}
 	
-	public void update(int sl, int fr) {
-		checkBuffers();
-		updateImageBufferSlice(sl+1, fr+1);
-	}
-	
 	private void checkBuffers() {
 		for(int i=0;i<imageFBs.length;i++) {
 			imageFBs[i]=checkBuffer(imageFBs[i], bufferSize);
@@ -225,6 +220,7 @@ public class StackBuffer {
 	
 	//create a buffer for one frame but whole NSlices, or modify one slice within the stack buffer
 	protected void updateImageBufferStack(int frame) {
+		checkBuffers();
 		int stsl=0,endsl=imp.getNSlices(),stfr=frame-1;
 		if(frame==0 || isFrameStack) {stsl=0; endsl=1;stfr=0;frame=imp.getNFrames();}
 		updateImageBuffer(stsl, endsl, stfr, frame);
@@ -232,6 +228,7 @@ public class StackBuffer {
 
 	//update the buffer for the one slice
 	protected void updateImageBufferSlice(int slice, int frame) {
+		checkBuffers();
 		updateImageBuffer(slice-1, slice, frame-1, frame);
 	}
 
@@ -253,7 +250,10 @@ public class StackBuffer {
 		if(isFrameStack) {stsl=stfr; endsl=endfr; stsl=0; endsl=1;}
 		int iwidth=imp.getWidth()/undersample, iheight=imp.getHeight()/undersample, sls=imp.getNSlices(), chs=imp.getNChannels();
 		int size=bufferWidth*bufferHeight*components*(endsl-stsl)*(endfr-stfr);
-		Object outPixels;
+		Object outPixels=null;
+		if(iwidth==bufferWidth && iheight==bufferHeight && (endsl-stsl)==1 && (endfr-stfr)==1 && chs==1 && components==1) {
+			return imp.getStack().getProcessor(imp.getStackIndex(1, endsl, endfr)).getPixels();
+		}
 		int bits=imp.getBitDepth();
 		if(bits==8)outPixels=new byte[size];
 		else if(bits==16)outPixels=new short[size];
@@ -368,7 +368,6 @@ public class StackBuffer {
 	}
 	
 	protected void addPixels(Object pixels, int width, Object newpixels, int nwidth, int nheight, int offset, int c, int bands) {
-		if(width==nwidth && offset==0 && c==0 && bands==1) {pixels=newpixels; return;}
 		boolean dobyte=(pixels instanceof byte[]);
 		boolean doshort=(pixels instanceof short[]);
 		boolean doint=(pixels instanceof int[]);

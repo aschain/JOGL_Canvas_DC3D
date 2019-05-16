@@ -904,48 +904,22 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	public void windowDeactivated(WindowEvent e) {}
 	
 	private void addMirrorListeners() {
-		ImageCanvas originalic=imp.getCanvas();
-		removeMirrorListeners();
-		originalic.addMouseListener(new MouseListener() {
-			public void mouseClicked(MouseEvent e) {}
+		new StackWindow(imp,new ImageCanvas(imp) {
+			private static final long serialVersionUID = 1L;
 			@Override
-			public void mousePressed(MouseEvent e) { repaint();}
-			@Override
-			public void mouseReleased(MouseEvent e) { repaint(); }
-			@Override
-			public void mouseEntered(MouseEvent e) {}
-			@Override
-			public void mouseExited(MouseEvent e) {}
-		});
-		originalic.addMouseMotionListener(new MouseMotionListener() {
-			@Override
-			public void mouseDragged(MouseEvent e) {repaint();}
-			@Override
-			public void mouseMoved(MouseEvent e) {}
-		});
-		originalic.addKeyListener(new KeyListener() {
-			@Override
-			public void keyTyped(KeyEvent e) {}
-			@Override
-			public void keyPressed(KeyEvent e) {}
-			@Override
-			public void keyReleased(KeyEvent e) {repaint();}
+			public void paint(Graphics g){
+				updateMirror();
+				icc.repaint();
+				super.paint(g);
+			}
 		});
 		imp.getWindow().addWindowListener(this);
-	}
-	
-	private void removeMirrorListeners() {
-		ImageCanvas oic=imp.getCanvas();
-		for(MouseListener ml:oic.getMouseListeners()) {if(ml.getClass().getName().startsWith("ajs.joglcanvas"))oic.removeMouseListener(ml);}
-		for(MouseMotionListener mml:oic.getMouseMotionListeners()) {if(mml.getClass().getName().startsWith("ajs.joglcanvas"))oic.removeMouseMotionListener(mml);}
-		for(KeyListener kl:oic.getKeyListeners()) {if(kl.getClass().getName().startsWith("ajs.joglcanvas"))oic.removeKeyListener(kl);}
-		for(WindowListener wl:imp.getWindow().getWindowListeners()) {if(wl.getClass().getName().startsWith("ajs.joglcanvas"))imp.getWindow().removeWindowListener(wl);}
 	}
 	
 	public void revert() {
 		showUpdateButton(false);
 		if(isMirror){
-			removeMirrorListeners();
+			new StackWindow(imp,new ImageCanvas(imp));
 			mirror.dispose();
 			mirror=null;
 		}else {
@@ -1066,8 +1040,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 
 	@Override
 	public void repaint(int x,int y,int width,int height) {
-		if(icc!=null)icc.repaint(x,y,width,height);
-		else super.repaint(x,y,width,height);
+		if(icc!=null) {
+			updateMirror();
+			icc.repaint(x,y,width,height);
+		}else super.repaint(x,y,width,height);
 	}
 
 	@Override
@@ -1381,9 +1357,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 
 	public void imageUpdated(ImagePlus uimp) {
 		if(imp.equals(uimp)) {
-			if(isMirror) {
-				repaint();
-			}
 			if(!go3d)myImageUpdated=true;
 			else {
 				if((lastPosition[0]==imp.getC()||imp.getCompositeMode()!=IJ.COMPOSITE) && lastPosition[1]==imp.getSlice() && lastPosition[2]==imp.getFrame()) {
@@ -1460,7 +1433,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				setupScroll(offScreenX(sx),offScreenX(sy));
 			}
 		}else super.mousePressed(e);
-		if(isMirror) {updateMirror(); repaint();}
 	}
 	
 	@Override

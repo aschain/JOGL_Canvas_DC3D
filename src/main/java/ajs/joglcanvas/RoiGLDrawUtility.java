@@ -206,25 +206,27 @@ public class RoiGLDrawUtility {
 		}
 	}
 	
-	private float[] getSubGLCoords(FloatPolygon fp, int start, int end, float z, boolean convert) {
+	private float[] getSubGLCoords(FloatPolygon fp, int start, int end, float z, boolean screen) {
 
 		int length=end-start;
 		float[] coords=new float[length*3];
 		for(int i=start;i<end;i++) {
-			float x=glX(fp.xpoints[i]);
-			float y=glY(fp.ypoints[i]);
-			coords[(i-start)*3]=x; coords[(i-start)*3+1]=y; coords[(i-start)*3+2]=z;
-			if(convert) {
-				fp.xpoints[i]=x;
-				fp.ypoints[i]=y;
+			float x,y;
+			if(screen) {
+				x=sglx((int)fp.xpoints[i]);
+				y=sgly((int)fp.ypoints[i]);
+			}else {
+				x=glX(fp.xpoints[i]);
+				y=glY(fp.ypoints[i]);
 			}
+			coords[(i-start)*3]=x; coords[(i-start)*3+1]=y; coords[(i-start)*3+2]=z;
 		}
 		return coords;
 	}
 	
-	private float[] getGLCoords(FloatPolygon fp, float z, boolean convert) {
+	private float[] getGLCoords(FloatPolygon fp, float z, boolean screen) {
 
-		return getSubGLCoords(fp,0,fp.npoints,z,convert);
+		return getSubGLCoords(fp,0,fp.npoints,z,screen);
 	}
 	
 	public void drawGL(float[] coords, Color color, int toDraw) {
@@ -259,10 +261,10 @@ public class RoiGLDrawUtility {
 		
 		gl.glLineWidth(1f);
 		float[] coords={
-				glP(x,-hs,true), glP(y,-hs,false), z,
-				glP(x,hs,true), glP(y,-hs,false), z,
-				glP(x,-hs,true), glP(y,hs,false), z,
-				glP(x,hs,true), glP(y,hs,false), z
+				sglx(sx(x)-hs), sgly(sy(y)-hs), z,
+				sglx(sx(x)+hs), sgly(sy(y)-hs), z,
+				sglx(sx(x)-hs), sgly(sy(y)+hs), z,
+				sglx(sx(x)+hs), sgly(sy(y)+hs), z
 		};
 		drawGL(coords,color,GL_TRIANGLE_STRIP);
 
@@ -325,8 +327,8 @@ public class RoiGLDrawUtility {
 			gl.glLineWidth(1f);
 			if (sizei>LARGE)
 				gl.glLineWidth(3f);
-			drawLine(glP(x,-(sizei+3),true), glY(y), glP(x,(sizei+2),true), glY(y), z, color);
-			drawLine(glX(x), glP(y,-(sizei+3),false), glX(x), glP(y,(sizei+2),false), z, color);
+			drawLine(sglx(sx(x)-(sizei+3)), glY(y), sglx(sx(x)+(sizei+2)), glY(y), z, color);
+			drawLine(glX(x), sgly(sy(y)-(sizei+3)), glX(x), sgly(sy(y)+(sizei+2)), z, color);
 		}
 		if (type==HYBRID || type==DOT) { 
 			if (!colorSet) {
@@ -345,32 +347,32 @@ public class RoiGLDrawUtility {
 				drawHandle(x,y,z,sizei,color, false);
 		}
 		int nPoints=roi.getNCoordinates();
-		float fontSize=9f*px;
+		int fontSize=9;
 		if (roi.getShowLabels() && nPoints>1) {
-			float offset = 2f;
+			int offset = 2;
 			if (nCounters==1) {
 				//if (!colorSet)
 					//setColor(gl,color);
-				drawString(""+n, TextRoi.LEFT, color, glX(x)+offset*px, y-(offset*px+fontSize), z);
+				drawString(""+n, TextRoi.LEFT, color, sglx(sx(x)+offset), sgly(sy(y)+(offset+fontSize)), z);
 			} else if (counters!=null) {
 				//setColor(gl, getPointColor(counters[n-1]));
-				drawString(""+counters[n-1], TextRoi.LEFT, getPointColor(counters[n-1]), x+offset*px, y-(offset*px+fontSize), z);
+				drawString(""+counters[n-1], TextRoi.LEFT, getPointColor(counters[n-1]), sglx(sx(x)+offset), sgly(sy(y)+(offset+fontSize)), z);
 			}
 		}
 		if ((sizei>TINY||type==DOT) && (type==HYBRID||type==DOT)) {
 			if (sizei>LARGE && type==HYBRID)
-				drawOval(x-(sizei/2-1), y-(sizei/2), (sizei-2), (sizei-2), z, Color.black);
+				drawOval(sx(x)-(sizei/2-1), sy(y)-(sizei/2-1), (sizei-2), (sizei-2), z, Color.black);
 			else if (sizei>SMALL && type==HYBRID)
-				drawOval(x-sizei/2, y-(sizei/2+1), (sizei), (sizei), z, Color.black);
+				drawOval(sx(x)-sizei/2, sy(y)-(sizei/2+1), (sizei), (sizei), z, Color.black);
 			else
-				drawOval(x-(sizei/2+1), y-(sizei/2+2), (sizei+2), (sizei+2), z, Color.black);
+				drawOval(sx(x)-(sizei/2+1), sy(y)-(sizei/2+1), (sizei+2), (sizei+2), z, Color.black);
 		}
 		if (type==CIRCLE) {
 			int scaledSize = (sizei+1);
 			if(anacolor!=null)color=anacolor;
 			if (sizei>LARGE)
 				gl.glLineWidth(2f);
-			drawOval(x-scaledSize, y-scaledSize, scaledSize, scaledSize, z, color);
+			drawOval(sx(x)-scaledSize, sy(y)-scaledSize, scaledSize, scaledSize, z, color);
 		}
 	}
 	
@@ -509,9 +511,26 @@ public class RoiGLDrawUtility {
 		return ((h-(y-offy))/h*2f-1f)*yrat;
 	}
 	
-	private float glP(int xy, int a, boolean isX ) {
-		if(isX)return (float)((int)((xy-offx)*mag+a))/dw*2f-1f;
-		return ((float)((int)((h-xy+offy)*mag-a))/dh*2f-1f)*yrat;
+	private int sx(int x) {
+		return (int)((x-offx)*mag);
+	}
+	
+	private int sy(int y) {
+		return (int)((y-offy)*mag);
+	}
+	
+	/**
+	 * screen coordinate (not image) to gl
+	 */
+	private float sglx(int x) {
+		return (float)x/dw*2f-1f;
+	}
+	
+	/**
+	 * screen coordinate (not image) to gl
+	 */
+	private float sgly(int y) {
+		return ((dh-(float)y)/dh*2f-1f)*yrat;
 	}
 	
 	private int impX(float x) {
@@ -527,25 +546,22 @@ public class RoiGLDrawUtility {
 		drawGL(new float[] {x1,y1,z,x2,y2,z},color,GL_LINE_STRIP);
 	}
 	
-	/** x,y are in image pixel positions, z is in opengl float*/
+	/** x,y are in image SCREEN positions, z is in opengl float*/
 	private void fillOval(int x, int y, int width, int height, float z, Color color) {
 		drawOval(x, y, width, height, z, true, color);
 	}
 	
-	/** x,y are in image pixel positions, z is in opengl float*/
+	/** x,y are in image SCREEN positions, z is in opengl float*/
 	private void drawOval(int x, int y, int width, int height, float z, Color color) {
 		drawOval(x, y, width, height, z, false, color);
 	}
 	
-	/** x,y are in image pixel positions, z is in opengl float*/
+	/** x,y are in SCREEN pixel positions, z is in opengl float*/
 	private void drawOval(int x, int y, int width, int height, float z, boolean fill, Color color) {
 		if(imp==null)return;
 		int todraw=GL_LINE_LOOP;
 		if(fill)todraw=GL_TRIANGLE_STRIP;
-		/** TODO
-		 * 
-		 */
-		drawGLFP(todraw, getOvalFloatPolygon(new Rectangle(x,y,width,height),72),z, color); //change to screen coords
+		drawGL(getGLCoords(getOvalFloatPolygon(new Rectangle(x,y,width,height),72),z,true), color, todraw);
 	}
 	
 	/** FloatPolygon has coordinates in IMAGEJ (NOT opengl -1 to 1) except z*/
@@ -669,9 +685,9 @@ public class RoiGLDrawUtility {
 		return new FloatPolygon(xpoints,ypoints,npoints);
 	}
 	
-	private static float[] getFloatColor(Color color) {
-		return new float[] {(float)color.getRed()/255f,(float)color.getGreen()/255f,(float)color.getBlue()/255f,(float)color.getAlpha()/255f};
-	}
+	//private static float[] getFloatColor(Color color) {
+	//	return new float[] {(float)color.getRed()/255f,(float)color.getGreen()/255f,(float)color.getBlue()/255f,(float)color.getAlpha()/255f};
+	//}
 	
 	protected void drawTextRoi(TextRoi troi, float z) {
 		if(textRenderer==null || !textRenderer.getFont().equals(troi.getCurrentFont())) textRenderer = new TextRenderer(troi.getCurrentFont(),troi.getAntialiased(),false);

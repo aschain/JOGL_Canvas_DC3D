@@ -9,6 +9,7 @@ import java.awt.Rectangle;
 import java.nio.FloatBuffer;
 
 import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GL2;
 import com.jogamp.opengl.GL3;
 import com.jogamp.opengl.GLAutoDrawable;
 import com.jogamp.opengl.util.GLBuffers;
@@ -252,11 +253,11 @@ public class RoiGLDrawUtility {
 		rglos.drawVao(toDraw, "roiGL", fb, "color");
 	}
 	
-	/** draws an Roi handle. x,y, are IMAGEJ int positions
+	/** draws an Roi handle. x,y, are IMAGEJ subpixel positions
 	 *                       z is opengl float position
 	 *  Handle is in  IMAGEJ int!!
 	 */
-	private void drawHandle(int x, int y, float z, int hsi, Color color, boolean border) {
+	private void drawHandle(float x, float y, float z, int hsi, Color color, boolean border) {
 		int hs=(int)((float)hsi/(2*(((1f/px)<128f)?2f:1f)));
 		
 		gl.glLineWidth(1f);
@@ -283,9 +284,11 @@ public class RoiGLDrawUtility {
 	
 	/** draws a point. x,y,z are all opengl float positions*/
 	private void drawPoint(PointRoi roi, float z, int n, Color anacolor) {
+		boolean ms=gl.glIsEnabled(GL_MULTISAMPLE);
+		gl.glEnable(GL_MULTISAMPLE);
 		FloatPolygon fp=roi.getFloatPolygon();
-		int x=(int)fp.xpoints[n];
-		int y=(int)fp.ypoints[n];
+		float x=fp.xpoints[n];
+		float y=fp.ypoints[n];
 		n++;
 		final int TINY=1, SMALL=3, MEDIUM=5, LARGE=7, EXTRA_LARGE=11;
 		final int HYBRID=0, CROSSHAIR=1, DOT=2, CIRCLE=3;
@@ -297,7 +300,6 @@ public class RoiGLDrawUtility {
 			case 3: sizei=LARGE; break;
 			case 4: sizei=EXTRA_LARGE; break;
 		}
-		boolean colorSet = false;
 		Color strokeColor=roi.getStrokeColor();
 		Color color = strokeColor!=null?strokeColor:Roi.getColor();
 		if (roi.isActiveOverlayRoi()) {
@@ -316,33 +318,24 @@ public class RoiGLDrawUtility {
 		int type=roi.getPointType();
 		if (nCounters>1 && counters!=null && n<=counters.length)
 			color = getPointColor(counters[n-1]);
+		if(anacolor!=null)color=anacolor;
 		if (type==HYBRID || type==CROSSHAIR) {
-			if (type==0)
-				if(anacolor!=null) color=anacolor;
-				else color=Color.white;
-			else {
-				if(anacolor!=null) color=anacolor;
-				colorSet = true;
-			}
 			gl.glLineWidth(1f);
 			if (sizei>LARGE)
 				gl.glLineWidth(3f);
-			drawLine(sglx(sx(x)-(sizei+3)), glY(y), sglx(sx(x)+(sizei+2)), glY(y), z, color);
-			drawLine(glX(x), sgly(sy(y)-(sizei+3)), glX(x), sgly(sy(y)+(sizei+2)), z, color);
+			drawLine(sglx(sx(x)-(sizei+2)), glY(y), sglx(sx(x)+(sizei+2)), glY(y), z, type==HYBRID?Color.WHITE:color);
+			drawLine(glX(x), sgly(sy(y)-(sizei+2)), glX(x), sgly(sy(y)+(sizei+2)), z, type==HYBRID?Color.WHITE:color);
 		}
+		gl.glLineWidth(1f);
 		if (type==HYBRID || type==DOT) { 
-			if (!colorSet) {
-				if(anacolor!=null)color=anacolor;
-				colorSet = true;
-			}
 			if (sizei>LARGE)
 				gl.glLineWidth(1f);
 			if (sizei>LARGE && type==DOT)
-				fillOval(x-sizei/2, y-sizei/2, sizei, sizei, z, color);
+				fillOval(sx(x)-sizei/2, sy(y)-sizei/2, sizei, sizei, z, color);
 			else if (sizei>LARGE && type==HYBRID)
 				drawHandle(x,y,z,sizei-4,color, false);
 			else if (sizei>SMALL && type==HYBRID)
-				drawHandle(x,y,z,sizei-2,color, false);
+				drawHandle(x,y,z,sizei-1,color, false);
 			else
 				drawHandle(x,y,z,sizei,color, false);
 		}
@@ -353,10 +346,10 @@ public class RoiGLDrawUtility {
 			if (nCounters==1) {
 				//if (!colorSet)
 					//setColor(gl,color);
-				drawString(""+n, TextRoi.LEFT, color, sglx(sx(x)+offset), sgly(sy(y)+(offset+fontSize)), z);
+				drawString(""+n, null, Color.YELLOW, sglx(sx(x)+offset), sgly(sy(y)+(offset+fontSize)), z);
 			} else if (counters!=null) {
 				//setColor(gl, getPointColor(counters[n-1]));
-				drawString(""+counters[n-1], TextRoi.LEFT, getPointColor(counters[n-1]), sglx(sx(x)+offset), sgly(sy(y)+(offset+fontSize)), z);
+				drawString(""+counters[n-1], null, getPointColor(counters[n-1]), sglx(sx(x)+offset), sgly(sy(y)+(offset+fontSize)), z);
 			}
 		}
 		if ((sizei>TINY||type==DOT) && (type==HYBRID||type==DOT)) {
@@ -369,11 +362,11 @@ public class RoiGLDrawUtility {
 		}
 		if (type==CIRCLE) {
 			int scaledSize = (sizei+1);
-			if(anacolor!=null)color=anacolor;
 			if (sizei>LARGE)
 				gl.glLineWidth(2f);
 			drawOval(sx(x)-scaledSize, sy(y)-scaledSize, scaledSize, scaledSize, z, color);
 		}
+		if(!ms)gl.glDisable(GL_MULTISAMPLE);
 	}
 	
 	private Color getPointColor(int index) {
@@ -504,18 +497,18 @@ public class RoiGLDrawUtility {
 	}
 	
 	private float glX(float x) {
-		return (x-offx)/w*2f-1f;
+		return ((x-offx)/w+0.5f/dw)*2f-1f;
 	}
 	
 	private float glY(float y) {
-		return ((h-(y-offy))/h*2f-1f)*yrat;
+		return (((h-(y-offy))/h-0.5f/dh)*2f-1f)*yrat;
 	}
 	
-	private int sx(int x) {
+	private int sx(float x) {
 		return (int)((x-offx)*mag);
 	}
 	
-	private int sy(int y) {
+	private int sy(float y) {
 		return (int)((y-offy)*mag);
 	}
 	
@@ -523,14 +516,14 @@ public class RoiGLDrawUtility {
 	 * screen coordinate (not image) to gl
 	 */
 	private float sglx(int x) {
-		return (float)x/dw*2f-1f;
+		return ((float)x+0.5f)/dw*2f-1f;
 	}
 	
 	/**
 	 * screen coordinate (not image) to gl
 	 */
 	private float sgly(int y) {
-		return ((dh-(float)y)/dh*2f-1f)*yrat;
+		return ((dh-(float)y-0.5f)/dh*2f-1f)*yrat;
 	}
 	
 	private int impX(float x) {
@@ -696,20 +689,17 @@ public class RoiGLDrawUtility {
 		Rectangle b=troi.getBounds();
 		FontMetrics fm=imp.getCanvas().getGraphics().getFontMetrics(troi.getCurrentFont());
 		int fontHeight=fm.getHeight()-1;
-		textRenderer.begin3DRendering();
-		textRenderer.setColor(troi.getStrokeColor());
 		for(int i=0;i<text.length;i++) {
 			float x=glX(b.x);
 			float y=glY((float)b.y+(float)fm.getAscent()+(float)(fontHeight*i));
 			if(just==TextRoi.LEFT) {
 			}else if(just==TextRoi.CENTER) {
-				x=glX((float)(b.width-fm.stringWidth(text[i]))/2f);
+				x=glX((float)b.x+(float)(b.width-fm.stringWidth(text[i]))/2f);
 			}else if(just==TextRoi.RIGHT) {
-				x=glX((float)(b.x-offx+b.width-fm.stringWidth(text[i])));
+				x=glX((float)(b.x+b.width-fm.stringWidth(text[i])));
 			}
-			textRenderer.draw3D(text[i], x, y, z, px*(float)imp.getCanvas().getMagnification()); 
+			drawString(text[i],troi.getStrokeColor(),x,y,z,px*(float)imp.getCanvas().getMagnification());
 		}
-		textRenderer.end3DRendering();
 	}
 	
 	/** x,y,z are in opengl float positions
@@ -717,14 +707,28 @@ public class RoiGLDrawUtility {
 	 * @param gl
 	 * @param text Text to display
 	 * @param just Justification (0 is left, 1 is center, 2 is right)
-	 * @param color Text color
+	 * @param color Text color 
 	 */
-	protected void drawString(String text, int just, Color color, float x, float y, float z) {
-		Font font=new Font("SansSerif", Font.PLAIN, 9);
+	protected void drawString(String text, Font font, Color color, float x, float y, float z) {
+		if(font==null) font=new Font("SansSerif", Font.PLAIN, 9);
 		if(textRenderer==null || !textRenderer.getFont().equals(font))textRenderer =new TextRenderer(font,false,false);
+		FontMetrics fm=imp.getCanvas().getGraphics().getFontMetrics(font);
+		String[] texta=text.split("\n");
+		for(int i=0;i<texta.length;i++)
+			drawString(texta[i], color, x,y-((fm.getHeight()-1)*i)/dh*2f,z, px);
+	}
+	
+	protected void drawString(String text, Color color, float x, float y, float z, float mag) {
+		GL2 gl2=gl.getGL2();
+		gl2.glMatrixMode(GL2.GL_PROJECTION);
+		gl2.glLoadIdentity();
+		gl2.glOrtho(-1, 1, -h/w, h/w, -1, 1);
+		//gl2.glMatrixMode(GL2.GL_MODELVIEW);
+		//gl2.glLoadMatrixf(glos.buffers.ubuffers.get("model").asFloatBuffer());
+		if(textRenderer==null)textRenderer =new TextRenderer(new Font("SansSerif", Font.PLAIN, 9),false,false);
 		textRenderer.begin3DRendering();
 		textRenderer.setColor(color);
-		textRenderer.draw3D(text, x, y, z, px); 
+		textRenderer.draw3D(text, x, y, z, mag); 
 		textRenderer.end3DRendering();
 	}
 

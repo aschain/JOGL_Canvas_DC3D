@@ -5,7 +5,6 @@ precision highp int;
 
 layout(std140, column_major) uniform;
 
-
 layout (binding = 3) uniform lutblock{
 	vec3 luts[6];
 };

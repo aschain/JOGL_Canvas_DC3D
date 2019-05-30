@@ -21,6 +21,7 @@ import com.jogamp.opengl.util.glsl.ShaderCode;
 import com.jogamp.opengl.util.glsl.ShaderProgram;
 
 import ajs.joglcanvas.JOGLImageCanvas.PixelType;
+import ij.IJ;
 import ij.Prefs;
 
 public class JCGLObjects {
@@ -168,10 +169,10 @@ public class JCGLObjects {
 		GL3 gl3=gl.getGL3();
 		int gltype=GL_TEXTURE_3D;
 		//gl3.glEnable(gltype);
-		gl3.glActiveTexture(GL_TEXTURE0);
-		gl3.glBindTexture(gltype, textures.get(name, texIndex));
+		//gl3.glActiveTexture(GL_TEXTURE0);
+		//gl3.glBindTexture(gltype, textures.get(name, texIndex));
 		int[] pr=new int[1];gl3.glGetIntegerv(GL_CURRENT_PROGRAM, pr,0);
-		gl3.glUniform1i(gl3.glGetUniformLocation(pr[0], "mytex"),0);
+		//gl3.glUniform1i(gl3.glGetUniformLocation(pr[0], "mytex"),0);
 		
 		for(int i=0;i<chs;i++) {
 			gl3.glActiveTexture(GL_TEXTURE0+i);
@@ -257,16 +258,20 @@ public class JCGLObjects {
 				int[] phs=i.nextElement();
 				gl.glDeleteBuffers(phs.length,phs,0);
 			}
+			for(Enumeration<String> i=handles.keys(); i.hasMoreElements();)handles.remove(i.nextElement());
+			for(Enumeration<String> i=pbos.keys(); i.hasMoreElements();)pbos.remove(i.nextElement());
 		}
 		
 		public void dispose(String name) {
 			int[] ths=handles.get(name);
 			gl.glDeleteTextures(ths.length,ths,0);
+			handles.remove(name);
 		}
 		
 		public void disposePbo(String name) {
 			int[] phs=pbos.get(name);
 			gl.glDeleteBuffers(phs.length,phs,0);
+			pbos.remove(name);
 		}
 		
 		public int get(String name) {
@@ -341,7 +346,7 @@ public class JCGLObjects {
 			JOGLImageCanvas.PixelTypeInfo pinfo=JOGLImageCanvas.getPixelTypeInfo(type, COMPS);
 			
 			//gl3.glEnable(GL_TEXTURE_3D);
-			gl3.glActiveTexture(GL_TEXTURE0);
+			//gl3.glActiveTexture(GL_TEXTURE0);
 			gl3.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, phs[pn]);
 			gl3.glBindTexture(GL_TEXTURE_3D, ths[tn]); 
 			gl3.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -543,8 +548,10 @@ public class JCGLObjects {
 							gl3.glBindBuffer(gltype, phs[0]);
 							gl3.glUnmapBuffer(gltype);
 						}
+						bdict.remove(name);
 					}
 					gl3.glDeleteBuffers(phs.length,phs,0);
+					dict.remove(name);
 				}
 			}
 		}
@@ -595,9 +602,11 @@ public class JCGLObjects {
 		}
 		
 		public void dispose() {
-			for(Enumeration<int[]> j=handles.elements(); j.hasMoreElements();) {
-				int[] vhs=j.nextElement();
+			for(Enumeration<String> j=handles.keys(); j.hasMoreElements();) {
+				String name=j.nextElement();
+				int[] vhs=handles.get(name);
 				gl.getGL3().glDeleteVertexArrays(vhs.length,vhs,0);
+				handles.remove(name);
 			}
 		}
 	}
@@ -637,8 +646,10 @@ public class JCGLObjects {
         }
         
         public void dispose() {
-        	for(Enumeration<Program> j=programs.elements(); j.hasMoreElements();) {
-				j.nextElement().dispose();
+        	for(Enumeration<String> j=programs.keys(); j.hasMoreElements();) {
+				String name=j.nextElement();
+				programs.get(name).dispose();
+				programs.remove(name);
 			}
         }
         

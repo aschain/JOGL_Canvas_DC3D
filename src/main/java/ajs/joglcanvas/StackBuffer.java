@@ -47,7 +47,7 @@ public class StackBuffer {
 		int frms=imp.getNFrames(), sls=imp.getNSlices();
 		isFrameStack=frms>1&&sls==1;
 		if(isFrameStack) {sls=frms;frms=1;}
-		int bits=imp.getBitDepth();
+		//int bits=imp.getBitDepth();
 		bufferWidth=tex4div(imp.getWidth()/undersample);
 		bufferHeight=tex4div(imp.getHeight()/undersample);
 		//components=bits==24?3:imp.getNChannels();
@@ -99,6 +99,7 @@ public class StackBuffer {
 	
 	public void resetBuffers() {
 		stopUpdate();
+		resetSlices();
 		int chs=imp.getNChannels();
 		isFrameStack=imp.getNFrames()>1 && imp.getNSlices()==1;
 		imageFBs=new Buffer[isFrameStack?chs:imp.getNFrames()*chs];
@@ -107,6 +108,11 @@ public class StackBuffer {
 	public boolean isSliceUpdated(int sl, int fr) {
 		if(isFrameStack)return updatedSlices[fr];
 		else return updatedSlices[fr*imp.getNSlices()+sl];
+	}
+	
+	public void updateSlice(int sl, int fr) {
+		if(isFrameStack)updatedSlices[fr]=true;
+		else updatedSlices[fr*imp.getNSlices()+sl]=true;
 	}
 	
 	public boolean isFrameUpdated(int fr) {
@@ -238,7 +244,7 @@ public class StackBuffer {
 		int chs=imp.getNChannels();
 		for(int i=0;i<chs;i++) {
 			Object outPixels=getImageArray(i, i+1, stsl,endsl,stfr,endfr, true);
-			convertPixels(outPixels, imageFBs[isFrameStack?i:stfr*chs+i], sliceSize*(isFrameStack?stfr:stsl), components);
+			convertPixels(outPixels, i, isFrameStack?0:stfr, isFrameStack?stfr:stsl);
 		}
 	}
 	
@@ -286,7 +292,7 @@ public class StackBuffer {
 	 */
 	public Buffer getSliceBuffer(int channel, int slice, int frame) {
 		Object outPixels=null;
-		if(channel>0) outPixels=imp.getStack().getProcessor(imp.getStackIndex(channel, slice, frame));
+		if(channel>0) outPixels=imp.getStack().getProcessor(imp.getStackIndex(channel, slice, frame)).getPixels();
 		else outPixels=getImageArray(0, imp.getNChannels(), slice-1, slice, frame-1, frame, false);
 		if(outPixels instanceof float[])return FloatBuffer.wrap((float[])outPixels);
 		if(outPixels instanceof short[])return ShortBuffer.wrap((short[])outPixels);
@@ -294,7 +300,73 @@ public class StackBuffer {
 		return ByteBuffer.wrap((byte[])outPixels);
 	}
 	
-	private Buffer convertPixels(Object outPixels, Buffer buffer, int offset, int COMPS) {
+	private Buffer convertPixels(Object outPixels, int ch, int fr, int sl) {
+		int chs=imp.getNChannels();
+		Buffer buffer=imageFBs[fr*chs+ch];
+		int bits=imp.getBitDepth();
+		int size=bits==8?((byte[])outPixels).length:bits==16?((short[])outPixels).length:bits==32?((float[])outPixels).length:((int[])outPixels).length;
+		buffer.position(sl*sliceSize);
+		if(pixelType==PixelType.BYTE) {
+			if(bits==8)((ByteBuffer)buffer).put(((byte[])outPixels));
+			else {
+				for(int i=0;i<size;i++) {
+					if(bits==16)((ByteBuffer)buffer).put((byte)(((int)((((short[])outPixels)[i]&0xffff)/256.0))));
+					else if(bits==32)((ByteBuffer)buffer).put((byte)(((int)(((float[])outPixels)[i]*255f))));
+					else {
+						int rgb=((int[])outPixels)[i];
+						//requires new imageFBs length to be frms*3
+						((ByteBuffer)imageFBs[fr*chs+0]).put((byte)((rgb&0xff0000)>>16));
+						((ByteBuffer)imageFBs[fr*chs+1]).put((byte)((rgb&0xff00)>>8));
+						((ByteBuffer)imageFBs[fr*chs+2]).put((byte)(rgb&0xff));
+					}
+				}
+				if(bits==24) {for(int i=0;i<3;i++)imageFBs[fr*chs+i].position(sl*sliceSize);}
+			}
+		}else if(pixelType==PixelType.INT_RGBA8){
+			if(bits==24)((IntBuffer)buffer).put(((int[])outPixels));
+			else {
+				IJ.error("INT_RGBA8 only for 24bit images");
+			}
+		}else if(pixelType==PixelType.SHORT) {
+			if(bits==16)((ShortBuffer)buffer).put((short[])outPixels);
+			else {
+				for(int i=0;i<size;i++) {
+					if(bits==8 || bits==24) IJ.error("Don't use short pixel type with 8 bit image");
+					if(bits==32)((ShortBuffer)buffer).put((short)(((float[])outPixels)[i]*65535f));
+				}
+			}
+		}else if(pixelType==PixelType.INT_RGB10A2) {
+			int COMPS=1;
+			if(bits==32) {
+				float[] floatPixels=((float[])outPixels);
+				for(int i=0;i<size;i+=COMPS) {
+					int red=(((int)(floatPixels[i]*1023f))&0x3ff);
+					int green=(COMPS<2)?0:(((int)(floatPixels[i+1]*1023f))&0x3ff);
+					int blue=(COMPS<3)?0:(((int)(floatPixels[i+2]*1023f))&0x3ff);
+					int alpha=1;
+					//if(COMPS==4) alpha=(((int)(floatPixels[i+3]*0x3))&0x3);
+					((IntBuffer)buffer).put(alpha<<30 | blue <<20 | green<<10 | red);
+				}
+			}else if(bits==16) {
+				short[] shortPixels=((short[])outPixels);
+				for(int i=0;i<size;i+=COMPS) {
+					int red=(((int)(shortPixels[i]/64f))&0x3ff);
+					int green=(COMPS<2)?0:(((int)(shortPixels[i+1]/64f))&0x3ff);
+					int blue=(COMPS<3)?0:(((int)(shortPixels[i+2]/64f))&0x3ff);
+					int alpha=1;
+					//if(COMPS==4) alpha=(((int)((shortPixels[i+3]&0xffff)/16384f))&0x3);
+					((IntBuffer)buffer).put(alpha<<30 | blue <<20 | green<<10 | red);
+				}
+			}else IJ.error("Don't use 10bit INT for 8 bit images");
+		}else if(pixelType==PixelType.FLOAT) {
+			if(bits==32)((FloatBuffer)buffer).put((float[])outPixels);
+			else IJ.error("Don't use less than 32 bit image with 32 bit pixels");
+		}
+		buffer.position(sl*sliceSize);
+		return buffer;
+	}
+	
+	private Buffer convertPixelsOld(Object outPixels, Buffer buffer, int offset, int COMPS) {
 		int bits=imp.getBitDepth();
 		int size=bits==8?((byte[])outPixels).length:bits==16?((short[])outPixels).length:bits==32?((float[])outPixels).length:((int[])outPixels).length;
 		buffer.position(offset);
@@ -310,6 +382,11 @@ public class StackBuffer {
 						//if(COMPS==4)((ByteBuffer)buffer).put((byte)((rgb&0xff000000)>>24));
 					}
 				}
+			}
+		}else if(pixelType==PixelType.INT_RGBA8){
+			if(bits==24)((IntBuffer)buffer).put(((int[])outPixels));
+			else {
+				IJ.error("INT_RGBA8 only for 24bit images");
 			}
 		}else if(pixelType==PixelType.SHORT) {
 			if(bits==16)((ShortBuffer)buffer).put((short[])outPixels);

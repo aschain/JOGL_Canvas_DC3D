@@ -113,7 +113,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private int[] stereoFramebuffers=new int[2];
 
 	enum PixelType{BYTE, SHORT, FLOAT, INT_RGB10A2, INT_RGBA8};
-	private static final String[] pixelTypeStrings=new String[] {"4 bytes (8bpc, 32bit)","4 shorts (16bpc 64bit)","4 floats (32bpc 128bit)","1 int RGB10A2 (10bpc, 32bit)"};
+	private static final String[] pixelTypeStrings=new String[] {"4 bytes (8bpc, 32bit)","4 shorts (16bpc 64bit)","4 floats (32bpc 128bit)","1 int RGB10A2 (10bpc, 32bit)","1 int RGBA8 (8bpc, 32bit)"};
 	protected PixelType pixelType3d=PixelType.BYTE;
 	private int COMPS=0;
 	
@@ -145,6 +145,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		icc.addGLEventListener(this);
 		ImagePlus.addImageListener(this);
 		if(mirror)setMirror();
+		pixelType3d=getPixelType();
 	}
 	
 	private void setGL(GLAutoDrawable drawable) {
@@ -297,9 +298,12 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			stereoUpdated=false;
 		}
 		if(threeDupdated) {
-			if(!go3d) {
+			if(go3d) {
+				for(int i=0;i<chs;i++) glos.textures.initiate("image",pixelType3d, imageWidth, imageHeight, sls);
+			}else {
 				glos.buffers.loadIdentity("model", 0);
 				resetGlobalMatricies();
+				for(int i=0;i<chs;i++) glos.textures.initiate("image",getPixelType(), imageWidth, imageHeight, 1);
 			}
 			threeDupdated=false;
 		}
@@ -359,22 +363,42 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			deletePBOs=false;
 		}
 		
+		boolean pboWasUpdated=false;
+		
 		if(myImageUpdated) {
-			if(go3d) {sb.updateBuffers(fr+1,true);}
-			else {
+			if(go3d) {
+				//sb.updateBuffers(fr+1,true);
+				if((lastPosition[0]==imp.getC()||imp.getCompositeMode()!=IJ.COMPOSITE)  && lastPosition[1]==(imp.getZ()) && lastPosition[2]==imp.getT()) {
+					//sb.resetSlices();
+				}
+				for(int ifr=0;ifr<frms;ifr++) {
+					for(int isl=0;isl<sls;isl++) {
+						if(!sb.isSliceUpdated(isl, ifr)) {
+							if(ifr==fr)pboWasUpdated=true;
+							for(int i=0;i<chs;i++)
+								glos.textures.updateSubRgbaPBO("image",ifr*chs+i, sb.getSliceBuffer(i+1, isl+1, ifr+1),0, sl*imageWidth*imageHeight, imageWidth*imageHeight, sls*imageWidth*imageHeight);
+							sb.updateSlice(isl,ifr);
+						}
+					}
+				}
+			}else {
 				int cfr=sb.isFrameStack?0:fr;
 				if(usePBOforSlices) {
 					//IJ.log("sl:"+(sl+1)+" fr:"+(fr+1)+" lps:"+lastPosition[1]+" lpf:"+lastPosition[2]);
 					if((lastPosition[0]==imp.getC()||imp.getCompositeMode()!=IJ.COMPOSITE) && lastPosition[1]==(imp.getZ()) && lastPosition[2]==imp.getT()) {
 						sb.resetSlices();
+						//I don't think I need to update all slices in all scenarios here
+						//not if lut was changed
 					}
 					if(!sb.isSliceUpdated(sl,fr)) {
-						sb.updateImageBufferSlice(sl+1, fr+1);
+						//sb.updateImageBufferSlice(sl+1, fr+1);
 						try {
 							for(int i=0;i<chs;i++) {
 								int ccfr=cfr*chs+i;
-								glos.textures.updateSubRgbaPBO("image",ccfr, sb.imageFBs[ccfr],sb.imageFBs[ccfr].position(), sb.imageFBs[ccfr].position(), sb.sliceSize, sb.bufferSize);
-								sb.imageFBs[ccfr].rewind();
+								//glos.textures.updateSubRgbaPBO("image",ccfr, sb.imageFBs[ccfr],sb.imageFBs[ccfr].position(), sb.imageFBs[ccfr].position(), sb.sliceSize, sb.bufferSize);
+								glos.textures.updateSubRgbaPBO("image",ccfr, sb.getSliceBuffer(i+1, sl+1, fr+1),0, sl*imageWidth*imageHeight, imageWidth*imageHeight, sls*imageWidth*imageHeight);
+								//sb.imageFBs[ccfr].rewind();
+								sb.updateSlice(sl, fr);
 							}
 						}catch(Exception e) {
 							if(e instanceof GLException) {
@@ -405,18 +429,17 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			needImageUpdate=false;
 		}
 		if(go3d) {
-			if(sb.updatingBuffers>0 && !sb.updatedFrames[fr])sb.updateBuffers(fr+1,false);
-			for(int ifr=0;ifr<frms;ifr++) {
-				if(sb.updatedFrames[ifr]) {
-					for(int i=0;i<chs;i++)
-						glos.textures.updateRgbaPBO("image", ifr*chs+i, sb.imageFBs[ifr*chs+i]);
-					sb.updatedFrames[ifr]=false;
-					IJ.showStatus("PBO load");
+			if(pboWasUpdated) {
+				for(int isl=0;isl<sls;isl++) {
+					for(int i=0;i<chs;i++) {
+						glos.textures.subRgbaTexture("image", i, sb.getSliceBuffer(i+1, isl+1, fr+1), sl, tex4div(imageWidth/undersample), tex4div(imageHeight/undersample), 1, 1);
+					}
 				}
-			}
-			for(int i=0;i<chs;i++) {
-				int ccfr=fr*chs+i;
-				glos.textures.loadTexFromPBO("image", ccfr, "image", i, tex4div(imageWidth/undersample), tex4div(imageHeight/undersample), sls, 0, pixelType3d, COMPS, false);
+			}else {
+				for(int i=0;i<chs;i++) {
+					int ccfr=fr*chs+i;
+					glos.textures.loadTexFromPBO("image", ccfr, "image", i, tex4div(imageWidth/undersample), tex4div(imageHeight/undersample), sls, 0, pixelType3d, COMPS, false);
+				}
 			}
 		}
 		
@@ -1008,7 +1031,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		case 1 : return PixelType.BYTE;
 		case 8 : return PixelType.BYTE;
 		case 16 : return PixelType.SHORT;
-		case 24 : return PixelType.BYTE;
+		case 24 : return PixelType.INT_RGBA8;
 		case 32 : return PixelType.FLOAT;
 		}
 		return PixelType.BYTE;
@@ -1217,7 +1240,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			threeDmenu.add(menu);
 			
 			menu=new Menu("3D Pixel Type");
-			for(int i=0;i<2;i++) addCMI(menu,pixelTypeStrings[i],pixelType3d==PixelType.values()[i]);
+			int bits=imp.getBitDepth();
+			int end=0; 
+			if(bits==24) addCMI(menu,pixelTypeStrings[4],pixelType3d==PixelType.values()[4]);
+			else {end=1; if(bits>8)end++; if(bits>16)end++;}
+			for(int i=0;i<end;i++) addCMI(menu,pixelTypeStrings[i],pixelType3d==PixelType.values()[i]);
 			threeDmenu.add(menu);
 			
 			mi=new MenuItem("Start 3d Background Load");
@@ -1280,11 +1307,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		String cmd=e.getActionCommand();
 		if(cmd.equals("3d"))toggle3d();
 		else if(cmd.equals("update")) {
-			if(go3d) {
-				myImageUpdated=true; repaint();
-			}else {
-				sb.updateBuffers(imp.getT(),true);
-			}
+			sb.resetSlices();
+			myImageUpdated=true; 
+			repaint();
 		}
 		else if(cmd.equals("revert")){revert();}
 		else if(cmd.equals("reset3d")){resetAngles();}

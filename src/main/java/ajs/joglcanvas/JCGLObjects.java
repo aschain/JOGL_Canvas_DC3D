@@ -21,6 +21,7 @@ import com.jogamp.opengl.util.glsl.ShaderCode;
 import com.jogamp.opengl.util.glsl.ShaderProgram;
 
 import ajs.joglcanvas.JOGLImageCanvas.PixelType;
+import ajs.joglcanvas.JOGLImageCanvas.PixelTypeInfo;
 import ij.IJ;
 import ij.Prefs;
 
@@ -148,7 +149,7 @@ public class JCGLObjects {
 	
 	public void drawTexVaoWithEBOVBO(String name, int index, Buffer elementBuffer, Buffer vertexBuffer) {
 		bindEBOVBO(name, elementBuffer, vertexBuffer);
-		drawTexVao(name, index, getGLType(elementBuffer), elementBuffer.capacity(), 0);
+		drawTexVao(name, index, getGLType(elementBuffer), elementBuffer.capacity(), 1);
 		unBindEBOVBO(name);
 	}
 	
@@ -304,18 +305,33 @@ public class JCGLObjects {
 		}
 		
 		public void createRgbaTexture(String name, int index, Buffer buffer, int width, int height, int depth, int COMPS) {
-			createRgbaTexture(get(name,index),buffer, width, height, depth, COMPS);
+			createRgbaTexture(get(name,index),buffer, 0, width, height, depth, COMPS);
+		}
+		
+		public void subRgbaTexture(String name, int index, Buffer buffer, int zoffset, int width, int height, int depth, int COMPS) {
+			createRgbaTexture(get(name,index),buffer, zoffset, width, height, depth, COMPS);
+		}
+		
+		public void initiate(String name, PixelType ptype, int width, int height, int depth) {
+			GL3 gl3=gl.getGL3();
+			PixelTypeInfo pinfo=new PixelTypeInfo(ptype, 1);
+			int[] ths=handles.get(name);
+			for(int i=0;i<ths.length;i++) {
+				gl3.glBindTexture(GL_TEXTURE_3D, ths[i]);
+				gl3.glTexImage3D(GL_TEXTURE_3D, 0, pinfo.glInternalFormat, width, height, depth, 0, pinfo.glFormat, pinfo.glPixelSize, null); 
+			}
+			
 		}
 
-		private void createRgbaTexture(int glTextureHandle, Buffer buffer, int width, int height, int depth, int COMPS) { 
+		private void createRgbaTexture(int glTextureHandle, Buffer buffer, int zoffset, int width, int height, int depth, int COMPS) { 
 			GL3 gl3=gl.getGL3();
 			
-			JOGLImageCanvas.PixelTypeInfo pinfo=JOGLImageCanvas.getPixelTypeInfo(buffer, COMPS);
+			PixelTypeInfo pinfo=JOGLImageCanvas.getPixelTypeInfo(buffer, COMPS);
 
 			gl3.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			//gl3.glEnable(GL_TEXTURE_3D);
 			gl3.glBindTexture(GL_TEXTURE_3D, glTextureHandle);
-			gl3.glTexImage3D(GL_TEXTURE_3D, 0, pinfo.glInternalFormat, width, height, depth, 0, pinfo.glFormat, pinfo.glPixelSize, buffer); 
+			gl3.glTexSubImage3D(GL_TEXTURE_3D, 0, 0,0,zoffset, width, height, depth, pinfo.glFormat, pinfo.glPixelSize, buffer); 
 			//gl.glTexImage3D(GL_TEXTURE_2D, mipmapLevel, internalFormat, width, height, depth, numBorderPixels, pixelFormat, pixelType, buffer); 
 			
 			int magtype=GL_LINEAR;
@@ -353,7 +369,7 @@ public class JCGLObjects {
 			if(endian)gl3.glPixelStorei(GL_UNPACK_SWAP_BYTES, GL_TRUE);
 			gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_BASE_LEVEL, 0);
 			gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAX_LEVEL, 0);
-			gl3.glTexImage3D(GL_TEXTURE_3D, 0, pinfo.glInternalFormat, width, height, depth, 0, pinfo.glFormat, pinfo.glPixelSize, offsetSlice*pinfo.components*width*height*pinfo.sizeBytes);
+			gl3.glTexSubImage3D(GL_TEXTURE_3D, 0, 0, 0, 0, width, height, depth, pinfo.glFormat, pinfo.glPixelSize, offsetSlice*pinfo.components*width*height*pinfo.sizeBytes);
 			int magtype=GL_LINEAR;
 			if(!Prefs.interpolateScaledImages)magtype=GL_NEAREST;
 			gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, magtype); 

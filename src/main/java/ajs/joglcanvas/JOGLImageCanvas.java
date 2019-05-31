@@ -235,6 +235,13 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		
 		zoomIndVerts=GLBuffers.newDirectFloatBuffer(4*3+4*4);
 		
+		int[] pf=new int[1];
+		for(int i=1;i<5;i++) {
+			PixelTypeInfo pti=getPixelTypeInfo(getPixelType(),i);
+			gl.glGetInternalformativ(GL_TEXTURE_3D, pti.glInternalFormat, GL_TEXTURE_IMAGE_FORMAT, 1, pf, 0);
+			IJ.log("Best in format for comps:"+i+" Int format:"+pti.glInternalFormat+" my form:"+pti.glFormat+" best:"+pf[0]);
+		}
+		
 		if(isMirror) {
 			addMirrorListeners();
 			updateMirror();
@@ -430,6 +437,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}
 		if(go3d) {
 			if(pboWasUpdated) {
+				IJ.log("SubRgbaTex");
 				for(int isl=0;isl<sls;isl++) {
 					for(int i=0;i<chs;i++) {
 						glos.textures.subRgbaTexture("image", i, sb.getSliceBuffer(i+1, isl+1, fr+1), sl, tex4div(imageWidth/undersample), tex4div(imageHeight/undersample), 1, 1);
@@ -837,7 +845,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				components=1;
 				glFormat=GL_RGBA;
 			}else if(type==PixelType.INT_RGBA8) {
-				glInternalFormat=GL_RGBA_INTEGER;
+				glInternalFormat=GL_RGBA8;
 				glPixelSize=GL_UNSIGNED_INT_8_8_8_8;
 				sizeBytes=Buffers.SIZEOF_INT;
 				components=1;

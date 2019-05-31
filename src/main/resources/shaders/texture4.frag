@@ -22,9 +22,9 @@ void main(){
 		if(rgb>0.8){
 			vec4 texColor=texture(mytex[i], texCoord);
 			if(rgb>7.8){
-				outputColor.r=texColor.r;
-				outputColor.g=texColor.g;
-				outputColor.b=texColor.b;
+				outputColor.r=texColor.g;
+				outputColor.g=texColor.b;
+				outputColor.b=texColor.a;
 			}else{
 				float col=max(texColor.r-luts[i][0],0)/(luts[i][1]-luts[i][0]);
 				color[2]=rgb>3.5;

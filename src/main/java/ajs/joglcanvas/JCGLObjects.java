@@ -305,11 +305,11 @@ public class JCGLObjects {
 		}
 		
 		public void createRgbaTexture(String name, int index, Buffer buffer, int width, int height, int depth, int COMPS) {
-			createRgbaTexture(get(name,index),buffer, 0, width, height, depth, COMPS);
+			createRgbaTexture(get(name,index),buffer, 0, width, height, depth, COMPS, true);
 		}
 		
 		public void subRgbaTexture(String name, int index, Buffer buffer, int zoffset, int width, int height, int depth, int COMPS) {
-			createRgbaTexture(get(name,index),buffer, zoffset, width, height, depth, COMPS);
+			createRgbaTexture(get(name,index),buffer, zoffset, width, height, depth, COMPS, false);
 		}
 		
 		public void initiate(String name, PixelType ptype, int width, int height, int depth) {
@@ -318,12 +318,21 @@ public class JCGLObjects {
 			int[] ths=handles.get(name);
 			for(int i=0;i<ths.length;i++) {
 				gl3.glBindTexture(GL_TEXTURE_3D, ths[i]);
-				gl3.glTexImage3D(GL_TEXTURE_3D, 0, pinfo.glInternalFormat, width, height, depth, 0, pinfo.glFormat, pinfo.glPixelSize, null); 
+				gl3.glTexImage3D(GL_TEXTURE_3D, 0, pinfo.glInternalFormat, width, height, depth, 0, pinfo.glFormat, pinfo.glPixelSize, null);
+				int magtype=GL_LINEAR;
+				if(!Prefs.interpolateScaledImages)magtype=GL_NEAREST;
+				
+				gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, magtype);
+				gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, magtype);//GL_NEAREST_MIPMAP_LINEAR
+				gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+				gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+				gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
+				gl3.glTexParameterfv(GL_TEXTURE_3D, GL_TEXTURE_BORDER_COLOR, new float[] {0f,0f,0f,0f},0);
 			}
 			
 		}
 
-		private void createRgbaTexture(int glTextureHandle, Buffer buffer, int zoffset, int width, int height, int depth, int COMPS) { 
+		private void createRgbaTexture(int glTextureHandle, Buffer buffer, int zoffset, int width, int height, int depth, int COMPS, boolean genmm) { 
 			GL3 gl3=gl.getGL3();
 			
 			PixelTypeInfo pinfo=JOGLImageCanvas.getPixelTypeInfo(buffer, COMPS);
@@ -331,19 +340,15 @@ public class JCGLObjects {
 			gl3.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			//gl3.glEnable(GL_TEXTURE_3D);
 			gl3.glBindTexture(GL_TEXTURE_3D, glTextureHandle);
-			gl3.glTexSubImage3D(GL_TEXTURE_3D, 0, 0,0,zoffset, width, height, depth, pinfo.glFormat, pinfo.glPixelSize, buffer); 
+			if(!genmm) {
+				gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_BASE_LEVEL, 0);
+				gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAX_LEVEL, 0);
+			}
+			gl3.glTexSubImage3D(GL_TEXTURE_3D, 0, 0,0,zoffset, width, height, depth, pinfo.glFormat, pinfo.glPixelSize, buffer);
+			//gl3.glTexSubImage3D(target,   level, xoffset, yoffset, zoffset, width, height, depth, format, type, buffer);
 			//gl.glTexImage3D(GL_TEXTURE_2D, mipmapLevel, internalFormat, width, height, depth, numBorderPixels, pixelFormat, pixelType, buffer); 
 			
-			int magtype=GL_LINEAR;
-			if(!Prefs.interpolateScaledImages)magtype=GL_NEAREST;
-			
-			gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, magtype);
-			gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, magtype);//GL_NEAREST_MIPMAP_LINEAR
-			gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-			gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-			gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
-			gl3.glTexParameterfv(GL_TEXTURE_3D, GL_TEXTURE_BORDER_COLOR, new float[] {0f,0f,0f,0f},0);
-			gl3.glGenerateMipmap(GL_TEXTURE_3D);
+			if(genmm)gl3.glGenerateMipmap(GL_TEXTURE_3D);
 			gl3.glBindTexture(GL_TEXTURE_3D, 0);
 			//gl3.glDisable(GL_TEXTURE_3D);
 		} 

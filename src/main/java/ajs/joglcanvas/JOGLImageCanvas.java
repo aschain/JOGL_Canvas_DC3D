@@ -54,7 +54,6 @@ import java.nio.ShortBuffer;
 import java.nio.ByteBuffer;
 
 import com.jogamp.common.nio.Buffers;
-import com.jogamp.opengl.GL2;
 import com.jogamp.opengl.GL3;
 import static com.jogamp.opengl.GL3.*;
 import com.jogamp.opengl.GLAutoDrawable;

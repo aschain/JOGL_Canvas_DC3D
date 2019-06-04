@@ -29,7 +29,7 @@ public class StackBuffer {
 	private boolean stopupdate=false;
 	private PixelType pixelType=PixelType.BYTE;
 	private int undersample=1;
-	public boolean isFrameStack=false;
+	public boolean isFrameStack=false, okDirect=false;
 	public int sliceSize,bufferSize,bufferWidth,bufferHeight,components;
 	
 	public StackBuffer(ImagePlus imp, JOGLImageCanvas dcic) {
@@ -50,6 +50,7 @@ public class StackBuffer {
 		//int bits=imp.getBitDepth();
 		bufferWidth=tex4div(imp.getWidth()/undersample);
 		bufferHeight=tex4div(imp.getHeight()/undersample);
+		okDirect=imp.getWidth()==bufferWidth;
 		//components=bits==24?3:imp.getNChannels();
 		//if(pixelType==PixelType.INT_RGB10A2 || pixelType==PixelType.INT_RGBA8)components=1;
 		components=1;
@@ -292,7 +293,7 @@ public class StackBuffer {
 	 */
 	public Buffer getSliceBuffer(int channel, int slice, int frame) {
 		Object outPixels=null;
-		if(channel>0) outPixels=imp.getStack().getProcessor(imp.getStackIndex(channel, slice, frame)).getPixels();
+		if(okDirect) outPixels=imp.getStack().getProcessor(imp.getStackIndex(channel, slice, frame)).getPixels();
 		else outPixels=getImageArray(0, imp.getNChannels(), slice-1, slice, frame-1, frame, false);
 		if(outPixels instanceof float[])return FloatBuffer.wrap((float[])outPixels);
 		if(outPixels instanceof short[])return ShortBuffer.wrap((short[])outPixels);

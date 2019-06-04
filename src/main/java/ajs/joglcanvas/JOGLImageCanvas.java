@@ -59,6 +59,8 @@ import static com.jogamp.opengl.GL3.*;
 import com.jogamp.opengl.GLAutoDrawable;
 import com.jogamp.opengl.util.texture.awt.AWTTextureIO;
 
+import ajs.joglcanvas.JOGLImageCanvas.PixelType;
+
 import com.jogamp.opengl.GLEventListener;
 import com.jogamp.opengl.GLException;
 import com.jogamp.opengl.awt.GLCanvas;
@@ -236,7 +238,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		
 		int[] pf=new int[1];
 		for(int i=1;i<5;i++) {
-			PixelTypeInfo pti=getPixelTypeInfo(getPixelType(),i);
+			JCGLObjects.PixelTypeInfo pti=JCGLObjects.getPixelTypeInfo(getPixelType(),i);
 			gl.glGetInternalformativ(GL_TEXTURE_3D, pti.glInternalFormat, GL_TEXTURE_IMAGE_FORMAT, 1, pf, 0);
 			IJ.log("Best in format for comps:"+i+" Int format:"+pti.glInternalFormat+" my form:"+pti.glFormat+" best:"+pf[0]);
 		}
@@ -368,25 +370,24 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			sb.resetSlices();
 			deletePBOs=false;
 		}
-		
-		boolean pboWasUpdated=false;
-		
+				
 		if(myImageUpdated) {
 			if(go3d) {
 				//sb.updateBuffers(fr+1,true);
 				if((lastPosition[0]==imp.getC()||imp.getCompositeMode()!=IJ.COMPOSITE)  && lastPosition[1]==(imp.getZ()) && lastPosition[2]==imp.getT()) {
 					//sb.resetSlices();
 				}
-				for(int ifr=0;ifr<frms;ifr++) {
-					for(int isl=0;isl<sls;isl++) {
-						if(!sb.isSliceUpdated(isl, ifr)) {
-							if(ifr==fr)pboWasUpdated=true;
-							for(int i=0;i<chs;i++)
-								glos.textures.updateSubRgbaPBO("image",ifr*chs+i, sb.getSliceBuffer(i+1, isl+1, ifr+1),0, sl*imageWidth*imageHeight, imageWidth*imageHeight, sls*imageWidth*imageHeight);
-							sb.updateSlice(isl,ifr);
+				for(int i=0;i<chs;i++){ 
+					for(int ifr=0;ifr<frms;ifr++) {
+						for(int isl=0;isl<sls;isl++) {
+							if(!sb.isSliceUpdated(isl, ifr)) {
+								glos.textures.updateSubRgbaPBO("image",ifr*chs+i, sb.getSliceBuffer(i+1, isl+1, ifr+1),0, isl*imageWidth*imageHeight, imageWidth*imageHeight, sls*imageWidth*imageHeight);
+								if(i==(chs-1))sb.updateSlice(isl,ifr);
+							}
 						}
 					}
 				}
+				
 			}else {
 				int cfr=sb.isFrameStack?0:fr;
 				if(usePBOforSlices) {
@@ -435,19 +436,19 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			needImageUpdate=false;
 		}
 		if(go3d) {
-			if(pboWasUpdated) {
-				IJ.log("SubRgbaTex");
-				for(int isl=0;isl<sls;isl++) {
-					for(int i=0;i<chs;i++) {
-						glos.textures.subRgbaTexture("image", i, sb.getSliceBuffer(i+1, isl+1, fr+1), sl, tex4div(imageWidth/undersample), tex4div(imageHeight/undersample), 1, 1);
-					}
-				}
-			}else {
+			//if(pboWasUpdated) {
+			//	IJ.log("SubRgbaTex");
+			//	for(int isl=0;isl<sls;isl++) {
+			//		for(int i=0;i<chs;i++) {
+			//			glos.textures.subRgbaTexture("image", i, sb.getSliceBuffer(i+1, isl+1, fr+1), sl, tex4div(imageWidth/undersample), tex4div(imageHeight/undersample), 1, 1);
+			//		}
+			//	}
+			//}else {
 				for(int i=0;i<chs;i++) {
 					int ccfr=fr*chs+i;
 					glos.textures.loadTexFromPBO("image", ccfr, "image", i, tex4div(imageWidth/undersample), tex4div(imageHeight/undersample), sls, 0, pixelType3d, COMPS, false);
 				}
-			}
+			//}
 		}
 		
 
@@ -499,7 +500,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					gl.glBindFramebuffer(GL_FRAMEBUFFER, stereoFramebuffers[0]);
 					gl.glBindRenderbuffer(GL_RENDERBUFFER, stereoFramebuffers[1]);
 					if(stereoi==0) {
-						PixelTypeInfo info=getPixelTypeInfo(pixelType3d,4);
+						JCGLObjects.PixelTypeInfo info=JCGLObjects.getPixelTypeInfo(pixelType3d,4);
 						gl.glBindTexture(GL_TEXTURE_3D, glos.textures.get("anaglyph"));
 						gl.glTexImage3D(GL_TEXTURE_3D, 0, info.glInternalFormat, drawable.getSurfaceWidth(),drawable.getSurfaceHeight(), 1, 0, GL_RGBA, info.glPixelSize, null);
 						gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -814,65 +815,19 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		drawGraphics(gl, name, index, "model", vb);
 		glos.programs.stopProgram();
 	}
-	
-	static class PixelTypeInfo{
-		public int glInternalFormat;
-		public int glPixelSize;
-		public int sizeBytes;
-		public int components;
-		public int glFormat;
-		
-		public PixelTypeInfo(PixelType type, int COMPS) {
-			glInternalFormat=COMPS==4?GL_RGBA32F:COMPS==3?GL_RGB32F:COMPS==2?GL_RG32F:GL_R32F;
-			glPixelSize=GL_FLOAT;
-			sizeBytes=Buffers.SIZEOF_FLOAT;
-			components=COMPS;
-			glFormat=COMPS==4?GL_RGBA:COMPS==3?GL_RGB:COMPS==2?GL_RG:GL_RED;
-			
-			if(type==PixelType.SHORT) {
-				glInternalFormat=COMPS==4?GL_RGBA16:COMPS==3?GL_RGB16:COMPS==2?GL_RG16:GL_R16;
-				glPixelSize=GL_UNSIGNED_SHORT;
-				sizeBytes=Buffers.SIZEOF_SHORT;
-			}else if(type==PixelType.BYTE) {
-				glInternalFormat=COMPS==4?GL_RGBA8:COMPS==3?GL_RGB8:COMPS==2?GL_RG8:GL_R8;
-				glPixelSize=GL_UNSIGNED_BYTE;
-				sizeBytes=Buffers.SIZEOF_BYTE;
-			}else if(type==PixelType.INT_RGB10A2) {
-				glInternalFormat=GL_RGB10_A2;
-				glPixelSize=GL_UNSIGNED_INT_2_10_10_10_REV;
-				sizeBytes=Buffers.SIZEOF_INT;
-				components=1;
-				glFormat=GL_RGBA;
-			}else if(type==PixelType.INT_RGBA8) {
-				glInternalFormat=GL_RGBA8;
-				glPixelSize=GL_UNSIGNED_INT_8_8_8_8;
-				sizeBytes=Buffers.SIZEOF_INT;
-				components=1;
-				glFormat=GL_RGBA;
-			}
-		}
-	}
 
-	public static PixelTypeInfo getPixelTypeInfo(PixelType type, int comps) {
-		return new PixelTypeInfo(type, comps);
-	}
-	
-	public PixelTypeInfo getPixelTypeInfo(PixelType type) {
-		return new PixelTypeInfo(type, imp.getBitDepth()==24?1:imp.getNChannels());
-	}
-	
-	public static PixelTypeInfo getPixelTypeInfo(Buffer buffer, int comps) {
-		PixelType type=PixelType.FLOAT;
-		if(buffer instanceof ShortBuffer) {
-			type=PixelType.SHORT;
-		}else if(buffer instanceof ByteBuffer) {
-			type=PixelType.BYTE;
-		}else if(buffer instanceof IntBuffer) {
-			type=PixelType.INT_RGB10A2;
-			//type=PixelType.INT_RGBA8;
+
+	private PixelType getPixelType() {
+		switch(imp.getBitDepth()) {
+		case 1 : return PixelType.BYTE;
+		case 8 : return PixelType.BYTE;
+		case 16 : return PixelType.SHORT;
+		case 24 : return PixelType.INT_RGBA8;
+		case 32 : return PixelType.FLOAT;
 		}
-		return new PixelTypeInfo(type, comps);
+		return PixelType.BYTE;
 	}
+	
 	
 	public void toggle3d() {
 		set3d(!go3d);
@@ -1031,17 +986,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 1, 0);
 		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 2, 0);
 		
-	}
-	
-	private PixelType getPixelType() {
-		switch(imp.getBitDepth()) {
-		case 1 : return PixelType.BYTE;
-		case 8 : return PixelType.BYTE;
-		case 16 : return PixelType.SHORT;
-		case 24 : return PixelType.INT_RGBA8;
-		case 32 : return PixelType.FLOAT;
-		}
-		return PixelType.BYTE;
 	}
 
 	//Create blank image for original other graphics (ROI, overlay) to draw over.

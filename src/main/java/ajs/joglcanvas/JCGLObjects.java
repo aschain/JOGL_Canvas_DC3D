@@ -1,5 +1,27 @@
 package ajs.joglcanvas;
 
+import static com.jogamp.opengl.GL.GL_FLOAT;
+import static com.jogamp.opengl.GL.GL_R32F;
+import static com.jogamp.opengl.GL.GL_R8;
+import static com.jogamp.opengl.GL.GL_RG32F;
+import static com.jogamp.opengl.GL.GL_RG8;
+import static com.jogamp.opengl.GL.GL_RGB;
+import static com.jogamp.opengl.GL.GL_RGB10_A2;
+import static com.jogamp.opengl.GL.GL_RGB32F;
+import static com.jogamp.opengl.GL.GL_RGB8;
+import static com.jogamp.opengl.GL.GL_RGBA;
+import static com.jogamp.opengl.GL.GL_RGBA32F;
+import static com.jogamp.opengl.GL.GL_RGBA8;
+import static com.jogamp.opengl.GL.GL_UNSIGNED_BYTE;
+import static com.jogamp.opengl.GL.GL_UNSIGNED_SHORT;
+import static com.jogamp.opengl.GL2ES2.GL_RED;
+import static com.jogamp.opengl.GL2ES2.GL_RG;
+import static com.jogamp.opengl.GL2ES2.GL_UNSIGNED_INT_2_10_10_10_REV;
+import static com.jogamp.opengl.GL2GL3.GL_R16;
+import static com.jogamp.opengl.GL2GL3.GL_RG16;
+import static com.jogamp.opengl.GL2GL3.GL_RGB16;
+import static com.jogamp.opengl.GL2GL3.GL_RGBA16;
+import static com.jogamp.opengl.GL2GL3.GL_UNSIGNED_INT_8_8_8_8;
 import static com.jogamp.opengl.GL3.*;
 import static com.jogamp.opengl.GL4.*;
 
@@ -21,7 +43,6 @@ import com.jogamp.opengl.util.glsl.ShaderCode;
 import com.jogamp.opengl.util.glsl.ShaderProgram;
 
 import ajs.joglcanvas.JOGLImageCanvas.PixelType;
-import ajs.joglcanvas.JOGLImageCanvas.PixelTypeInfo;
 import ij.IJ;
 import ij.Prefs;
 
@@ -305,11 +326,12 @@ public class JCGLObjects {
 		}
 		
 		public void createRgbaTexture(String name, int index, Buffer buffer, int width, int height, int depth, int COMPS) {
-			createRgbaTexture(get(name,index),buffer, 0, width, height, depth, COMPS, true);
+			initiate(name, getPixelType(buffer), width, height, depth);
+			subRgbaTexture(get(name,index),buffer, 0, width, height, depth, COMPS, true);
 		}
 		
 		public void subRgbaTexture(String name, int index, Buffer buffer, int zoffset, int width, int height, int depth, int COMPS) {
-			createRgbaTexture(get(name,index),buffer, zoffset, width, height, depth, COMPS, false);
+			subRgbaTexture(get(name,index),buffer, zoffset, width, height, depth, COMPS, false);
 		}
 		
 		public void initiate(String name, PixelType ptype, int width, int height, int depth) {
@@ -332,15 +354,15 @@ public class JCGLObjects {
 			
 		}
 
-		private void createRgbaTexture(int glTextureHandle, Buffer buffer, int zoffset, int width, int height, int depth, int COMPS, boolean genmm) { 
+		private void subRgbaTexture(int glTextureHandle, Buffer buffer, int zoffset, int width, int height, int depth, int COMPS, boolean genmipmap) { 
 			GL3 gl3=gl.getGL3();
 			
-			PixelTypeInfo pinfo=JOGLImageCanvas.getPixelTypeInfo(buffer, COMPS);
+			PixelTypeInfo pinfo=getPixelTypeInfo(buffer, COMPS);
 
 			gl3.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			//gl3.glEnable(GL_TEXTURE_3D);
 			gl3.glBindTexture(GL_TEXTURE_3D, glTextureHandle);
-			if(!genmm) {
+			if(!genmipmap) {
 				gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_BASE_LEVEL, 0);
 				gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAX_LEVEL, 0);
 			}
@@ -348,7 +370,7 @@ public class JCGLObjects {
 			//gl3.glTexSubImage3D(target,   level, xoffset, yoffset, zoffset, width, height, depth, format, type, buffer);
 			//gl.glTexImage3D(GL_TEXTURE_2D, mipmapLevel, internalFormat, width, height, depth, numBorderPixels, pixelFormat, pixelType, buffer); 
 			
-			if(genmm)gl3.glGenerateMipmap(GL_TEXTURE_3D);
+			if(genmipmap)gl3.glGenerateMipmap(GL_TEXTURE_3D);
 			gl3.glBindTexture(GL_TEXTURE_3D, 0);
 			//gl3.glDisable(GL_TEXTURE_3D);
 		} 
@@ -364,7 +386,7 @@ public class JCGLObjects {
 			int[] phs=pbos.get(pboName);
 			int[] ths=handles.get(texName);
 			
-			JOGLImageCanvas.PixelTypeInfo pinfo=JOGLImageCanvas.getPixelTypeInfo(type, COMPS);
+			PixelTypeInfo pinfo=getPixelTypeInfo(type, COMPS);
 			
 			//gl3.glEnable(GL_TEXTURE_3D);
 			//gl3.glActiveTexture(GL_TEXTURE0);
@@ -747,5 +769,64 @@ public class JCGLObjects {
 	
 	private int getSizeofType(Buffer buffer) {
 		return getSizeofType(getGLType(buffer));
+	}
+	
+	static class PixelTypeInfo{
+		public int glInternalFormat;
+		public int glPixelSize;
+		public int sizeBytes;
+		public int components;
+		public int glFormat;
+		
+		public PixelTypeInfo(PixelType type, int COMPS) {
+			glInternalFormat=COMPS==4?GL_RGBA32F:COMPS==3?GL_RGB32F:COMPS==2?GL_RG32F:GL_R32F;
+			glPixelSize=GL_FLOAT;
+			sizeBytes=Buffers.SIZEOF_FLOAT;
+			components=COMPS;
+			glFormat=COMPS==4?GL_RGBA:COMPS==3?GL_RGB:COMPS==2?GL_RG:GL_RED;
+			
+			if(type==PixelType.SHORT) {
+				glInternalFormat=COMPS==4?GL_RGBA16:COMPS==3?GL_RGB16:COMPS==2?GL_RG16:GL_R16;
+				glPixelSize=GL_UNSIGNED_SHORT;
+				sizeBytes=Buffers.SIZEOF_SHORT;
+			}else if(type==PixelType.BYTE) {
+				glInternalFormat=COMPS==4?GL_RGBA8:COMPS==3?GL_RGB8:COMPS==2?GL_RG8:GL_R8;
+				glPixelSize=GL_UNSIGNED_BYTE;
+				sizeBytes=Buffers.SIZEOF_BYTE;
+			}else if(type==PixelType.INT_RGB10A2) {
+				glInternalFormat=GL_RGB10_A2;
+				glPixelSize=GL_UNSIGNED_INT_2_10_10_10_REV;
+				sizeBytes=Buffers.SIZEOF_INT;
+				components=1;
+				glFormat=GL_RGBA;
+			}else if(type==PixelType.INT_RGBA8) {
+				glInternalFormat=GL_RGBA8;
+				glPixelSize=GL_UNSIGNED_INT_8_8_8_8;
+				sizeBytes=Buffers.SIZEOF_INT;
+				components=1;
+				glFormat=GL_RGBA;
+			}
+		}
+	}
+	
+	protected static PixelType getPixelType(Buffer buffer) {
+		PixelType type=PixelType.FLOAT;
+		if(buffer instanceof ShortBuffer) {
+			type=PixelType.SHORT;
+		}else if(buffer instanceof ByteBuffer) {
+			type=PixelType.BYTE;
+		}else if(buffer instanceof IntBuffer) {
+			type=PixelType.INT_RGB10A2;
+			//type=PixelType.INT_RGBA8;
+		}
+		return type;
+	}
+
+	public static PixelTypeInfo getPixelTypeInfo(PixelType type, int comps) {
+		return new PixelTypeInfo(type, comps);
+	}
+	
+	public static PixelTypeInfo getPixelTypeInfo(Buffer buffer, int comps) {
+		return new PixelTypeInfo(getPixelType(buffer), comps);
 	}
 }

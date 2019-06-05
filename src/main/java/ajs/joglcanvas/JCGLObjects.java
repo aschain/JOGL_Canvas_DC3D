@@ -199,7 +199,7 @@ public class JCGLObjects {
 		for(int i=0;i<chs;i++) {
 			gl3.glActiveTexture(GL_TEXTURE0+i);
 			gl3.glBindTexture(gltype, textures.get(name, texIndex+i));
-			gl3.glUniform1i(gl3.glGetUniformLocation(pr[0], "mytex["+i+"]"),i);
+				gl3.glUniform1i(gl3.glGetUniformLocation(pr[0], "mytex["+i+"]"),i);
 		}
 
 		gl3.glBindVertexArray(vaos.get(name));

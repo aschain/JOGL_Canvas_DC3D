@@ -11,6 +11,7 @@ layout (location = 0) in vec3 aPos;
 //texture position
 layout (location = 1) in vec3 aTex;
 //matrices
+
 layout (binding = 1) uniform Transform0{
 	mat4 proj;
 	mat4 view;

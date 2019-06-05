@@ -5,6 +5,7 @@ precision highp int;
 
 layout(std140, column_major) uniform;
 
+
 //position in model space
 layout (location = 0) in vec3 aPos;
 //texture position

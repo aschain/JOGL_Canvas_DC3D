@@ -49,7 +49,6 @@ import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.nio.Buffer;
 import java.nio.FloatBuffer;
-import java.nio.IntBuffer;
 import java.nio.ShortBuffer;
 import java.nio.ByteBuffer;
 
@@ -58,8 +57,6 @@ import com.jogamp.opengl.GL3;
 import static com.jogamp.opengl.GL3.*;
 import com.jogamp.opengl.GLAutoDrawable;
 import com.jogamp.opengl.util.texture.awt.AWTTextureIO;
-
-import ajs.joglcanvas.JOGLImageCanvas.PixelType;
 
 import com.jogamp.opengl.GLEventListener;
 import com.jogamp.opengl.GLException;

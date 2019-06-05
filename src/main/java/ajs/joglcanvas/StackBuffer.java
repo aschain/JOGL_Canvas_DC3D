@@ -260,17 +260,19 @@ public class StackBuffer {
 	 */
 	private Object getImageArray(int stch, int endch, int stsl, int endsl, int stfr, int endfr, boolean update) {
 		if(isFrameStack) {stsl=stfr; endsl=endfr; stsl=0; endsl=1;}
-		int iwidth=imp.getWidth()/undersample, iheight=imp.getHeight()/undersample, sls=imp.getNSlices(), chs=endch-stch;
+		int iwidth=tex4div(imp.getWidth()/undersample), iheight=tex4div(imp.getHeight()/undersample), sls=imp.getNSlices(), chs=endch-stch;
 		int size=bufferWidth*bufferHeight*components*(endsl-stsl)*(endfr-stfr);
 		Object outPixels=null;
 		if(iwidth==bufferWidth && iheight==bufferHeight && (endsl-stsl)==1 && (endfr-stfr)==1 && chs==1 && components==1) {
 			return imp.getStack().getProcessor(imp.getStackIndex(endch, endsl, endfr)).getPixels();
 		}
-		int bits=imp.getBitDepth();
-		if(bits==8)outPixels=new byte[size];
-		else if(bits==16)outPixels=new short[size];
-		else if(bits==24) {outPixels=new int[size/components];}
-		else outPixels=new float[size];
+		if(!((endsl-stsl)==1 && (endfr-stfr)==1 && chs==1 && components==1)) {
+			int bits=imp.getBitDepth();
+			if(bits==8)outPixels=new byte[size];
+			else if(bits==16)outPixels=new short[size];
+			else if(bits==24) {outPixels=new int[size/components];}
+			else outPixels=new float[size];
+		}
 		ImageStack imst=imp.getStack();
 		for(int fr=stfr;fr<endfr; fr++) {
 			for(int csl=stsl;csl<endsl;csl++) {
@@ -278,7 +280,8 @@ public class StackBuffer {
 				for(int i=stch;i<endch;i++) {
 					ImageProcessor ip=imst.getProcessor(imp.getStackIndex(i+1, csl+1, fr+1));
 					Object pixels=convertForUndersample(ip.getPixels(), undersample);
-					addPixels(outPixels, bufferWidth, pixels, iwidth, iheight, offset, i-stch, chs);
+					if((endsl-stsl)==1 && (endfr-stfr)==1 && chs==1 && components==1)outPixels=pixels;
+					else addPixels(outPixels, bufferWidth, pixels, iwidth, iheight, offset, i-stch, chs);
 				}
 				if(update)updatedSlices[fr*sls+csl]=true;
 			}

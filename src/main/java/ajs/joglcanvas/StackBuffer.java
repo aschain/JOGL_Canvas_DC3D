@@ -26,7 +26,6 @@ public class StackBuffer {
 	public boolean[] updatedFrames;
 	private boolean[] updatedSlices;
 	protected int updatingBuffers=0;
-	private boolean stopupdate=false;
 	private PixelType pixelType=PixelType.BYTE;
 	private int undersample=1;
 	public boolean isFrameStack=false, okDirect=false;
@@ -37,13 +36,12 @@ public class StackBuffer {
 		isFrameStack=imp.getNFrames()>1&&imp.getNSlices()==1;
 		this.dcic=dcic;
 		if(imp.getNFrames()>1 && imp.getNSlices()==1)isFrameStack=true;
-		initBuffers();
 		if(JCP.backgroundLoadBuffers) {
 			updateBuffersBackground(null);
 		}
 	}
 	
-	private void updateSizes() {
+	private boolean updateSizes() {
 		int frms=imp.getNFrames(), sls=imp.getNSlices();
 		isFrameStack=frms>1&&sls==1;
 		if(isFrameStack) {sls=frms;frms=1;}
@@ -56,16 +54,16 @@ public class StackBuffer {
 		components=1;
 		sliceSize=bufferWidth*bufferHeight*components;
 		bufferSize=sliceSize*sls;
+		return initBuffersIfNeeded();
 	}
 	
 	public void setPixelType(PixelType pt, int us) {
 		this.pixelType=pt;
 		this.undersample=us;
 		updateSizes();
-		initBuffersIfNeeded();
 	}
 		
-	public void initBuffersIfNeeded() {
+	public boolean initBuffersIfNeeded() {
 		int frms=imp.getNFrames(), sls=imp.getNSlices(), chs=imp.getNChannels();
 		if(isFrameStack) {sls=frms;frms=1;}
 		if(imageFBs==null || imageFBs.length!=frms*chs || 
@@ -73,7 +71,9 @@ public class StackBuffer {
 						updatedSlices==null || updatedSlices.length!=frms*sls)
 		{
 			initBuffers();
+			return true;
 		}
+		return false;
 	}
 	
 	public void initBuffers() {
@@ -94,16 +94,10 @@ public class StackBuffer {
 		return wh+((wh%4)>0?(4-wh%4):0);
 	}
 	
-	public void stopUpdate() {
-		if(updatingBuffers>0)stopupdate=true;
-	}
-	
 	public void resetBuffers() {
-		stopUpdate();
-		resetSlices();
-		int chs=imp.getNChannels();
-		isFrameStack=imp.getNFrames()>1 && imp.getNSlices()==1;
-		imageFBs=new Buffer[isFrameStack?chs:imp.getNFrames()*chs];
+		if(!updateSizes()) {
+			initBuffers();
+		}
 	}
 	
 	public boolean isSliceUpdated(int sl, int fr) {
@@ -121,6 +115,7 @@ public class StackBuffer {
 	}
 	
 	private void checkBuffers() {
+		initBuffersIfNeeded();
 		for(int i=0;i<imageFBs.length;i++) {
 			imageFBs[i]=checkBuffer(imageFBs[i], bufferSize);
 		}
@@ -260,19 +255,18 @@ public class StackBuffer {
 	 */
 	private Object getImageArray(int stch, int endch, int stsl, int endsl, int stfr, int endfr, boolean update) {
 		if(isFrameStack) {stsl=stfr; endsl=endfr; stsl=0; endsl=1;}
-		int iwidth=tex4div(imp.getWidth()/undersample), iheight=tex4div(imp.getHeight()/undersample), sls=imp.getNSlices(), chs=endch-stch;
+		int sls=imp.getNSlices(), chs=endch-stch;
 		int size=bufferWidth*bufferHeight*components*(endsl-stsl)*(endfr-stfr);
 		Object outPixels=null;
-		if(iwidth==bufferWidth && iheight==bufferHeight && (endsl-stsl)==1 && (endfr-stfr)==1 && chs==1 && components==1) {
-			return imp.getStack().getProcessor(imp.getStackIndex(endch, endsl, endfr)).getPixels();
+		if((imp.getWidth()/undersample)==bufferWidth && (imp.getHeight()/undersample)==bufferHeight && ((endsl-stsl)==1 && (endfr-stfr)==1 && chs==1 && components==1)) {
+			return convertForUndersample(imp.getStack().getProcessor(imp.getStackIndex(endch, endsl, endfr)).getPixels(),undersample);
 		}
-		if(!((endsl-stsl)==1 && (endfr-stfr)==1 && chs==1 && components==1)) {
-			int bits=imp.getBitDepth();
-			if(bits==8)outPixels=new byte[size];
-			else if(bits==16)outPixels=new short[size];
-			else if(bits==24) {outPixels=new int[size/components];}
-			else outPixels=new float[size];
-		}
+		
+		int bits=imp.getBitDepth();
+		if(bits==8)outPixels=new byte[size];
+		else if(bits==16)outPixels=new short[size];
+		else if(bits==24) {outPixels=new int[size/components];}
+		else outPixels=new float[size];
 		ImageStack imst=imp.getStack();
 		for(int fr=stfr;fr<endfr; fr++) {
 			for(int csl=stsl;csl<endsl;csl++) {
@@ -280,8 +274,7 @@ public class StackBuffer {
 				for(int i=stch;i<endch;i++) {
 					ImageProcessor ip=imst.getProcessor(imp.getStackIndex(i+1, csl+1, fr+1));
 					Object pixels=convertForUndersample(ip.getPixels(), undersample);
-					if((endsl-stsl)==1 && (endfr-stfr)==1 && chs==1 && components==1)outPixels=pixels;
-					else addPixels(outPixels, bufferWidth, pixels, iwidth, iheight, offset, i-stch, chs);
+					addPixels(outPixels, bufferWidth, pixels, imp.getWidth()/undersample, imp.getHeight()/undersample, offset, i-stch, chs);
 				}
 				if(update)updatedSlices[fr*sls+csl]=true;
 			}
@@ -297,7 +290,7 @@ public class StackBuffer {
 	public Buffer getSliceBuffer(int channel, int slice, int frame) {
 		Object outPixels=null;
 		if(okDirect) outPixels=imp.getStack().getProcessor(imp.getStackIndex(channel, slice, frame)).getPixels();
-		else outPixels=getImageArray(0, imp.getNChannels(), slice-1, slice, frame-1, frame, false);
+		else outPixels=getImageArray(channel-1, channel, slice-1, slice, frame-1, frame, false);
 		if(outPixels instanceof float[])return FloatBuffer.wrap((float[])outPixels);
 		if(outPixels instanceof short[])return ShortBuffer.wrap((short[])outPixels);
 		if(outPixels instanceof int[])return IntBuffer.wrap((int[])outPixels);

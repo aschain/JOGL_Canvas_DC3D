@@ -128,7 +128,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		prevSrcRect=new Rectangle(0, 0, 0, 0);
 		if(JCP.glCapabilities==null && !JCP.setGLCapabilities()) IJ.showMessage("error in GL Capabilities");
 		createPopupMenu();
-		sb=new StackBuffer(imp, this);
+		sb=new StackBuffer(imp);
 		icc=new GLCanvas(JCP.glCapabilities);
 		float[] res=new float[] {1.0f,1.0f};
 		icc.setSurfaceScale(res);
@@ -410,7 +410,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 								IJ.log(gle.getMessage());
 								IJ.log("Out of memory, switching usePBOforSlices off");
 								usePBOforSlices=false;
-								sb.resetBuffers();
 								sb.resetSlices();
 								glos.textures.disposePbo("image");
 								glos.textures.newPbo("image", frms);
@@ -756,13 +755,12 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	
 	public void setUnderSampling(int us) {
 		if(undersample==us)return;
-		//while(updatingBuffers>0)IJ.wait(50);
 		undersample=us;
 		resetBuffers();
 	}
 	
 	public void resetBuffers() {
-		sb.resetBuffers();
+		sb.resetSlices();
 		deletePBOs=true;
 		myImageUpdated=true;
 		repaint();

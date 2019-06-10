@@ -304,11 +304,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}
 		if(threeDupdated || deletePBOs) {
 			if(go3d) {
-				for(int i=0;i<chs;i++) glos.textures.initiate("image",pixelType3d, sb.bufferWidth, sb.bufferHeight, sls);
+				for(int i=0;i<chs;i++) glos.textures.initiate("image",pixelType3d, sb.bufferWidth, sb.bufferHeight, sls, 1);
 			}else {
 				glos.buffers.loadIdentity("model", 0);
 				resetGlobalMatricies();
-				for(int i=0;i<chs;i++) glos.textures.initiate("image",getPixelType(), sb.bufferWidth, sb.bufferHeight, 1);
+				for(int i=0;i<chs;i++) glos.textures.initiate("image",getPixelType(), sb.bufferWidth, sb.bufferHeight, 1, 1);
 			}
 			threeDupdated=false;
 		}
@@ -497,7 +497,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					gl.glBindFramebuffer(GL_FRAMEBUFFER, stereoFramebuffers[0]);
 					gl.glBindRenderbuffer(GL_RENDERBUFFER, stereoFramebuffers[1]);
 					if(stereoi==0) {
-						JCGLObjects.PixelTypeInfo info=JCGLObjects.getPixelTypeInfo(pixelType3d,4);
+						JCGLObjects.PixelTypeInfo info=new JCGLObjects.PixelTypeInfo(pixelType3d,4);
 						gl.glBindTexture(GL_TEXTURE_3D, glos.textures.get("anaglyph"));
 						gl.glTexImage3D(GL_TEXTURE_3D, 0, info.glInternalFormat, drawable.getSurfaceWidth(),drawable.getSurfaceHeight(), 1, 0, GL_RGBA, info.glPixelSize, null);
 						gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);

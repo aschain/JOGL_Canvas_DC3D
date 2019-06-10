@@ -230,16 +230,15 @@ public class JCGLObjects {
 		GL3 gl3=gl.getGL3();
 		int[] sizes=vaos.vsizes.get(name);
 		gl3.glBindVertexArray(vaos.get(name));
-		if(glver==GLVer.GL4) {
-			Buffer elementBuffer=getElementBufferFromVBO(vertexBuffer, (sizes[4]+sizes[5])/getSizeofType(vertexBuffer));
-			bindEBOVBO(name, elementBuffer, vertexBuffer);
-			gl3.glDrawElements(glDraw, elementBuffer.capacity(), getGLType(elementBuffer), 0);
-		}else {
-			if(buffers.array.containsKey(name))gl.glBindBuffer(GL_ARRAY_BUFFER, buffers.array.get(name)[0]);
-			gl.glBufferData(GL_ARRAY_BUFFER, vertexBuffer.capacity()*getSizeofType(vertexBuffer), vertexBuffer, GL_DYNAMIC_DRAW);
-			int count=vertexBuffer.capacity()/((sizes[4]+sizes[5])/getSizeofType(vertexBuffer));
-			gl.glDrawArrays(glDraw, 0, count);
+		Buffer elementBuffer=getElementBufferFromVBO(vertexBuffer, (sizes[4]+sizes[5])/getSizeofType(vertexBuffer));
+		bindEBOVBO(name, elementBuffer, vertexBuffer);
+		if(glver==GLVer.GL3) {
+			gl3.glVertexAttribPointer(0, sizes[0], sizes[1], false, sizes[4]+sizes[5], 0);
+			gl3.glEnableVertexAttribArray(0);
+			gl3.glVertexAttribPointer(1, sizes[2], sizes[3], false, sizes[4]+sizes[5], sizes[4]);
+			gl3.glEnableVertexAttribArray(1);
 		}
+		gl3.glDrawElements(glDraw, elementBuffer.capacity(), getGLType(elementBuffer), 0);
 		gl3.glBindVertexArray(0);
 		unBindEBOVBO(name);
 	}
@@ -326,7 +325,7 @@ public class JCGLObjects {
 		}
 		
 		public void createRgbaTexture(String name, int index, Buffer buffer, int width, int height, int depth, int COMPS) {
-			initiate(name, getPixelType(buffer), width, height, depth);
+			initiate(name, getPixelType(buffer), width, height, depth, COMPS);
 			subRgbaTexture(get(name,index),buffer, 0, width, height, depth, COMPS, true);
 		}
 		
@@ -334,9 +333,9 @@ public class JCGLObjects {
 			subRgbaTexture(get(name,index),buffer, zoffset, width, height, depth, COMPS, false);
 		}
 		
-		public void initiate(String name, PixelType ptype, int width, int height, int depth) {
+		public void initiate(String name, PixelType ptype, int width, int height, int depth, int COMPS) {
 			GL3 gl3=gl.getGL3();
-			PixelTypeInfo pinfo=new PixelTypeInfo(ptype, 1);
+			PixelTypeInfo pinfo=new PixelTypeInfo(ptype, COMPS);
 			int[] ths=handles.get(name);
 			for(int i=0;i<ths.length;i++) {
 				gl3.glBindTexture(GL_TEXTURE_3D, ths[i]);
@@ -357,7 +356,7 @@ public class JCGLObjects {
 		private void subRgbaTexture(int glTextureHandle, Buffer buffer, int zoffset, int width, int height, int depth, int COMPS, boolean genmipmap) { 
 			GL3 gl3=gl.getGL3();
 			
-			PixelTypeInfo pinfo=getPixelTypeInfo(buffer, COMPS);
+			PixelTypeInfo pinfo=new PixelTypeInfo(buffer, COMPS);
 
 			gl3.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			//gl3.glEnable(GL_TEXTURE_3D);
@@ -386,7 +385,7 @@ public class JCGLObjects {
 			int[] phs=pbos.get(pboName);
 			int[] ths=handles.get(texName);
 			
-			PixelTypeInfo pinfo=getPixelTypeInfo(type, COMPS);
+			PixelTypeInfo pinfo=new PixelTypeInfo(type, COMPS);
 			
 			//gl3.glEnable(GL_TEXTURE_3D);
 			//gl3.glActiveTexture(GL_TEXTURE0);
@@ -807,6 +806,10 @@ public class JCGLObjects {
 				glFormat=GL_RGBA;
 			}
 		}
+		
+		public PixelTypeInfo(Buffer buffer, int COMPS) {
+			this(getPixelType(buffer), COMPS);
+		}
 	}
 	
 	protected static PixelType getPixelType(Buffer buffer) {
@@ -820,13 +823,5 @@ public class JCGLObjects {
 			//type=PixelType.INT_RGBA8;
 		}
 		return type;
-	}
-
-	public static PixelTypeInfo getPixelTypeInfo(PixelType type, int comps) {
-		return new PixelTypeInfo(type, comps);
-	}
-	
-	public static PixelTypeInfo getPixelTypeInfo(Buffer buffer, int comps) {
-		return new PixelTypeInfo(getPixelType(buffer), comps);
 	}
 }

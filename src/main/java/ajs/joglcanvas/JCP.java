@@ -269,7 +269,14 @@ public class JCP implements PlugIn {
 	
 	private static void getGLVersion() {
 		IJ.log("Getting OpenGL version...");
-		setGLCapabilities();
+		boolean glCisnull=false;
+		if(glCapabilities==null) {
+			glCisnull=true;
+			GLProfile.initSingleton();
+			GLProfile glProfile = GLProfile.getMaxProgrammable(true);
+			if(!glProfile.isGL2ES2()) IJ.showMessage("Deep Color requires at least OpenGL 2 ES2");
+			glCapabilities = new GLCapabilities( glProfile );
+		}
 		JFrame win=new JFrame();
 		win.setSize(100,100);
 		GLCanvas glc=new GLCanvas(glCapabilities);
@@ -283,7 +290,11 @@ public class JCP implements PlugIn {
 			public void dispose(GLAutoDrawable drawable) {}
 			@Override
 			public void display(GLAutoDrawable drawable) {
-				win.dispose();
+				GL2 gl=drawable.getGL().getGL2();
+				gl.glBegin(GL2.GL_LINE);
+				gl.glVertex2f(-1, -1);
+				gl.glVertex2f(1,1);
+				gl.glEnd();
 			}
 			@Override
 			public void reshape(GLAutoDrawable drawable, int x, int y, int width, int height) {}
@@ -291,8 +302,14 @@ public class JCP implements PlugIn {
 		});
 		win.add(glc);
 		win.setVisible(true);
-		glc.repaint();
-		glCapabilities=null;
+		while(!glc.areAllGLEventListenerInitialized()) {
+			try {
+				Thread.sleep(500);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}}
+		win.dispose();
+		if(glCisnull)glCapabilities=null;
 	}
 	
 	public static void preferences() {

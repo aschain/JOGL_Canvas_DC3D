@@ -813,6 +813,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 
 
 	private PixelType getPixelType() {
+		return getPixelType(imp);
+	}
+	
+	public static PixelType getPixelType(ImagePlus imp) {
 		switch(imp.getBitDepth()) {
 		case 1 : return PixelType.BYTE;
 		case 8 : return PixelType.BYTE;

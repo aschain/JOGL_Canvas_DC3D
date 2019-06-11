@@ -25,7 +25,7 @@ public class StackBuffer {
 	private PixelType pixelType=PixelType.BYTE;
 	private int undersample=1;
 	public boolean isFrameStack=false, okDirect=false;
-	public int sliceSize,bufferSize,bufferWidth,bufferHeight,components;
+	public int sliceSize,bufferSize,bufferWidth,bufferHeight;
 	
 	public StackBuffer(ImagePlus imp) {
 		this.imp=imp;
@@ -38,14 +38,10 @@ public class StackBuffer {
 		int oldbsize=bufferSize;
 		isFrameStack=frms>1&&sls==1;
 		if(isFrameStack) {sls=frms;frms=1;}
-		//int bits=imp.getBitDepth();
 		bufferWidth=tex4div(imp.getWidth()/undersample);
 		bufferHeight=tex4div(imp.getHeight()/undersample);
 		okDirect=imp.getWidth()==bufferWidth;
-		//components=bits==24?3:imp.getNChannels();
-		//if(pixelType==PixelType.INT_RGB10A2 || pixelType==PixelType.INT_RGBA8)components=1;
-		components=1;
-		sliceSize=bufferWidth*bufferHeight*components;
+		sliceSize=bufferWidth*bufferHeight;
 		bufferSize=sliceSize*sls;
 		if(bufferSize!=oldbsize) {resetSlices(); return true;}
 		return false;
@@ -92,16 +88,16 @@ public class StackBuffer {
 	private Object getImageArray(int stch, int endch, int stsl, int endsl, int stfr, int endfr, boolean update) {
 		if(isFrameStack) {stsl=stfr; endsl=endfr; stsl=0; endsl=1;}
 		int sls=imp.getNSlices(), chs=endch-stch;
-		int size=bufferWidth*bufferHeight*components*(endsl-stsl)*(endfr-stfr);
+		int size=bufferWidth*bufferHeight*(endsl-stsl)*(endfr-stfr);
 		Object outPixels=null;
-		if((imp.getWidth()/undersample)==bufferWidth && (imp.getHeight()/undersample)==bufferHeight && ((endsl-stsl)==1 && (endfr-stfr)==1 && chs==1 && components==1)) {
+		if((imp.getWidth()/undersample)==bufferWidth && (imp.getHeight()/undersample)==bufferHeight && ((endsl-stsl)==1 && (endfr-stfr)==1 && chs==1)) {
 			return convertForUndersample(imp.getStack().getProcessor(imp.getStackIndex(endch, endsl, endfr)).getPixels(),undersample);
 		}
 		
 		int bits=imp.getBitDepth();
 		if(bits==8)outPixels=new byte[size];
 		else if(bits==16)outPixels=new short[size];
-		else if(bits==24) {outPixels=new int[size/components];}
+		else if(bits==24) {outPixels=new int[size];}
 		else outPixels=new float[size];
 		ImageStack imst=imp.getStack();
 		for(int fr=stfr;fr<endfr; fr++) {
@@ -127,26 +123,23 @@ public class StackBuffer {
 		Object outPixels=null;
 		if(okDirect) outPixels=imp.getStack().getProcessor(imp.getStackIndex(channel, slice, frame)).getPixels();
 		else outPixels=getImageArray(channel-1, channel, slice-1, slice, frame-1, frame, false);
-		if(pixelBits(pixelType)!=imp.getBitDepth())return convertPixels(outPixels);
-		if(outPixels instanceof float[])return FloatBuffer.wrap((float[])outPixels);
-		if(outPixels instanceof short[])return ShortBuffer.wrap((short[])outPixels);
-		if(outPixels instanceof int[])return IntBuffer.wrap((int[])outPixels);
-		return ByteBuffer.wrap((byte[])outPixels);
+		return convertPixels(outPixels, channel);
 	}
 	
-	private Buffer convertPixels(Object outPixels) {
+	private Buffer convertPixels(Object outPixels, int channel) {
 		Buffer buffer=null;
 		int bits=(outPixels instanceof byte[])?8:(outPixels instanceof short[])?16:(outPixels instanceof float[])?32:24;
 		int size=((bits==8)?((byte[])outPixels).length:(bits==16)?((short[])outPixels).length:(bits==32)?((float[])outPixels).length:((int[])outPixels).length);
 		if(pixelType==PixelType.BYTE) {
-			buffer=GLBuffers.newDirectByteBuffer(size);
-			if(bits==8)((ByteBuffer)buffer).put(((byte[])outPixels));
+			if(bits==8)return ByteBuffer.wrap((byte[])outPixels);
 			else {
+				buffer=GLBuffers.newDirectByteBuffer(size);
 				for(int i=0;i<size;i++) {
 					if(bits==16)((ByteBuffer)buffer).put((byte)(((int)((((short[])outPixels)[i]&0xffff)/256.0))));
-					else if(bits==32)((ByteBuffer)buffer).put((byte)(((int)(((float[])outPixels)[i]*255f))));
+					else if(bits==32)((ByteBuffer)buffer).put((byte)(((int)(((float[])outPixels)[i]/* *255f*/))));
 					else {
-						int rgb=((int[])outPixels)[i];
+						IJ.error("Don't convert RGB to bytes");
+						//int rgb=((int[])outPixels)[i];
 						//requires new imageFBs length to be frms*3
 						//((ByteBuffer)buffer[fr*chs+0]).put((byte)((rgb&0xff0000)>>16));
 						//((ByteBuffer)buffer[fr*chs+1]).put((byte)((rgb&0xff00)>>8));
@@ -156,22 +149,27 @@ public class StackBuffer {
 				//if(bits==24) {for(int i=0;i<3;i++)imageFBs[fr*chs+i].position(sl*sliceSize);}
 			}
 		}else if(pixelType==PixelType.INT_RGBA8){
-			buffer=GLBuffers.newDirectIntBuffer(size);
-			if(bits==24)((IntBuffer)buffer).put(((int[])outPixels));
+			if(bits==24)return IntBuffer.wrap((int[])outPixels);
 			else {
+				//buffer=GLBuffers.newDirectIntBuffer(size);
 				IJ.error("INT_RGBA8 only for 24bit images");
 			}
 		}else if(pixelType==PixelType.SHORT) {
-			buffer=GLBuffers.newDirectShortBuffer(size);
-			if(bits==16)((ShortBuffer)buffer).put((short[])outPixels);
+			if(bits==16)return ShortBuffer.wrap((short[])outPixels);
 			else {
-				for(int i=0;i<size;i++) {
-					if(bits==8 || bits==24) IJ.error("Don't use short pixel type with 8 bit image");
-					if(bits==32)((ShortBuffer)buffer).put((short)(((float[])outPixels)[i]*65535f));
+				if(bits==8 || bits==24) IJ.error("Don't use short pixel type with 8 bit image");
+				if(bits==32) {
+					buffer=GLBuffers.newDirectShortBuffer(size);
+					//LUT[] luts=imp.getLuts();
+					for(int i=0;i<size;i++) {
+						//double px=(double)(((float[])outPixels)[i]);
+						//((ShortBuffer)buffer).put((short)((px-luts[channel-1].min)/(luts[channel-1].max-luts[channel-1].min)*65535.0));
+						((ShortBuffer)buffer).put((short)(((float[])outPixels)[i]));
+					}
 				}
 			}
 		}else if(pixelType==PixelType.INT_RGB10A2) {
-			buffer=GLBuffers.newDirectIntBuffer(size);
+			/*buffer=GLBuffers.newDirectIntBuffer(size);
 			int COMPS=1;
 			if(bits==32) {
 				float[] floatPixels=((float[])outPixels);
@@ -193,11 +191,12 @@ public class StackBuffer {
 					//if(COMPS==4) alpha=(((int)((shortPixels[i+3]&0xffff)/16384f))&0x3);
 					((IntBuffer)buffer).put(alpha<<30 | blue <<20 | green<<10 | red);
 				}
-			}else IJ.error("Don't use 10bit INT for 8 bit images");
+			}else IJ.error("Don't use 10bit INT for 8 bit images");*/
+			IJ.error("Not using RGB10A2 anymore");
 		}else if(pixelType==PixelType.FLOAT) {
-			buffer=GLBuffers.newDirectFloatBuffer(size);
-			if(bits==32)((FloatBuffer)buffer).put((float[])outPixels);
+			if(bits==32)return FloatBuffer.wrap((float[])outPixels);
 			else IJ.error("Don't use less than 32 bit image with 32 bit pixels");
+			//buffer=GLBuffers.newDirectFloatBuffer(size);
 		}
 		return buffer;
 	}
@@ -240,7 +239,7 @@ public class StackBuffer {
 			}
 		}
 	}
-	
+	/*
 	static public MinMax[] getMinMaxArray(LUT[] luts) {
 		return getMinMaxArray(luts.length,luts);
 	}
@@ -259,12 +258,6 @@ public class StackBuffer {
 		public double min=0,max=0;
 		public MinMax(double min, double max) {this.min=min;this.max=max;}
 	}
+	*/
 	
-	private int pixelBits(PixelType ptype) {
-		if(ptype==PixelType.BYTE)return 8;
-		if(ptype==PixelType.SHORT)return 16;
-		if(ptype==PixelType.FLOAT)return 32;
-		return 24;
-	}
-
 }

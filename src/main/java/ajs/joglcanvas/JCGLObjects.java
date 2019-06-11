@@ -1,27 +1,5 @@
 package ajs.joglcanvas;
 
-import static com.jogamp.opengl.GL.GL_FLOAT;
-import static com.jogamp.opengl.GL.GL_R32F;
-import static com.jogamp.opengl.GL.GL_R8;
-import static com.jogamp.opengl.GL.GL_RG32F;
-import static com.jogamp.opengl.GL.GL_RG8;
-import static com.jogamp.opengl.GL.GL_RGB;
-import static com.jogamp.opengl.GL.GL_RGB10_A2;
-import static com.jogamp.opengl.GL.GL_RGB32F;
-import static com.jogamp.opengl.GL.GL_RGB8;
-import static com.jogamp.opengl.GL.GL_RGBA;
-import static com.jogamp.opengl.GL.GL_RGBA32F;
-import static com.jogamp.opengl.GL.GL_RGBA8;
-import static com.jogamp.opengl.GL.GL_UNSIGNED_BYTE;
-import static com.jogamp.opengl.GL.GL_UNSIGNED_SHORT;
-import static com.jogamp.opengl.GL2ES2.GL_RED;
-import static com.jogamp.opengl.GL2ES2.GL_RG;
-import static com.jogamp.opengl.GL2ES2.GL_UNSIGNED_INT_2_10_10_10_REV;
-import static com.jogamp.opengl.GL2GL3.GL_R16;
-import static com.jogamp.opengl.GL2GL3.GL_RG16;
-import static com.jogamp.opengl.GL2GL3.GL_RGB16;
-import static com.jogamp.opengl.GL2GL3.GL_RGBA16;
-import static com.jogamp.opengl.GL2GL3.GL_UNSIGNED_INT_8_8_8_8;
 import static com.jogamp.opengl.GL3.*;
 import static com.jogamp.opengl.GL4.*;
 
@@ -43,7 +21,6 @@ import com.jogamp.opengl.util.glsl.ShaderCode;
 import com.jogamp.opengl.util.glsl.ShaderProgram;
 
 import ajs.joglcanvas.JOGLImageCanvas.PixelType;
-import ij.IJ;
 import ij.Prefs;
 
 public class JCGLObjects {

@@ -228,6 +228,7 @@ public class JCP implements PlugIn {
 		if(glCapabilities==null) {
 			GLProfile.initSingleton();
 		}
+		fillAnaColors();
 
 		GLProfile glProfile = GLProfile.getMaxProgrammable(true);
 		if(!glProfile.isGL2ES2()) {

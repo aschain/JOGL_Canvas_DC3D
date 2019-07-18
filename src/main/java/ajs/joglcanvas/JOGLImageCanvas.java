@@ -972,7 +972,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		
 		glos.bindUniformBuffer("global", 1);
 		glos.bindUniformBuffer("idm", 2);
-		rgldu.drawGLfb(gl, zoomIndVerts, GL_LINE_LOOP);
+		rgldu.drawGLfb(drawable, zoomIndVerts, GL_LINE_LOOP);
 		zoomIndVerts.rewind();
 		zoomIndVerts.put(x1+x2).put(y1-y2).put(0f).put(color);
 		zoomIndVerts.put(x1+x2+w2).put(y1-y2).put(0f).put(color);
@@ -980,7 +980,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		zoomIndVerts.put(x1+x2).put(y1-y2-h2).put(0f).put(color);
 		zoomIndVerts.rewind();
 		
-		rgldu.drawGLfb(gl, zoomIndVerts, GL_LINE_LOOP);
+		rgldu.drawGLfb(drawable, zoomIndVerts, GL_LINE_LOOP);
 
 		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 1, 0);
 		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 2, 0);

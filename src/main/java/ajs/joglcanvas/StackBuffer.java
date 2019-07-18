@@ -4,7 +4,6 @@ import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.process.ImageProcessor;
-import ij.process.LUT;
 
 import java.nio.Buffer;
 import java.nio.FloatBuffer;

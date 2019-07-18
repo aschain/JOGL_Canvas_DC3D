@@ -6,14 +6,22 @@ import java.awt.Color;
 import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Rectangle;
+import java.io.IOException;
 import java.nio.FloatBuffer;
 
 import com.jogamp.opengl.GL;
-import com.jogamp.opengl.GL2;
+import com.jogamp.opengl.GL2ES2;
 import com.jogamp.opengl.GL3;
 import com.jogamp.opengl.GLAutoDrawable;
+import com.jogamp.opengl.fixedfunc.GLMatrixFunc;
 import com.jogamp.opengl.util.GLBuffers;
-import com.jogamp.opengl.util.awt.TextRenderer;
+import com.jogamp.opengl.util.PMVMatrix;
+import com.jogamp.graph.curve.Region;
+import com.jogamp.graph.curve.opengl.RegionRenderer;
+import com.jogamp.graph.curve.opengl.RenderState;
+import com.jogamp.graph.curve.opengl.TextRegionUtil;
+import com.jogamp.graph.font.FontFactory;
+import com.jogamp.graph.geom.SVertex;
 
 import ij.ImagePlus;
 import ij.gui.Arrow;
@@ -25,9 +33,10 @@ import ij.measure.Calibration;
 import ij.process.FloatPolygon;
 
 public class RoiGLDrawUtility {
-	private TextRenderer textRenderer;
+	private RegionRenderer regionRenderer=null;
 	private ImagePlus imp;
 	private GL3 gl;
+	private GLAutoDrawable drawable;
 	private JCGLObjects rglos=null;
 	float px=2f/1024f;
 	float yrat=1f;
@@ -46,10 +55,12 @@ public class RoiGLDrawUtility {
 		rglos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "roiGL");
 		rglos.newVao("roiGL", 3, GL_FLOAT, 4, GL_FLOAT);
 		rglos.programs.newProgram("color", "shaders", "color", "color");
+		this.drawable=drawable;
 		this.gl=drawable.getGL().getGL3();
 	}
 	
 	private void updateSrcRect(GLAutoDrawable drawable) {
+		this.drawable=drawable;
 		Rectangle srcRect=imp.getCanvas().getSrcRect();
 		mag=imp.getCanvas().getMagnification();
 		w=(float)srcRect.width; h=(float)srcRect.height;
@@ -61,6 +72,7 @@ public class RoiGLDrawUtility {
 	}
 	
 	public void setGL(GLAutoDrawable drawable) {
+		this.drawable=drawable;
 		setGL(drawable.getGL());
 	}
 	
@@ -68,7 +80,7 @@ public class RoiGLDrawUtility {
 		this.imp=imp;
 	}
 	
-	public void setGL(GL gl) {
+	private void setGL(GL gl) {
 		this.gl=gl.getGL3();
 		rglos.setGL(gl);
 	}
@@ -240,7 +252,7 @@ public class RoiGLDrawUtility {
 		for(int i=0;i<coords.length;i+=3) {
 			fb.put(coords[i]).put(coords[i+1]).put(coords[i+2]).put(color);
 		}
-		drawGLfb(gl, fb, toDraw);
+		drawGLfb(drawable, fb, toDraw);
 	}
 	/**
 	 * drawGLfb requires a FloatBuffer fb which has 3 position floats followed by 4 color floats per vertex.
@@ -248,8 +260,8 @@ public class RoiGLDrawUtility {
 	 * @param fb
 	 * @param toDraw
 	 */
-	public void drawGLfb(GL3 gl, FloatBuffer fb, int toDraw) {
-		setGL(gl);
+	public void drawGLfb(GLAutoDrawable drawable, FloatBuffer fb, int toDraw) {
+		setGL(drawable);
 		rglos.drawVao(toDraw, "roiGL", fb, "color");
 	}
 	
@@ -526,13 +538,13 @@ public class RoiGLDrawUtility {
 		return ((dh-(float)y-0.5f)/dh*2f-1f)*yrat;
 	}
 	
-	private int impX(float x) {
-		return (int)((x+1f)*w/2f+offx);
-	}
+	//private int impX(float x) {
+	//	return (int)((x+1f)*w/2f+offx);
+	//}
 	
-	private int impY(float y) {
-		return (int)(offy+h-((y/yrat+1f)*h/2f));
-	}
+	//private int impY(float y) {
+	//	return (int)(offy+h-((y/yrat+1f)*h/2f));
+	//}
 	
 	/** x,y,z are in opengl float*/
 	private void drawLine(float x1, float y1, float x2, float y2, float z, Color color) {
@@ -567,6 +579,7 @@ public class RoiGLDrawUtility {
 	}
 	
 	/** minimizes points but has unequal distribution over the oval*/
+	/*
 	private static FloatPolygon getMinOvalFloatPolygon(final Rectangle b) {
 		final double x=(double)b.x+(double)b.width/2.0;
 		final double y=(double)b.y+(double)b.height/2.0;
@@ -607,6 +620,7 @@ public class RoiGLDrawUtility {
 		for(int i=0;i<n;i++) {xpoints[i]=xmax[i];ypoints[i]=ymax[i];}
 		return new FloatPolygon(xpoints,ypoints,n);
 	}
+	*/
 	
 	/** 
 	 * Rectangle in IMAGEJ coordinates, and returns FloatPolygon with IMAGEJ
@@ -683,7 +697,7 @@ public class RoiGLDrawUtility {
 	//}
 	
 	protected void drawTextRoi(TextRoi troi, float z) {
-		if(textRenderer==null || !textRenderer.getFont().equals(troi.getCurrentFont())) textRenderer = new TextRenderer(troi.getCurrentFont(),troi.getAntialiased(),false);
+		//if(textRenderer==null || !textRenderer.getFont().equals(troi.getCurrentFont())) textRenderer = new TextRenderer(troi.getCurrentFont(),troi.getAntialiased(),false);
 		int just=troi.getJustification();
 		String[] text=troi.getText().split("\n");
 		Rectangle b=troi.getBounds();
@@ -698,7 +712,7 @@ public class RoiGLDrawUtility {
 			}else if(just==TextRoi.RIGHT) {
 				x=glX((float)(b.x+b.width-fm.stringWidth(text[i])));
 			}
-			drawString(text[i],troi.getStrokeColor(),x,y,z,px*(float)imp.getCanvas().getMagnification());
+			drawString(text[i],troi.getStrokeColor(),x,y,z,px*(float)imp.getCanvas().getMagnification(),troi.getAntialiased(),troi.getCurrentFont());
 		}
 	}
 	
@@ -711,25 +725,56 @@ public class RoiGLDrawUtility {
 	 */
 	protected void drawString(String text, Font font, Color color, float x, float y, float z) {
 		if(font==null) font=new Font("SansSerif", Font.PLAIN, 9);
-		if(textRenderer==null || !textRenderer.getFont().equals(font))textRenderer =new TextRenderer(font,false,false);
+		//if(textRenderer==null || !textRenderer.getFont().equals(font))textRenderer =new TextRenderer(font,false,false);
 		FontMetrics fm=imp.getCanvas().getGraphics().getFontMetrics(font);
 		String[] texta=text.split("\n");
 		for(int i=0;i<texta.length;i++)
-			drawString(texta[i], color, x,y-((fm.getHeight()-1)*i)/dh*2f,z, px);
+			drawString(texta[i], color, x,y-((fm.getHeight()-1)*i)/dh*2f,z, px, false, font);
 	}
 	
-	protected void drawString(String text, Color color, float x, float y, float z, float mag) {
-		GL2 gl2=gl.getGL2();
-		gl2.glMatrixMode(GL2.GL_PROJECTION);
-		gl2.glLoadIdentity();
-		gl2.glOrtho(-1, 1, -h/w, h/w, -1, 1);
+	protected void drawString(String text, Color color, float x, float y, float z, float mag, boolean aa, Font font) {
+		//if(textRenderer==null)textRenderer =new TextRenderer(new Font("SansSerif", Font.PLAIN, 9),false,false);
+		if(regionRenderer==null) {
+			RenderState rs=RenderState.createRenderState(SVertex.factory());
+			rs.setColorStatic(1f,1f,1f,1f);
+			regionRenderer=RegionRenderer.create(rs, RegionRenderer.defaultBlendEnable, RegionRenderer.defaultBlendDisable);
+			
+		}
+		GL2ES2 gl2=gl.getGL2ES2();
+		//gl2.glMatrixMode(GL2.GL_PROJECTION);
+		//gl2.glLoadIdentity();
+		//gl2.glOrtho(-1, 1, -h/w, h/w, -1, 1);
 		//gl2.glMatrixMode(GL2.GL_MODELVIEW);
+		//gl2.glLoadIdentity();
 		//gl2.glLoadMatrixf(glos.buffers.ubuffers.get("model").asFloatBuffer());
-		if(textRenderer==null)textRenderer =new TextRenderer(new Font("SansSerif", Font.PLAIN, 9),false,false);
-		textRenderer.begin3DRendering();
-		textRenderer.setColor(color);
-		textRenderer.draw3D(text, x, y, z, mag); 
-		textRenderer.end3DRendering();
+		
+		int aabit=aa?Region.VBAA_RENDERING_BIT:0;
+		regionRenderer.getRenderState().setColorStatic((float)color.getRed()/255f, (float)color.getGreen()/255f, (float)color.getBlue()/255f, (float)color.getAlpha()/255f);
+		regionRenderer.init(gl, aabit);
+		regionRenderer.enable(gl2, true);
+		TextRegionUtil util = new TextRegionUtil(aabit);
+		PMVMatrix pmv=regionRenderer.getMatrix();
+		pmv.glMatrixMode(GLMatrixFunc.GL_MODELVIEW);
+		pmv.glLoadIdentity();
+		//pmv.glLoadMatrixf(glos.buffers.ubuffers.get("model").asFloatBuffer());
+		pmv.glMatrixMode(GLMatrixFunc.GL_PROJECTION);
+		pmv.glLoadIdentity();
+		pmv.glOrthof(-1f, 1f, -h/w, h/w, -1f, 1f);
+		regionRenderer.reshapeOrtho(drawable.getSurfaceWidth(), drawable.getSurfaceHeight(), 0.001f, 1f);
+		com.jogamp.graph.font.Font jfont=null;
+		try {
+			jfont = FontFactory.get(FontFactory.JAVA).get(0, 0);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		//com.jogamp.graph.font.Font jfont=com.jogamp.graph.font.Font.Metrics
+		//float ps=font.getSize();
+		util.drawString3D(gl2, regionRenderer, jfont, 20f, text, null /*rgba color float array*/, new int[] {4});
+
+		regionRenderer.enable(gl2, false);
+		//textRenderer.setColor(color);
+		//textRenderer.draw3D(text, x, y, z, 1f); 
+		//textRenderer.end3DRendering();
 	}
 
 }

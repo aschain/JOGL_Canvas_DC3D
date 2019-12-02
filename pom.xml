@@ -104,4 +104,30 @@
 			<artifactId>ij</artifactId>
 		</dependency>
 	</dependencies>
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>exec-maven-plugin</artifactId>
+				<executions>
+				  <execution>
+				  	<id>first-execution</id>
+				    <phase>install</phase>
+				    <goals>
+				       <goal>exec</goal>
+				    </goals>
+				    <configuration>
+				      <executable>../copyToFiji.bat</executable>
+				      <workingDirectory>${basedir}</workingDirectory>
+				      <arguments>
+				    	  <argument>plugins</argument>
+				    	  <argument>JOGL_Canvas_DC3D</argument>
+				    	  <argument>${basedir}/target/${project.build.finalName}.jar</argument>
+				      </arguments>
+				    </configuration>
+				  </execution>
+				</executions>
+			</plugin>
+		</plugins>
+	</build>
 </project>

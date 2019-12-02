@@ -47,9 +47,15 @@ import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
 import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.nio.Buffer;
 import java.nio.FloatBuffer;
 import java.nio.ShortBuffer;
+
+import javax.swing.JFrame;
+import javax.swing.JPopupMenu;
+
 import java.nio.ByteBuffer;
 
 import com.jogamp.common.nio.Buffers;
@@ -478,6 +484,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		for(int stereoi=0;stereoi<views;stereoi++) {
 			glos.programs.useProgram("image");
 			if(go3d) {
+				int width=(int)(srcRectWidthMag*dpimag+0.5);
+				int height=(int)(srcRectHeightMag*dpimag+0.5);
 				if(stereoType==StereoType.QUADBUFFER) {
 					if(stereoi==1)
 						gl.glDrawBuffer(GL_RIGHT);
@@ -487,8 +495,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					float[] translate=FloatUtil.makeTranslation(new float[16], 0, false, (stereoi==0?(-CB_MAXSIZE*CB_TRANSLATE):(CB_MAXSIZE*CB_TRANSLATE)), 0f, 0f);
 					ortho=FloatUtil.multMatrix(ortho, translate);
 					gl.glEnable(GL_SCISSOR_TEST);
-					int height=drawable.getSurfaceHeight();
-					int width=drawable.getSurfaceWidth();
 					int y=(int)((1f-(1f/CB_MAXSIZE))*yrat/2f*(float)height);
 					gl.glScissor((width/2)-(int)(width/CB_MAXSIZE/2f) + (int)(CB_TRANSLATE*width/2f*(stereoi==0?-1:1)), y, (int)(width/CB_MAXSIZE), (int)(height/CB_MAXSIZE));
 					glos.buffers.loadMatrix("global", ortho);
@@ -498,15 +504,15 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					if(stereoi==0) {
 						JCGLObjects.PixelTypeInfo info=new JCGLObjects.PixelTypeInfo(pixelType3d,4);
 						gl.glBindTexture(GL_TEXTURE_3D, glos.textures.get("anaglyph"));
-						gl.glTexImage3D(GL_TEXTURE_3D, 0, info.glInternalFormat, drawable.getSurfaceWidth(),drawable.getSurfaceHeight(), 1, 0, GL_RGBA, info.glPixelSize, null);
+						gl.glTexImage3D(GL_TEXTURE_3D, 0, info.glInternalFormat, width, height, 1, 0, GL_RGBA, info.glPixelSize, null);
 						gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 						gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 						gl.glFramebufferTexture3D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_3D, glos.textures.get("anaglyph"), 0, 0);
-						gl.glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, drawable.getSurfaceWidth(), drawable.getSurfaceHeight());
+						gl.glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, width, height);
 						gl.glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, stereoFramebuffers[1]);
 						gl.glBindTexture(GL_TEXTURE_3D, 0);
 					}
-					gl.glViewport(0, 0, drawable.getSurfaceWidth(), drawable.getSurfaceHeight());
+					gl.glViewport(0, 0, width, height);
 					gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 					if(gl.glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)IJ.error("not ready");
 				}
@@ -704,7 +710,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			if(go3d && stereoType==StereoType.ANAGLYPH) {
 				gl.glBindFramebuffer(GL_FRAMEBUFFER, 0);
 				gl.glBindRenderbuffer(GL_RENDERBUFFER, 0);
-				gl.glViewport(0, 0, drawable.getSurfaceWidth(), drawable.getSurfaceHeight());
+				int width=(int)(srcRectWidthMag*dpimag+0.5);
+				int height=(int)(srcRectHeightMag*dpimag+0.5);
+				gl.glViewport(0, 0, width, height);
 				gl.glEnable(GL_BLEND);
 				gl.glBlendEquation(GL_MAX);
 				gl.glBlendFunc(GL_SRC_COLOR, GL_DST_COLOR);
@@ -1124,6 +1132,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		else super.add(popup);
 	}
 	
+	public void add(JPopupMenu popup) {
+		if(icc!=null)icc.getParent().add(popup);
+	}
+	
 	/** Adapted from ImageCanvas, but shows JOGLCanvas popupmenu*/
 	@Override
 	protected void handlePopupMenu(MouseEvent e) {
@@ -1139,7 +1151,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			}
 
 			if (dcpopup!=null) {
-				icc.add(dcpopup);
+				add(dcpopup);
 				if (IJ.isMacOSX()) IJ.wait(10);
 				String lbl=mi3d.getLabel();
 				//int a=0;
@@ -1161,9 +1173,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	public void createPopupMenu() {
 		if(dcpopup==null) {
 			dcpopup=new PopupMenu("JOGLCanvas Options");
-			PopupMenu popup = Menus.getPopupMenu();
-			popup.setLabel("ImageJ");
-			
 			MenuItem mi;
 			
 			Menu threeDmenu=new Menu("3d Options");
@@ -1242,7 +1251,13 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			mi.setActionCommand("prefs");
 			mi.addActionListener(this);
 			dcpopup.add(mi);
-			dcpopup.add(popup);
+			
+			Object ijpopup=JCP.getIJPopupMenu();
+			if(ijpopup instanceof PopupMenu) {
+				PopupMenu popup=(PopupMenu)ijpopup;
+				popup.setLabel("ImageJ");
+				dcpopup.add(popup);
+			}
 		}
 	}
 	
@@ -1522,6 +1537,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			}
 			stwin.pack();
 		}
+	}
+	
+	public int[] getPBOnames() {
+		return glos.textures.pbos.get("image");
 	}
 
 }

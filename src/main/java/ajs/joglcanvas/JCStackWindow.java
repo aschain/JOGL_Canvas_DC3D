@@ -1,7 +1,10 @@
 package ajs.joglcanvas;
 
 import java.awt.Component;
+import java.awt.Container;
+import javax.swing.JFrame;
 
+import ij.IJ;
 import ij.ImagePlus;
 import ij.gui.StackWindow;
 
@@ -14,11 +17,12 @@ public class JCStackWindow extends StackWindow {
 	
 	public JCStackWindow(ImagePlus imp, JOGLImageCanvas dcic) {
 		super(imp,dcic);
-        Component[] wincs=getComponents();
-        for(int i=0;i<wincs.length;i++)remove(wincs[i]);
+		Container c=this;
+		if(c instanceof JFrame)c=((JFrame)c).getContentPane();
+        Component[] wincs=c.getComponents();
+        
         for(int i=0;i<wincs.length;i++) {
-        		if(wincs[i] instanceof JOGLImageCanvas) {add(dcic.icc);}
-        		else {add(wincs[i]);}
+        		if(wincs[i] instanceof JOGLImageCanvas) {c.remove(i); c.add(dcic.icc, i);}
         }
 		repaint();
 	}

@@ -162,10 +162,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		GraphicsConfiguration gc=icc.getParent().getGraphicsConfiguration();
 		AffineTransform t=gc.getDefaultTransform();
 		dpimag=t.getScaleX();
+		if(IJ.isMacOSX())dpimag=1.0;
 		icc.setSize(dstWidth, dstHeight);
-		double dpimag2=drawable.getSurfaceHeight()/dstHeight;
-		if(dpimag>1.0)IJ.log("Dpimag: "+dpimag+" "+dpimag2);
-		if(IJ.isMacOSX())icc.setLocation(4,47);
+		if(dpimag>1.0)IJ.log("Dpimag: "+dpimag);
+		//if(IJ.isMacOSX())icc.setLocation(4,47);
 		setGL(drawable);
 		JCP.version=drawable.getGL().glGetString(GL_VERSION);
 		gl.glClearColor(0f, 0f, 0f, 0f);
@@ -256,17 +256,17 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	public void reshape(GLAutoDrawable drawable, int x, int y, int width, int height) {
 		setGL(drawable);
 		resetGlobalMatricies();
-		gl.glViewport(x, y, width, height);
-		if(dpimag>1.0 && !IJ.isMacOSX()) {
-			//int[] vps=new int[4];
-			//gl.glGetIntegerv(GL_VIEWPORT, vps, 0);
-			//if(dpimag>1.0)IJ.log("bef VPS: "+vps[0]+" "+vps[1]+" "+vps[2]+" "+vps[3]);
-			int srcRectWidthMag = (int)(srcRect.width*magnification+0.5);
-			int srcRectHeightMag = (int)(srcRect.height*magnification+0.5);
-			gl.glViewport(0, 0, (int)(srcRectWidthMag*dpimag+0.5), (int)(srcRectHeightMag*dpimag+0.5));
-			//gl.glGetIntegerv(GL_VIEWPORT, vps, 0);
-			//if(dpimag>1.0)IJ.log("aft VPS: "+vps[0]+" "+vps[1]+" "+vps[2]+" "+vps[3]);
-		}
+		int xdpi=(int)(x*dpimag), ydpi=(int)(y*dpimag), widthdpi=(int)(width*dpimag), heightdpi=(int)(height*dpimag);
+		//IJ.log("Reshaping:x"+x+" y"+y+" w"+width+" h"+height);
+		int srmw=(int)((int)(srcRect.width*magnification+0.5)*dpimag+0.5);
+		int srmh=(int)((int)(srcRect.height*magnification+0.5)*dpimag+0.5);
+		
+		//int[] vps=new int[4];
+		//gl.glGetIntegerv(GL_VIEWPORT, vps, 0);
+		//if(dpimag>1.0)IJ.log("bef VPS: "+vps[0]+" "+vps[1]+" "+vps[2]+" "+vps[3]);
+		gl.glViewport((width-widthdpi)/2+xdpi, (height-heightdpi)/2+ydpi, srmw, srmh);
+		//gl.glGetIntegerv(GL_VIEWPORT, vps, 0);
+		//if(dpimag>1.0)IJ.log("aft VPS: "+vps[0]+" "+vps[1]+" "+vps[2]+" "+vps[3]);
 	}
 	
 	private void resetGlobalMatricies() {
@@ -869,7 +869,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	
 	public void setMirror() {
 		isMirror=true;
-		addMirrorListeners();
+		//addMirrorListeners();
 		mirror=new Frame("JOGL-DC3D Mirror of "+imp.getTitle());
 		//mirror=new ImageWindow("DC3D Mirror of "+imp.getTitle());
 		mirror.add(icc);
@@ -961,8 +961,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if (h2<1f) h2 = 1f;
 		float x2 = (float)(w1*((double)srcRect.x/imageWidth));
 		float y2 = (float)(h1*((double)srcRect.y/imageHeight));
-		float w=(float)drawable.getSurfaceWidth();
-		float h=(float)drawable.getSurfaceHeight();
+		float w=(float)(srcRect.width*magnification);
+		float h=(float)(srcRect.height*magnification);
 		float yrat=(float)srcRect.height/srcRect.width;
 		x1=x1/w*2f-1f; y1=((h-y1)/h*2f-1f)*yrat;
 		w1=w1/w*2f; h1=h1/h*2f*yrat;

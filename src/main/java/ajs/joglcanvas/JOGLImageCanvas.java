@@ -264,7 +264,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		//int[] vps=new int[4];
 		//gl.glGetIntegerv(GL_VIEWPORT, vps, 0);
 		//if(dpimag>1.0)IJ.log("bef VPS: "+vps[0]+" "+vps[1]+" "+vps[2]+" "+vps[3]);
-		gl.glViewport((width-widthdpi)/2+xdpi, (height-heightdpi)/2+ydpi, srmw, srmh);
+		gl.glViewport((widthdpi-srmw)/2+xdpi, (heightdpi-srmh)/2+ydpi, srmw, srmh);
 		//gl.glGetIntegerv(GL_VIEWPORT, vps, 0);
 		//if(dpimag>1.0)IJ.log("aft VPS: "+vps[0]+" "+vps[1]+" "+vps[2]+" "+vps[3]);
 	}

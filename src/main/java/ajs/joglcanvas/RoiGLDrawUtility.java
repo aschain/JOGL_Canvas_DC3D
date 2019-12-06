@@ -65,8 +65,8 @@ public class RoiGLDrawUtility {
 		mag=imp.getCanvas().getMagnification();
 		w=(float)srcRect.width; h=(float)srcRect.height;
 		offx=(float)srcRect.x; offy=(float)srcRect.y;
-		dw=drawable.getSurfaceWidth();
-		dh=drawable.getSurfaceHeight();
+		dw=(int)(mag*w+0.5);
+		dh=(int)(mag*h+0.5);
 		px=2f/dw;
 		yrat=(float)srcRect.height/srcRect.width;
 	}
@@ -760,7 +760,7 @@ public class RoiGLDrawUtility {
 		pmv.glMatrixMode(GLMatrixFunc.GL_PROJECTION);
 		pmv.glLoadIdentity();
 		pmv.glOrthof(-1f, 1f, -h/w, h/w, -1f, 1f);
-		regionRenderer.reshapeOrtho(drawable.getSurfaceWidth(), drawable.getSurfaceHeight(), 0.001f, 1f);
+		regionRenderer.reshapeOrtho((int)dw, (int)dh, 0.001f, 1f);
 		com.jogamp.graph.font.Font jfont=null;
 		try {
 			jfont = FontFactory.get(FontFactory.JAVA).get(0, 0);

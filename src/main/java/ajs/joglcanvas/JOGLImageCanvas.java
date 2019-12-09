@@ -5,7 +5,6 @@ import ij.IJ;
 import ij.ImageListener;
 import ij.ImagePlus;
 import ij.ImageStack;
-import ij.Menus;
 import ij.Prefs;
 import ij.gui.ImageCanvas;
 import ij.gui.Roi;
@@ -54,6 +53,7 @@ import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.nio.ShortBuffer;
 import java.nio.ByteBuffer;
+import javax.swing.JPopupMenu;
 
 import com.jogamp.common.nio.Buffers;
 import com.jogamp.opengl.GL;
@@ -88,7 +88,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private Rectangle prevSrcRect=null;
 	private boolean[] ltr=null;
 
-	protected boolean go3d=true;
+	protected boolean go3d=JCP.go3d;
 	public String renderFunction=JCP.renderFunction;
 	public boolean usePBOforSlices=JCP.usePBOforSlices;
 	protected int sx,sy;
@@ -1575,6 +1575,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		else super.add(popup);
 	}
 	
+	public void add(JPopupMenu popup) {
+		if(icc!=null)icc.getParent().add(popup);
+	}
+	
 	/** Adapted from ImageCanvas, but shows JOGLCanvas popupmenu*/
 	@Override
 	protected void handlePopupMenu(MouseEvent e) {
@@ -1590,7 +1594,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			}
 
 			if (dcpopup!=null) {
-				icc.add(dcpopup);
+				add(dcpopup);
 				if (IJ.isMacOSX()) IJ.wait(10);
 				String lbl=mi3d.getLabel();
 				int a=0;
@@ -1612,9 +1616,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	public void createPopupMenu() {
 		if(dcpopup==null) {
 			dcpopup=new PopupMenu("JOGLCanvas Options");
-			PopupMenu popup = Menus.getPopupMenu();
-			popup.setLabel("ImageJ");
-			
 			MenuItem mi;
 			
 			Menu threeDmenu=new Menu("3d Options");
@@ -1689,7 +1690,13 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			mi.setActionCommand("prefs");
 			mi.addActionListener(this);
 			dcpopup.add(mi);
-			dcpopup.add(popup);
+			
+			Object ijpopup=JCP.getIJPopupMenu();
+			if(ijpopup instanceof PopupMenu) {
+				PopupMenu popup=(PopupMenu)ijpopup;
+				popup.setLabel("ImageJ");
+				dcpopup.add(popup);
+			}
 		}
 	}
 	

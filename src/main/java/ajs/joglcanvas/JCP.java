@@ -7,7 +7,9 @@ import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JMenuItem;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
 import javax.swing.JSlider;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
@@ -16,6 +18,7 @@ import static com.jogamp.opengl.GL.GL_VERSION;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.GridLayout;
@@ -29,6 +32,8 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
 import java.awt.event.WindowListener;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 
 import com.jogamp.opengl.GL;
 import com.jogamp.opengl.GL2;
@@ -59,8 +64,6 @@ public class JCP implements PlugIn {
 	public static JOGLCanvasService listenerInstance=null;
 	public static String defaultBitString="default";
 	public static GLCapabilities glCapabilities=null;
-	public static MenuItem dcmi=null;
-	public static MenuItem dcmmi=null;
 	public static int undersample=(int)Prefs.get("ajs.joglcanvas.undersample", 1.0);
 	public static String renderFunction=Prefs.get("ajs.joglcanvas.renderFunction", "MAX");
 	public static boolean backgroundLoadBuffers=Prefs.get("ajs.joglcanvas.backgroundLoadBuffers", false);
@@ -71,8 +74,9 @@ public class JCP implements PlugIn {
 	public static boolean dubois=Prefs.get("ajs.joglcanvas.dubois", false);
 	public static int stereoSep=5;
 	public static String version="";
+	public static String defaultVersion="";
 	public static float[][] anaColors;
-	public static boolean go3d=Prefs.get("ajs.joglcanvas.go3d", false);;
+	public static boolean go3d=Prefs.get("ajs.joglcanvas.go3d", false);
 	
 	/**
 	 * This method gets called by ImageJ / Fiji.
@@ -170,46 +174,105 @@ public class JCP implements PlugIn {
 		return null;
 	}
 	
-	public static void addJCPopup() {
-		addJCPopup(0);
+	public static void addJCPopups() {
+		addJCPopup("Convert to JOGL Canvas");
+		addJCPopup("Show JOGL Canvas Mirror");
 	}
 	
-	public static void addJCPopup(int pi) {
-		if(hasInstalledPopup(pi))return;
-		PopupMenu popup=Menus.getPopupMenu();
-		if(pi==0) {
-			if(dcmi==null) {
-				dcmi=new MenuItem("Convert to JOGL Canvas");
-				dcmi.addActionListener(new ActionListener() {
-					public void actionPerformed(ActionEvent e) {
-						JCP.convertToJOGLCanvas(WindowManager.getCurrentImage());
-					}
-				});
+	public static void addJCPopup(String action) {
+		action=actionConverter(action);
+		if(action.contentEquals("")) {IJ.log("usage: addJCPopup(\"convert\" or \"mirror\")");return;}
+		if(hasInstalledPopup(action))return;
+		Object popup=getIJPopupMenu();
+		ActionListener al=null;
+		if(action.toLowerCase().contains("convert")) {
+			action="Convert to JOGL Canvas";
+			al=new ActionListener() {
+				public void actionPerformed(ActionEvent e) {
+					JCP.convertToJOGLCanvas(WindowManager.getCurrentImage());
+				}
+			};
+			if(popup instanceof PopupMenu) {
+				MenuItem dcmi=new MenuItem(action);
+				dcmi.addActionListener(al);
+				((PopupMenu)popup).add(dcmi);
+			}else if(popup instanceof JPopupMenu){
+				JMenuItem dcmi=new JMenuItem(action);
+				dcmi.addActionListener(al);
+				((JPopupMenu)popup).add(dcmi);
 			}
-			popup.add(dcmi);
-		}else{
-			if(dcmmi==null) {
-				dcmmi=new MenuItem("Show JOGL Canvas Mirror");
-				dcmmi.addActionListener(new ActionListener() {
-					public void actionPerformed(ActionEvent e) {
-						JCP.addJOGLCanvasMirror(WindowManager.getCurrentImage());
-					}
-				});
+		}
+		if(action.toLowerCase().contains("mirror")){
+			action="Show JOGL Canvas Mirror";
+			al=new ActionListener() {
+				public void actionPerformed(ActionEvent e) {
+					JCP.addJOGLCanvasMirror(WindowManager.getCurrentImage());
+				}
+			};
+			if(popup instanceof PopupMenu) {
+				MenuItem dcmi=new MenuItem(action);
+				dcmi.addActionListener(al);
+				((PopupMenu)popup).add(dcmi);
+			}else if(popup instanceof JPopupMenu){
+				JMenuItem dcmi=new JMenuItem(action);
+				dcmi.addActionListener(al);
+				((JPopupMenu)popup).add(dcmi);
 			}
-			popup.add(dcmmi);
 		}
 	}
 	
-	static void removeJCPopup(int pi) {
-		PopupMenu popup=Menus.getPopupMenu();
-		for(int i=0;i<popup.getItemCount();i++)
-			if(popup.getItem(i).equals(pi==0?dcmi:dcmmi))popup.remove(i);
+	public static void removeJCPopup(String action) {
+		getJCMenuItem(action, true);
 	}
 	
-	static boolean hasInstalledPopup(int pi) {
-		PopupMenu popup=Menus.getPopupMenu();
-		for(int i=0;i<popup.getItemCount();i++)
-			if(popup.getItem(i).equals(pi==0?dcmi:dcmmi))return true;
+	private static String actionConverter(String action) {
+		if(action.toLowerCase().contains("convert"))return "Convert to JOGL Canvas";
+		if(action.toLowerCase().contains("mirror"))return "Show JOGL Canvas Mirror";
+		return "";
+	}
+	
+	public static Object getIJPopupMenu() {
+		Method gpm=null;
+		Object popup=null;
+		try {
+			gpm=Menus.class.getMethod("getPopupMenu");
+			popup = gpm.invoke(null, new Object[0]);
+		} catch (NoSuchMethodException | SecurityException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+			e.printStackTrace();
+		}
+		return popup;
+	}
+	
+	private static Object getJCMenuItem(String action, boolean remove) {
+		action=actionConverter(action);
+		if(action.contentEquals(""))return null;
+		Object popup=getIJPopupMenu();
+		if(popup instanceof PopupMenu) {
+			PopupMenu apopup=(PopupMenu)popup;
+			for(int i=0;i<apopup.getItemCount();i++) {
+				MenuItem a=apopup.getItem(i);
+				if(a.getLabel().equals(action)) {
+					if(remove)apopup.remove(i);
+					return a;
+				}
+			}
+		}else if(popup instanceof JPopupMenu) {
+			JPopupMenu apopup=(JPopupMenu)popup;
+			for(int i=0;i<apopup.getComponentCount();i++) {
+				Component a=apopup.getComponent(i);
+				if(a instanceof JMenuItem && ((JMenuItem)a).getText().equals(action)) {
+					if(remove)apopup.remove(i);
+					return a;
+				}
+			}
+		}
+		return null;
+	}
+	
+	static boolean hasInstalledPopup(String action) {
+		action=actionConverter(action);
+		if(action.contentEquals(""))return false;
+		if(getJCMenuItem(action, false)!=null)return true;
 		return false;
 	}
 	
@@ -228,6 +291,7 @@ public class JCP implements PlugIn {
 		if(glCapabilities==null) {
 			GLProfile.initSingleton();
 		}
+		fillAnaColors();
 
 		GLProfile glProfile = GLProfile.getMaxProgrammable(true);
 		if(!glProfile.isGL2ES2()) {
@@ -267,23 +331,45 @@ public class JCP implements PlugIn {
 	}
 
 	
-	private static void getGLVersion() {
+	private static void getGLVersion(boolean max) {
 		IJ.log("Getting OpenGL version...");
-		setGLCapabilities();
+		boolean glCisnull=false;
+		if(glCapabilities==null) {
+			glCisnull=true;
+			GLProfile.initSingleton();
+			GLProfile glProfile=null;
+			if(max) glProfile= GLProfile.getMaxProgrammable(true);
+			else glProfile= GLProfile.getDefault();
+			if(!glProfile.isGL2ES2()) IJ.showMessage("Deep Color requires at least OpenGL 2 ES2");
+			glCapabilities = new GLCapabilities( glProfile );
+		}
+		GLCanvas glc=new GLCanvas(glCapabilities);
+		//IJ.log(""+glc.getContext().getGL().glGetString(GL_VERSION));
+		//if(max)JCP.version=glc.getContext().getGL().glGetString(GL_VERSION);
+		//else JCP.defaultVersion=glc.getContext().getGL().glGetString(GL_VERSION);
 		JFrame win=new JFrame();
 		win.setSize(100,100);
-		GLCanvas glc=new GLCanvas(glCapabilities);
 		glc.addGLEventListener(new GLEventListener() {
 			@Override
 			public void init(GLAutoDrawable drawable) {
-				JCP.version=drawable.getGL().glGetString(GL_VERSION);
+				if(max)JCP.version=drawable.getGL().glGetString(GL_VERSION);
+				else JCP.defaultVersion=drawable.getGL().glGetString(GL_VERSION);
 				IJ.log("\\Update:"+JCP.version);
 			}
 			@Override
 			public void dispose(GLAutoDrawable drawable) {}
 			@Override
 			public void display(GLAutoDrawable drawable) {
-				win.dispose();
+				GL gl=drawable.getGL();
+				if(gl.isGL2()) {
+					GL2 gl2=drawable.getGL().getGL2();
+					gl2.glBegin(GL2.GL_LINE);
+					gl2.glVertex2f(-1, -1);
+					gl2.glVertex2f(1,1);
+					gl2.glEnd();
+				}else if(gl.isGL3()) {
+					gl.getContext();
+				}
 			}
 			@Override
 			public void reshape(GLAutoDrawable drawable, int x, int y, int width, int height) {}
@@ -291,12 +377,18 @@ public class JCP implements PlugIn {
 		});
 		win.add(glc);
 		win.setVisible(true);
-		glc.repaint();
-		glCapabilities=null;
+		while(!glc.areAllGLEventListenerInitialized()) {
+			try {
+				Thread.sleep(500);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}}
+		win.dispose();
+		if(glCisnull)glCapabilities=null;
 	}
 	
 	public static void preferences() {
-		if(version.equals(""))getGLVersion();
+		if(version.equals("")) {getGLVersion(false); getGLVersion(true);}
 		GLProfile glProfile=GLProfile.getDefault();
 		String defaultstr=defaultBitString;
 		if(defaultstr.equals("default"))defaultstr=Prefs.get("ajs.joglcanvas.colordepths","default");
@@ -314,6 +406,7 @@ public class JCP implements PlugIn {
 		}
 		GenericDialog gd=new GenericDialog("JOGL Canvas Deep Color 3D Display Options");
 		if(!version.equals(""))gd.addMessage("GL Ver: "+version);
+		if(!defaultVersion.equals(""))gd.addMessage("GL Default Ver: "+defaultVersion);
 		gd.addMessage("For High-bit Monitors:\nChoose the color bit depths from those available\nChoices are bits for R,G,B,A respectively");
 		gd.addChoice("Bitdepths:", bitdepths.toArray(new String[bitdepths.size()]), bitdepths.get(0));
 		gd.addStringField("Or enter R,G,B,A if you are sure (e.g. 10,10,10,2)", "");
@@ -321,8 +414,8 @@ public class JCP implements PlugIn {
 		gd.addMessage("Service:");
 		gd.addCheckbox("Run service now? (Run on all opened images?)", listenerInstance!=null);
 		gd.addMessage("Add to ImageJ Popup Menu:");
-		gd.addCheckbox("Convert to JOGL Canvas", hasInstalledPopup(0));
-		gd.addCheckbox("Add JOGL Canvas Mirror", hasInstalledPopup(1));
+		gd.addCheckbox("Convert to JOGL Canvas", hasInstalledPopup("convert"));
+		gd.addCheckbox("Add JOGL Canvas Mirror", hasInstalledPopup("mirror"));
 		gd.addMessage("Default 3d:");
 		gd.addCheckbox("3D on by default?", go3d);
 		gd.addMessage("Extra:");
@@ -352,8 +445,8 @@ public class JCP implements PlugIn {
 			stopListener();
 		}
 		//PopupMenus
-		if(gd.getNextBoolean()) addJCPopup(0); else removeJCPopup(0);
-		if(gd.getNextBoolean()) addJCPopup(1); else removeJCPopup(1);
+		if(gd.getNextBoolean()) addJCPopup("convert"); else removeJCPopup("convert");
+		if(gd.getNextBoolean()) addJCPopup("mirror"); else removeJCPopup("mirror");
 		go3d=gd.getNextBoolean();
 		Prefs.set("ajs.joglcanvas.go3d", go3d);
 		renderFunction=gd.getNextChoice();

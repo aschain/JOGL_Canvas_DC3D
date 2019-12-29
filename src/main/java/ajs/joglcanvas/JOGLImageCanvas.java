@@ -172,6 +172,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		prevSrcRect=new Rectangle(0, 0, 0, 0);
 		if(mirror)setMirror();
 		lutminmaxs=new double[imp.getNChannels()*2];
+		setPaintPending(false);
 	}
 	
 	private boolean initBuffers(int frms, int sls) {
@@ -1470,8 +1471,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			if(isMirror)updateMirror();
 			icc.repaint();
 		}
-		else setPaintPending(false);
-		//else super.repaint();
+		else super.repaint();
 	}
 
 	@Override

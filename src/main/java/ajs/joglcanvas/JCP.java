@@ -290,7 +290,7 @@ public class JCP implements PlugIn {
 	}
 	
 	public static boolean setGLCapabilities() {
-		//getGLVersion(false); crashes don't know why
+		if(IJ.isLinux())System.setProperty("jogl.disable.openglcore", "true"); //avoids this bug https://github.com/processing/processing/issues/5476
 		if(glCapabilities==null) {
 			GLProfile.initSingleton();
 		}
@@ -336,9 +336,9 @@ public class JCP implements PlugIn {
 	
 	private static void getGLVersion(boolean max) {
 		IJ.log("Getting OpenGL version...");
-		System.setProperty("jogl.disable.openglcore", "true");
 		boolean glCisnull=false;
 		if(glCapabilities==null) {
+			if(IJ.isLinux())System.setProperty("jogl.disable.openglcore", "true"); //avoids this bug https://github.com/processing/processing/issues/5476
 			glCisnull=true;
 			GLProfile.initSingleton();
 			GLProfile glProfile=null;
@@ -397,12 +397,11 @@ public class JCP implements PlugIn {
 	
 	public static void preferences() {
 		if(version.equals("")) {getGLVersion(false); getGLVersion(true);}
-		GLProfile glProfile=GLProfile.getDefault();
 		String defaultstr=defaultBitString;
 		if(defaultstr.equals("default"))defaultstr=Prefs.get("ajs.joglcanvas.colordepths","default");
 		if(defaultstr.equals("default"))defaultstr="8,8,8,8";
-		GLDrawableFactory factory=GLDrawableFactory.getFactory(glProfile);
-		List<GLCapabilitiesImmutable> glcList=factory.getAvailableCapabilities(null);
+		List<GLCapabilitiesImmutable> glcList=GLDrawableFactory.getFactory(GLProfile.getDefault()).getAvailableCapabilities(null);
+		if(glcList.size()==0)glcList=GLDrawableFactory.getFactory(GLProfile.getMaxProgrammable(true)).getAvailableCapabilities(null);
 		ArrayList<String> bitdepths=new ArrayList<String>();
 		bitdepths.add(defaultstr);
 		for(int i=0;i<glcList.size();i++) {

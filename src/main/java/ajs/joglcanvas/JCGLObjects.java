@@ -451,7 +451,8 @@ public class JCGLObjects {
 		
 		public ByteBuffer newBuffer(int gltype, String name, long size, Buffer buffer, boolean define) {
 			GL3 gl3=gl.getGL3();
-			GL4 gl4=gl.getGL4();
+			GL4 gl4=null;
+			if(glver==GLVer.GL4)gl4=gl.getGL4();
 			Hashtable<String,int[]> dict=array;
 			Hashtable<String,Buffer> bdict=abuffers;
 			if(gltype==GL_UNIFORM_BUFFER) {dict=uniform; bdict=ubuffers;}
@@ -586,7 +587,8 @@ public class JCGLObjects {
 		public void newVao(String name, int size1, int gltype1, int size2, int gltype2) {
 		
 			GL3 gl3=gl.getGL3();
-			GL4 gl4=gl.getGL4();
+			GL4 gl4=null;
+			if(glver==GLVer.GL4)gl4=gl.getGL4();
 			
 			int[] vhs=new int[1];
 			if(glver==GLVer.GL4){

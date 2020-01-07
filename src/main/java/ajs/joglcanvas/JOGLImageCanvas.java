@@ -260,11 +260,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	
 	@Override
 	public void reshape(GLAutoDrawable drawable, int x, int y, int width, int height) {
-		IJ.log("Reshaping:x"+x+" y"+y+" w"+width+" h"+height);
+		//IJ.log("Reshaping:x"+x+" y"+y+" w"+width+" h"+height);
 		setGL(drawable);
 		resetGlobalMatricies();
 		Rectangle r=getViewportAspectRectangle(x,y,width,height);
-		IJ.log("Viewport:x"+r.x+" y"+r.y+" w"+r.width+" h"+r.height);
+		//IJ.log("Viewport:x"+r.x+" y"+r.y+" w"+r.width+" h"+r.height);
 		//int[] vps=new int[4];
 		//gl.glGetIntegerv(GL_VIEWPORT, vps, 0);
 		//if(dpimag>1.0)IJ.log("bef VPS: "+vps[0]+" "+vps[1]+" "+vps[2]+" "+vps[3]);

@@ -19,6 +19,7 @@ import static com.jogamp.opengl.GL.GL_VERSION;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.Frame;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.GridLayout;
@@ -74,6 +75,8 @@ public class JCP implements PlugIn {
 	public static boolean dubois=Prefs.get("ajs.joglcanvas.dubois", false);
 	public static int stereoSep=5;
 	public static String version="";
+	public static String defaultVersion="";
+	public static String glslVersion="",glslDefVersion="";
 	public static float[][] anaColors;
 	public static boolean go3d=Prefs.get("ajs.joglcanvas.go3d", false);;
 	
@@ -287,6 +290,7 @@ public class JCP implements PlugIn {
 	}
 	
 	public static boolean setGLCapabilities() {
+		//getGLVersion(false); crashes don't know why
 		if(glCapabilities==null) {
 			GLProfile.initSingleton();
 		}
@@ -330,34 +334,50 @@ public class JCP implements PlugIn {
 	}
 
 	
-	private static void getGLVersion() {
+	private static void getGLVersion(boolean max) {
 		IJ.log("Getting OpenGL version...");
+		System.setProperty("jogl.disable.openglcore", "true");
 		boolean glCisnull=false;
 		if(glCapabilities==null) {
 			glCisnull=true;
 			GLProfile.initSingleton();
-			GLProfile glProfile = GLProfile.getMaxProgrammable(true);
+			GLProfile glProfile=null;
+			if(max) glProfile= GLProfile.getMaxProgrammable(true);
+			else glProfile= GLProfile.getDefault();
 			if(!glProfile.isGL2ES2()) IJ.showMessage("Deep Color requires at least OpenGL 2 ES2");
 			glCapabilities = new GLCapabilities( glProfile );
 		}
-		JFrame win=new JFrame();
+		Frame win=new Frame();
 		win.setSize(100,100);
 		GLCanvas glc=new GLCanvas(glCapabilities);
 		glc.addGLEventListener(new GLEventListener() {
 			@Override
 			public void init(GLAutoDrawable drawable) {
-				JCP.version=drawable.getGL().glGetString(GL_VERSION);
-				IJ.log("\\Update:"+JCP.version);
+				String ver=drawable.getGL().glGetString(GL_VERSION), glslver=drawable.getGL().glGetString(GL2.GL_SHADING_LANGUAGE_VERSION);
+				if(max) {
+					JCP.version=ver;
+					JCP.glslVersion=glslver;
+				}else {
+					JCP.defaultVersion=ver;
+					JCP.glslDefVersion=glslver;
+				}
+				IJ.log("\\Update:"+ver);
+				IJ.log(glslver);
 			}
 			@Override
 			public void dispose(GLAutoDrawable drawable) {}
 			@Override
 			public void display(GLAutoDrawable drawable) {
-				GL2 gl=drawable.getGL().getGL2();
-				gl.glBegin(GL2.GL_LINE);
-				gl.glVertex2f(-1, -1);
-				gl.glVertex2f(1,1);
-				gl.glEnd();
+				GL gl=drawable.getGL();
+				if(gl.isGL2()) {
+					GL2 gl2=drawable.getGL().getGL2();
+					gl2.glBegin(GL2.GL_LINE);
+					gl2.glVertex2f(-1, -1);
+					gl2.glVertex2f(1,1);
+					gl2.glEnd();
+				}else if(gl.isGL3()) {
+					gl.getContext();
+				}
 			}
 			@Override
 			public void reshape(GLAutoDrawable drawable, int x, int y, int width, int height) {}
@@ -376,7 +396,7 @@ public class JCP implements PlugIn {
 	}
 	
 	public static void preferences() {
-		if(version.equals(""))getGLVersion();
+		if(version.equals("")) {getGLVersion(false); getGLVersion(true);}
 		GLProfile glProfile=GLProfile.getDefault();
 		String defaultstr=defaultBitString;
 		if(defaultstr.equals("default"))defaultstr=Prefs.get("ajs.joglcanvas.colordepths","default");
@@ -394,6 +414,7 @@ public class JCP implements PlugIn {
 		}
 		GenericDialog gd=new GenericDialog("JOGL Canvas Deep Color 3D Display Options");
 		if(!version.equals(""))gd.addMessage("GL Ver: "+version);
+		if(!defaultVersion.equals(""))gd.addMessage("GL Default Ver: "+defaultVersion);
 		gd.addMessage("For High-bit Monitors:\nChoose the color bit depths from those available\nChoices are bits for R,G,B,A respectively");
 		gd.addChoice("Bitdepths:", bitdepths.toArray(new String[bitdepths.size()]), bitdepths.get(0));
 		gd.addStringField("Or enter R,G,B,A if you are sure (e.g. 10,10,10,2)", "");

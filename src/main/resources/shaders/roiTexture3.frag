@@ -1,4 +1,4 @@
-#version 330 core
+#version 300 es
 
 precision highp float;
 precision highp int;
@@ -9,8 +9,8 @@ in vec3 texCoord;
 // Outgoing final color.
 out vec4 outputColor;
 
-uniform sampler3D mytex[1];
+uniform highp sampler3D mytex0;
 
 void main(){
-	outputColor=texture(mytex[0], texCoord);
+	outputColor=texture(mytex0, texCoord);
 }

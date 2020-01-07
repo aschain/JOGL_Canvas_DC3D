@@ -698,6 +698,21 @@ public class JCGLObjects {
             shaderProgram.add(fragShader);
 
             shaderProgram.init(gl3);
+            if(glver==GLVer.GL3 && !shaderProgram.validateProgram(gl3, System.err)) {
+            	System.out.println("Going to 330");
+            	add="330";
+            	vertShader = ShaderCode.create(gl3, GL_VERTEX_SHADER, this.getClass(), root, null, vertex+add,
+                        "vert", null, true);
+                fragShader = ShaderCode.create(gl3, GL_FRAGMENT_SHADER, this.getClass(), root, null, fragment+add,
+                        "frag", null, true);
+
+                shaderProgram = new ShaderProgram();
+
+                shaderProgram.add(vertShader);
+                shaderProgram.add(fragShader);
+
+                shaderProgram.init(gl3);
+            }
             name=shaderProgram.program();
 
             shaderProgram.link(gl3, System.err);

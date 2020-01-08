@@ -698,6 +698,7 @@ public class JCGLObjects {
             shaderProgram.add(fragShader);
 
             shaderProgram.init(gl3);
+            shaderProgram.link(gl3, System.err);
             if(glver==GLVer.GL3 && !shaderProgram.validateProgram(gl3, System.err)) {
             	System.out.println("Going to 330");
             	add="330";
@@ -712,10 +713,11 @@ public class JCGLObjects {
                 shaderProgram.add(fragShader);
 
                 shaderProgram.init(gl3);
+                shaderProgram.link(gl3, System.err);
             }
+            System.out.println("Shader ok: "+(shaderProgram.validateProgram(gl3, System.err)?"yes":"no"));
+            
             name=shaderProgram.program();
-
-            shaderProgram.link(gl3, System.err);
             
             if(glver==GLVer.GL3) {
         		gl3.glUniformBlockBinding(name, gl3.glGetUniformBlockIndex(name, "Transform0"), 1);

@@ -715,7 +715,7 @@ public class JCGLObjects {
                 shaderProgram.init(gl3);
                 shaderProgram.link(gl3, System.err);
             }
-            System.out.println("Shader ok: "+(shaderProgram.validateProgram(gl3, System.err)?"yes":"no"));
+            if(!shaderProgram.validateProgram(gl3, System.err))System.out.println("Shader failed");
             
             name=shaderProgram.program();
             

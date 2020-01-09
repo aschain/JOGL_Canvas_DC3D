@@ -339,11 +339,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}
 		if(threeDupdated || deletePBOs) {
 			if(go3d) {
-				for(int i=0;i<chs;i++) glos.textures.initiate("image",pixelType3d, sb.bufferWidth, sb.bufferHeight, sls, 1);
+				for(int i=0;i<chs;i++) glos.textures.initiate("image",pixelType3d, sb.bufferWidth, sb.bufferHeight, sls, 1, Prefs.interpolateScaledImages);
 			}else {
 				glos.buffers.loadIdentity("model", 0);
 				resetGlobalMatricies();
-				for(int i=0;i<chs;i++) glos.textures.initiate("image",getPixelType(), sb.bufferWidth, sb.bufferHeight, 1, 1);
+				for(int i=0;i<chs;i++) glos.textures.initiate("image",getPixelType(), sb.bufferWidth, sb.bufferHeight, 1, 1, Prefs.interpolateScaledImages);
 			}
 			threeDupdated=false;
 		}
@@ -364,7 +364,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					if((rc==0||rc==imp.getC()) && (rz==0||rz==(sl+1)) && (rt==0||rt==imp.getT())) {oroi.drawOverlay(g); doRoi=true;}
 				}
 			}
-			if(doRoi)glos.textures.createRgbaTexture("roiGraphic", AWTTextureIO.newTextureData(gl.getGLProfile(), roiImage, false).getBuffer(), srcRectWidthMag, srcRectHeightMag, 1, 4);
+			if(doRoi)glos.textures.createRgbaTexture("roiGraphic", AWTTextureIO.newTextureData(gl.getGLProfile(), roiImage, false).getBuffer(), srcRectWidthMag, srcRectHeightMag, 1, 4, false);
 		}
 		boolean[] doOv=null;
 		if(!JCP.openglroi && overlay!=null && go3d) {
@@ -392,7 +392,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					}
 				}
 				if(doOv[osl]) {
-					glos.textures.createRgbaTexture("overlay", osl, AWTTextureIO.newTextureData(gl.getGLProfile(), roiImage, false).getBuffer(), srcRectWidthMag, srcRectHeightMag, 1, 4);
+					glos.textures.createRgbaTexture("overlay", osl, AWTTextureIO.newTextureData(gl.getGLProfile(), roiImage, false).getBuffer(), srcRectWidthMag, srcRectHeightMag, 1, 4, false);
 				}
 			}
 		}
@@ -458,7 +458,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				}else {
 					//still update stackbuffer?
 					for(int i=0;i<chs;i++) {
-						glos.textures.createRgbaTexture("image", i, sb.getSliceBuffer(i+1, sl+1, fr+1), sb.bufferWidth, sb.bufferHeight, 1, COMPS);
+						glos.textures.createRgbaTexture("image", i, sb.getSliceBuffer(i+1, sl+1, fr+1), sb.bufferWidth, sb.bufferHeight, 1, COMPS, Prefs.interpolateScaledImages);
 					}
 				}
 			}
@@ -1014,7 +1014,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		x2=x2/w*2f; y2=y2/h*2f*yrat;
 		w2=w2/w*2f; h2=h2/h*2f*yrat;
 		
-		drawable.getGL().getGL3().glDisable(GL_BLEND);
+		GL3 gl3=drawable.getGL().getGL3();
+		gl3.glDisable(GL_BLEND);
+		gl3.glLineWidth((float)dpimag);
 		zoomIndVerts.rewind();
 		float[] color=new float[] {(float)128/255, (float)128/255, 1f, 1f};
 		zoomIndVerts.put(x1).put(y1).put(0f).put(color);
@@ -1037,6 +1039,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 
 		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 1, 0);
 		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 2, 0);
+		gl3.glLineWidth(1f);
 		
 	}
 

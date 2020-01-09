@@ -300,12 +300,12 @@ public class JCGLObjects {
 			return pbos.containsKey(name);
 		}
 		
-		public void createRgbaTexture(String name, Buffer buffer, int width, int height, int depth, int COMPS) {
-			createRgbaTexture(name, 0, buffer, width, height, depth, COMPS);
+		public void createRgbaTexture(String name, Buffer buffer, int width, int height, int depth, int COMPS, boolean linear) {
+			createRgbaTexture(name, 0, buffer, width, height, depth, COMPS, linear);
 		}
 		
-		public void createRgbaTexture(String name, int index, Buffer buffer, int width, int height, int depth, int COMPS) {
-			initiate(name, getPixelType(buffer), width, height, depth, COMPS);
+		public void createRgbaTexture(String name, int index, Buffer buffer, int width, int height, int depth, int COMPS, boolean linear) {
+			initiate(name, getPixelType(buffer), width, height, depth, COMPS, linear);
 			subRgbaTexture(get(name,index),buffer, 0, width, height, depth, COMPS, true);
 		}
 		
@@ -313,15 +313,15 @@ public class JCGLObjects {
 			subRgbaTexture(get(name,index),buffer, zoffset, width, height, depth, COMPS, false);
 		}
 		
-		public void initiate(String name, PixelType ptype, int width, int height, int depth, int COMPS) {
+		public void initiate(String name, PixelType ptype, int width, int height, int depth, int COMPS, boolean linear) {
 			GL3 gl3=gl.getGL3();
 			PixelTypeInfo pinfo=new PixelTypeInfo(ptype, COMPS);
 			int[] ths=handles.get(name);
 			for(int i=0;i<ths.length;i++) {
 				gl3.glBindTexture(GL_TEXTURE_3D, ths[i]);
 				gl3.glTexImage3D(GL_TEXTURE_3D, 0, pinfo.glInternalFormat, width, height, depth, 0, pinfo.glFormat, pinfo.glPixelSize, null);
-				int magtype=GL_LINEAR;
-				if(!Prefs.interpolateScaledImages)magtype=GL_NEAREST;
+				int magtype=linear?GL_LINEAR:GL_NEAREST;
+				//if(!Prefs.interpolateScaledImages)magtype=;
 				
 				gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, magtype);
 				gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, magtype);//GL_NEAREST_MIPMAP_LINEAR

@@ -818,8 +818,8 @@ public class JCGLObjects {
 		}else if(buffer instanceof ByteBuffer) {
 			type=PixelType.BYTE;
 		}else if(buffer instanceof IntBuffer) {
-			type=PixelType.INT_RGB10A2;
-			//type=PixelType.INT_RGBA8;
+			//type=PixelType.INT_RGB10A2;
+			type=PixelType.INT_RGBA8;
 		}
 		return type;
 	}

@@ -339,12 +339,12 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}
 		if(threeDupdated || deletePBOs) {
 			if(go3d) {
-				for(int i=0;i<chs;i++) glos.textures.initiate("image",pixelType3d, sb.bufferWidth, sb.bufferHeight, sls, 1, Prefs.interpolateScaledImages);
+				glos.textures.initiate("image",pixelType3d, sb.bufferWidth, sb.bufferHeight, sls, 1, Prefs.interpolateScaledImages);
 			}else {
 				glos.buffers.loadIdentity("model", 0);
 				resetGlobalMatricies();
 				glos.newTexture("image", imp.getNChannels());
-				for(int i=0;i<chs;i++) glos.textures.initiate("image",getPixelType(), sb.bufferWidth, sb.bufferHeight, 1, 1, Prefs.interpolateScaledImages);
+				glos.textures.initiate("image",getPixelType(), sb.bufferWidth, sb.bufferHeight, 1, 1, Prefs.interpolateScaledImages);
 			}
 			threeDupdated=false;
 		}

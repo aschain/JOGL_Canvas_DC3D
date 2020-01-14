@@ -38,7 +38,6 @@ import java.lang.reflect.Method;
 
 import com.jogamp.opengl.GL;
 import com.jogamp.opengl.GL2;
-import com.jogamp.opengl.GL2ES2;
 import com.jogamp.opengl.GLAutoDrawable;
 import com.jogamp.opengl.GLCapabilities;
 import com.jogamp.opengl.GLCapabilitiesImmutable;
@@ -297,7 +296,8 @@ public class JCP implements PlugIn {
 		fillAnaColors();
 
 		//GLProfile glProfile = GLProfile.getMaxProgrammable(true);
-		GLProfile glProfile = GLProfile.getDefault();
+		//GLProfile glProfile = GLProfile.getDefault();
+		GLProfile glProfile = GLProfile.get(GLProfile.GL3);
 		if(!glProfile.isGL2ES3()) {
 			IJ.showMessage("Deep Color requires at least OpenGL 2/ GLES3");
 			return false;
@@ -492,7 +492,7 @@ public class JCP implements PlugIn {
 			
 			@Override
 			public void init(GLAutoDrawable drawable) {
-				GL2ES2 gl2 = drawable.getGL().getGL2ES2();
+				GL2 gl2 = drawable.getGL().getGL2();
 				gl2.glClearColor(0f, 0f, 0f, 0f);
 			}
 			@Override
@@ -501,8 +501,8 @@ public class JCP implements PlugIn {
 			public void display(GLAutoDrawable drawable) {
 				GL2 gl2=drawable.getGL().getGL2();
 				gl2.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT);
-				gl2.glDisable(GL2ES2.GL_DEPTH_TEST);
-				gl2.glEnable(GL2ES2.GL_BLEND);
+				gl2.glDisable(GL2.GL_DEPTH_TEST);
+				gl2.glEnable(GL2.GL_BLEND);
 				gl2.glBlendEquation(GL2.GL_MAX);
 				gl2.glBlendFunc(GL2.GL_SRC_COLOR, GL2.GL_DST_COLOR);
 

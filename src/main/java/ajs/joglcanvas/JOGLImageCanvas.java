@@ -1020,9 +1020,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		x2=x2/w*2f; y2=y2/h*2f*yrat;
 		w2=w2/w*2f; h2=h2/h*2f*yrat;
 		
-		GL2 gl3=drawable.getGL().getGL2();
-		gl3.glDisable(GL_BLEND);
-		gl3.glLineWidth((float)dpimag);
+		gl.glDisable(GL_BLEND);
+		gl.glLineWidth((float)dpimag);
 		zoomIndVerts.rewind();
 		float[] color=new float[] {(float)128/255, (float)128/255, 1f, 1f};
 		zoomIndVerts.put(x1).put(y1).put(0f).put(color);
@@ -1045,7 +1044,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 
 		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 1, 0);
 		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 2, 0);
-		gl3.glLineWidth(1f);
+		gl.glLineWidth(1f);
 		
 	}
 
@@ -1456,8 +1455,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			sx = e.getX();
 			sy = e.getY();
 			if(IJ.spaceBarDown()) {
-				setupScroll(offScreenX(sx),offScreenX(sy));
-			}
+				setupScroll(offScreenX(sx),offScreenY(sy));
+			} 
 		}else super.mousePressed(e);
 	}
 	

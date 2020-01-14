@@ -1,5 +1,6 @@
 package ajs.joglcanvas;
 
+import static com.jogamp.opengl.GL2.*;
 import static com.jogamp.opengl.GL3.*;
 import static com.jogamp.opengl.GL4.*;
 
@@ -12,6 +13,7 @@ import java.util.Hashtable;
 
 import com.jogamp.common.nio.Buffers;
 import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GL2GL3;
 import com.jogamp.opengl.GL3;
 import com.jogamp.opengl.GL4;
 import com.jogamp.opengl.GLAutoDrawable;
@@ -25,9 +27,12 @@ import ij.Prefs;
 
 public class JCGLObjects {
 	
-	enum GLVer{GL3, GL4};
-	private GLVer glver=GLVer.GL3;
-	private GL gl;
+	//enum GLVer{GL2, GL3, GL4};
+	public int glver=2;
+	private GL gl=null;
+	private GL3 gl3=null;
+	private GL2GL3 gl23=null;
+	private GL4 gl4=null;
 	public JCTextures textures=new JCTextures();
 	public JCBuffers buffers=new JCBuffers();
 	public JCVaos vaos=new JCVaos();
@@ -51,21 +56,25 @@ public class JCGLObjects {
 	}
 	
 	public void setGL(GLAutoDrawable drawable) {
-		this.gl=drawable.getGL();
-		setGLVer();
+		setGL(drawable.getGL());
 	}
 	
 	public void setGL(GL gl) {
+		boolean dosv=gl23==null;
 		this.gl=gl;
-		setGLVer();
+		if(dosv)setGLVer();
+		if(glver==2) {gl23=gl.getGL2();}
+		if(glver==3) {gl23=gl.getGL3();gl3=gl.getGL3();}
+		if(glver==4) {gl23=gl.getGL4();gl4=gl.getGL4();}
+		
 	}
 	
 	public void setGLVer() {
 		String version=gl.glGetString(GL_VERSION);
 		float v=Float.parseFloat(version.substring(0, 3));
-		glver=GLVer.GL3;
-		if(v>=3.0f)glver=GLVer.GL3;
-		if(v>=4.5f)glver=GLVer.GL4;
+		glver=2;
+		if(v>=3.0f)glver=3;
+		if(v>=4.5f)glver=4;
 	}
 	
 	public void newTexture(String name) {
@@ -165,38 +174,37 @@ public class JCGLObjects {
 	}
 
 	public void drawTexVao(String name, int texIndex, int glElementBufferType, int count, int chs) {
-		GL3 gl3=gl.getGL3();
 		int gltype=GL_TEXTURE_3D;
 		//gl3.glEnable(gltype);
 		//gl3.glActiveTexture(GL_TEXTURE0);
 		//gl3.glBindTexture(gltype, textures.get(name, texIndex));
-		int[] pr=new int[1];gl3.glGetIntegerv(GL_CURRENT_PROGRAM, pr,0);
+		int[] pr=new int[1];gl.glGetIntegerv(GL_CURRENT_PROGRAM, pr,0);
 		//gl3.glUniform1i(gl3.glGetUniformLocation(pr[0], "mytex"),0);
 		
 		for(int i=0;i<chs;i++) {
-			gl3.glActiveTexture(GL_TEXTURE0+i);
-			gl3.glBindTexture(gltype, textures.get(name, texIndex+i));
-			if(glver==GLVer.GL3)
-				gl3.glUniform1i(gl3.glGetUniformLocation(pr[0], "mytex"+i),i);
+			gl.glActiveTexture(GL_TEXTURE0+i);
+			gl.glBindTexture(gltype, textures.get(name, texIndex+i));
+			if(glver<4)
+				gl23.glUniform1i(gl23.glGetUniformLocation(pr[0], "mytex"+i),i);
 			else
-				gl3.glUniform1i(gl3.glGetUniformLocation(pr[0], "mytex["+i+"]"),i);
+				gl23.glUniform1i(gl23.glGetUniformLocation(pr[0], "mytex["+i+"]"),i);
 		}
 
-		gl3.glBindVertexArray(vaos.get(name));
+		gl23.glBindVertexArray(vaos.get(name));
 		
-		if(glver==GLVer.GL3){
+		if(glver<4){
 			//GL3 gl3=gl.getGL3();
-			if(buffers.element.containsKey(name))gl3.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffers.element.get(name)[0]);
-			if(buffers.array.containsKey(name))gl3.glBindBuffer(GL_ARRAY_BUFFER, buffers.array.get(name)[0]);
+			if(buffers.element.containsKey(name))gl.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffers.element.get(name)[0]);
+			if(buffers.array.containsKey(name))gl.glBindBuffer(GL_ARRAY_BUFFER, buffers.array.get(name)[0]);
 			int[] sizes=vaos.vsizes.get(name);
-			gl3.glVertexAttribPointer(0, sizes[0], sizes[1], false, sizes[4]+sizes[5], 0);
-			gl3.glEnableVertexAttribArray(0);
-			gl3.glVertexAttribPointer(1, sizes[2], sizes[3], false, sizes[4]+sizes[5], sizes[4]);
-			gl3.glEnableVertexAttribArray(1);
+			gl23.glVertexAttribPointer(0, sizes[0], sizes[1], false, sizes[4]+sizes[5], 0);
+			gl23.glEnableVertexAttribArray(0);
+			gl23.glVertexAttribPointer(1, sizes[2], sizes[3], false, sizes[4]+sizes[5], sizes[4]);
+			gl23.glEnableVertexAttribArray(1);
 		}
-        gl3.glDrawElements(GL_TRIANGLES, count, glElementBufferType, 0);
-		gl3.glBindVertexArray(0);
-		gl3.glBindTexture(gltype, 0);
+        gl23.glDrawElements(GL_TRIANGLES, count, glElementBufferType, 0);
+		gl23.glBindVertexArray(0);
+		gl23.glBindTexture(gltype, 0);
 		//gl3.glDisable(gltype);
 	}
 	
@@ -207,19 +215,18 @@ public class JCGLObjects {
 	}
 	
 	public void drawVao(int glDraw, String name, Buffer vertexBuffer) {
-		GL3 gl3=gl.getGL3();
 		int[] sizes=vaos.vsizes.get(name);
-		gl3.glBindVertexArray(vaos.get(name));
+		gl23.glBindVertexArray(vaos.get(name));
 		Buffer elementBuffer=getElementBufferFromVBO(vertexBuffer, (sizes[4]+sizes[5])/getSizeofType(vertexBuffer));
 		bindEBOVBO(name, elementBuffer, vertexBuffer);
-		if(glver==GLVer.GL3) {
-			gl3.glVertexAttribPointer(0, sizes[0], sizes[1], false, sizes[4]+sizes[5], 0);
-			gl3.glEnableVertexAttribArray(0);
-			gl3.glVertexAttribPointer(1, sizes[2], sizes[3], false, sizes[4]+sizes[5], sizes[4]);
-			gl3.glEnableVertexAttribArray(1);
+		if(glver<4) {
+			gl23.glVertexAttribPointer(0, sizes[0], sizes[1], false, sizes[4]+sizes[5], 0);
+			gl23.glEnableVertexAttribArray(0);
+			gl23.glVertexAttribPointer(1, sizes[2], sizes[3], false, sizes[4]+sizes[5], sizes[4]);
+			gl23.glEnableVertexAttribArray(1);
 		}
-		gl3.glDrawElements(glDraw, elementBuffer.capacity(), getGLType(elementBuffer), 0);
-		gl3.glBindVertexArray(0);
+		gl23.glDrawElements(glDraw, elementBuffer.capacity(), getGLType(elementBuffer), 0);
+		gl23.glBindVertexArray(0);
 		unBindEBOVBO(name);
 	}
 	
@@ -314,40 +321,38 @@ public class JCGLObjects {
 		}
 		
 		public void initiate(String name, PixelType ptype, int width, int height, int depth, int COMPS) {
-			GL3 gl3=gl.getGL3();
 			PixelTypeInfo pinfo=new PixelTypeInfo(ptype, COMPS);
 			int[] ths=handles.get(name);
 			for(int i=0;i<ths.length;i++) {
-				gl3.glBindTexture(GL_TEXTURE_3D, ths[i]);
-				gl3.glTexImage3D(GL_TEXTURE_3D, 0, pinfo.glInternalFormat, width, height, depth, 0, pinfo.glFormat, pinfo.glPixelSize, null);
+				gl.glBindTexture(GL_TEXTURE_3D, ths[i]);
+				gl23.glTexImage3D(GL_TEXTURE_3D, 0, pinfo.glInternalFormat, width, height, depth, 0, pinfo.glFormat, pinfo.glPixelSize, null);
 			}
 			
 		}
 
 		private void subRgbaTexture(int glTextureHandle, Buffer buffer, int zoffset, int width, int height, int depth, int COMPS, boolean genmipmap, boolean linear) { 
-			GL3 gl3=gl.getGL3();
-			
+	
 			PixelTypeInfo pinfo=new PixelTypeInfo(buffer, COMPS);
 
-			gl3.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+			gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			//gl3.glEnable(GL_TEXTURE_3D);
-			gl3.glBindTexture(GL_TEXTURE_3D, glTextureHandle);
+			gl.glBindTexture(GL_TEXTURE_3D, glTextureHandle);
 			if(!genmipmap) {
-				gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_BASE_LEVEL, 0);
-				gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAX_LEVEL, 0);
+				gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_BASE_LEVEL, 0);
+				gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAX_LEVEL, 0);
 			}
-			gl3.glTexSubImage3D(GL_TEXTURE_3D, 0, 0,0,zoffset, width, height, depth, pinfo.glFormat, pinfo.glPixelSize, buffer);
+			gl23.glTexSubImage3D(GL_TEXTURE_3D, 0, 0,0,zoffset, width, height, depth, pinfo.glFormat, pinfo.glPixelSize, buffer);
 			int magtype=linear?GL_LINEAR:GL_NEAREST;
-			gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, magtype);
-			gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, magtype);//GL_NEAREST_MIPMAP_LINEAR
-			gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-			gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-			gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
-			gl3.glTexParameterfv(GL_TEXTURE_3D, GL_TEXTURE_BORDER_COLOR, new float[] {0f,0f,0f,0f},0);
+			gl23.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, magtype);
+			gl23.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, magtype);//GL_NEAREST_MIPMAP_LINEAR
+			gl23.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+			gl23.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+			gl23.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
+			gl23.glTexParameterfv(GL_TEXTURE_3D, GL_TEXTURE_BORDER_COLOR, new float[] {0f,0f,0f,0f},0);
 			
-			if(genmipmap)gl3.glGenerateMipmap(GL_TEXTURE_3D);
-			gl3.glBindTexture(GL_TEXTURE_3D, 0);
-			//gl3.glDisable(GL_TEXTURE_3D);
+			if(genmipmap)gl.glGenerateMipmap(GL_TEXTURE_3D);
+			gl.glBindTexture(GL_TEXTURE_3D, 0);
+			//gl.glDisable(GL_TEXTURE_3D);
 		} 
 		
 		public void loadTexFromPBO(String sameName, int pn, int width, int height, int depth, int offsetSlice, PixelType type, int COMPS, boolean endian, boolean linear) {
@@ -355,8 +360,6 @@ public class JCGLObjects {
 		}
 		
 		public void loadTexFromPBO(String pboName, int pn, String texName, int tn, int width, int height, int depth, int offsetSlice, PixelType type, int COMPS, boolean endian, boolean linear) {
-
-			GL3 gl3=gl.getGL3();
 			
 			int[] phs=pbos.get(pboName);
 			int[] ths=handles.get(texName);
@@ -365,25 +368,25 @@ public class JCGLObjects {
 			
 			//gl3.glEnable(GL_TEXTURE_3D);
 			//gl3.glActiveTexture(GL_TEXTURE0);
-			gl3.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, phs[pn]);
-			gl3.glBindTexture(GL_TEXTURE_3D, ths[tn]); 
-			gl3.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-			if(endian)gl3.glPixelStorei(GL_UNPACK_SWAP_BYTES, GL_TRUE);
-			gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_BASE_LEVEL, 0);
-			gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAX_LEVEL, 0);
-			gl3.glTexSubImage3D(GL_TEXTURE_3D, 0, 0, 0, 0, width, height, depth, pinfo.glFormat, pinfo.glPixelSize, offsetSlice*pinfo.components*width*height*pinfo.sizeBytes);
+			gl.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, phs[pn]);
+			gl.glBindTexture(GL_TEXTURE_3D, ths[tn]); 
+			gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+			if(endian)gl.glPixelStorei(GL_UNPACK_SWAP_BYTES, GL_TRUE);
+			gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_BASE_LEVEL, 0);
+			gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAX_LEVEL, 0);
+			gl23.glTexSubImage3D(GL_TEXTURE_3D, 0, 0, 0, 0, width, height, depth, pinfo.glFormat, pinfo.glPixelSize, offsetSlice*pinfo.components*width*height*pinfo.sizeBytes);
 			int magtype=linear?GL_LINEAR:GL_NEAREST;
-			gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, magtype);
-			gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, magtype);//GL_NEAREST_MIPMAP_LINEAR
-			gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-			gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-			gl3.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
-			gl3.glTexParameterfv(GL_TEXTURE_3D, GL_TEXTURE_BORDER_COLOR, new float[] {0f,0f,0f,0f},0);
+			gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, magtype);
+			gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, magtype);//GL_NEAREST_MIPMAP_LINEAR
+			gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+			gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+			gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
+			gl.glTexParameterfv(GL_TEXTURE_3D, GL_TEXTURE_BORDER_COLOR, new float[] {0f,0f,0f,0f},0);
 			//gl3.glGenerateMipmap(GL_TEXTURE_3D);
-			if(endian)gl3.glPixelStorei(GL_UNPACK_SWAP_BYTES, GL_FALSE);
+			if(endian)gl.glPixelStorei(GL_UNPACK_SWAP_BYTES, GL_FALSE);
 			//gl3.glDisable(GL_TEXTURE_3D);
-			gl3.glBindTexture(GL_TEXTURE_3D, 0); 
-			gl3.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+			gl.glBindTexture(GL_TEXTURE_3D, 0); 
+			gl.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 		}
 		
 		public void updateRgbaPBO(String name, int index, Buffer buffer) {
@@ -448,43 +451,44 @@ public class JCGLObjects {
 		}
 		
 		public ByteBuffer newBuffer(int gltype, String name, long size, Buffer buffer, boolean define) {
-			GL3 gl3=gl.getGL3();
-			GL4 gl4=null;
-			if(glver==GLVer.GL4)gl4=gl.getGL4();
 			Hashtable<String,int[]> dict=array;
 			Hashtable<String,Buffer> bdict=abuffers;
 			if(gltype==GL_UNIFORM_BUFFER) {dict=uniform; bdict=ubuffers;}
 			else if(gltype==GL_ELEMENT_ARRAY_BUFFER) {dict=element;bdict=ebuffers;}
 			int[] bn=new int[1];
-			if(glver==GLVer.GL4) gl4.glCreateBuffers(1, bn, 0);
-			else gl3.glGenBuffers(1, bn, 0);
+			if(glver==4) {gl4.glCreateBuffers(1, bn, 0);}
+			else gl23.glGenBuffers(1, bn, 0);
 			dict.put(name, bn);
 			if(define) {
 				boolean write=(buffer==null);
-				gl3.glBindBuffer(gltype, bn[0]);
-				if(glver==GLVer.GL4){
+				gl23.glBindBuffer(gltype, bn[0]);
+				if(glver==4){
 					gl4.glBufferStorage(gltype, size, buffer,  (buffer==null)?(GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT):0);
 					gl4.glBindBuffer(gltype,  0);
 				}else{
-					gl3.glBufferData(gltype, size, buffer, (buffer==null)?GL_DYNAMIC_DRAW:GL_STATIC_DRAW);
+					gl23.glBufferData(gltype, size, buffer, (buffer==null)?GL_DYNAMIC_DRAW:GL_STATIC_DRAW);
 				}
 				
 				if(!write)return null;
 				ByteBuffer outbuffer;
-				if(glver==GLVer.GL4){
+				if(glver==4){
 					outbuffer= gl4.glMapNamedBufferRange(
 							bn[0],
 							0,
 							size,
 							GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT | GL_MAP_INVALIDATE_RANGE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT); // flags
-				}else{
-					outbuffer= gl3.glMapBufferRange(
+				}else { 
+					if(glver==3) {
+						outbuffer= gl3.glMapBufferRange(
 							gltype,
 			                0,
 			                size,
 			                GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_RANGE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT); // flags
+					}else {
+						outbuffer=GLBuffers.newDirectByteBuffer((int)size);
+					}
 					bdict.put(name, outbuffer);
-					gl3.glBindBuffer(gltype,  0);
+					gl.glBindBuffer(gltype,  0);
 				}
 				bdict.put(name, outbuffer);
 				return outbuffer;
@@ -529,28 +533,25 @@ public class JCGLObjects {
 		}
 		
 		public void bindBuffer(int gltype, String name, int binding) {
-			GL3 gl3=gl.getGL3();
 			if(gltype==GL_UNIFORM_BUFFER) {
-				gl3.glBindBufferBase(gltype, binding, uniform.get(name)[0]);
+				gl23.glBindBufferBase(gltype, binding, uniform.get(name)[0]);
 				return;
 			}
 
 			Hashtable<String, int[]> dict=array;
 			if(gltype==GL_ELEMENT_ARRAY_BUFFER)dict=element;
-			gl3.glBindBuffer(gltype, dict.get(name)[0]);
+			gl.glBindBuffer(gltype, dict.get(name)[0]);
 		}
 		
 		public void unBindBuffer(int gltype, int binding) {
-			GL3 gl3=gl.getGL3();
 			if(gltype==GL_UNIFORM_BUFFER) {
-				gl3.glBindBufferBase(gltype, binding, 0);
+				gl23.glBindBufferBase(gltype, binding, 0);
 				return;
 			}
-			gl3.glBindBuffer(gltype, 0);
+			gl.glBindBuffer(gltype, 0);
 		}
 		
 		public void dispose() {
-			GL3 gl3=gl.getGL3();
 			for(int i=0;i<3;i++) {
 				Hashtable<String, int[]> dict=array;
 				Hashtable<String, Buffer> bdict=abuffers;
@@ -561,14 +562,14 @@ public class JCGLObjects {
 					String name=j.nextElement();
 					int[] phs=dict.get(name);
 					if(bdict.get(name)!=null){
-						if(glver==GLVer.GL4){gl.getGL4().glUnmapNamedBuffer(phs[0]);}
+						if(glver==4){gl4.glUnmapNamedBuffer(phs[0]);}
 						else{
-							gl3.glBindBuffer(gltype, phs[0]);
-							gl3.glUnmapBuffer(gltype);
+							gl.glBindBuffer(gltype, phs[0]);
+							gl.glUnmapBuffer(gltype);
 						}
 						bdict.remove(name);
 					}
-					gl3.glDeleteBuffers(phs.length,phs,0);
+					gl.glDeleteBuffers(phs.length,phs,0);
 					dict.remove(name);
 				}
 			}
@@ -583,13 +584,9 @@ public class JCGLObjects {
 		public JCVaos() {}
 		
 		public void newVao(String name, int size1, int gltype1, int size2, int gltype2) {
-		
-			GL3 gl3=gl.getGL3();
-			GL4 gl4=null;
-			if(glver==GLVer.GL4)gl4=gl.getGL4();
 			
 			int[] vhs=new int[1];
-			if(glver==GLVer.GL4){
+			if(glver==4){
 				gl4.glCreateVertexArrays(vhs.length, vhs, 0);
 				int vao=vhs[0];
 				gl4.glVertexArrayAttribBinding(vao, 0, 0);//modelcoords
@@ -607,7 +604,7 @@ public class JCGLObjects {
 					gl4.glVertexArrayVertexBuffer(vao, 0, buffers.array.get(name)[0], 0, sizeoftype1+sizeoftype2);
 				}
 			}
-			else gl3.glGenVertexArrays(vhs.length, vhs, 0);
+			else gl23.glGenVertexArrays(vhs.length, vhs, 0);
 			handles.put(name, vhs);
 			int sizeoftype1=getSizeofType(gltype1)*size1;
 			int sizeoftype2=getSizeofType(gltype2)*size2;
@@ -657,11 +654,11 @@ public class JCGLObjects {
         }
         
         public void useProgram(String name) {
-        	gl.getGL3().glUseProgram(programs.get(name).name);
+        	gl23.glUseProgram(programs.get(name).name);
         }
         
         public void stopProgram() {
-        	gl.getGL3().glUseProgram(0);
+        	gl23.glUseProgram(0);
         }
         
         public void dispose() {
@@ -678,13 +675,13 @@ public class JCGLObjects {
     		public Hashtable<String, Integer> locations =new Hashtable<String, Integer>();
         	
         	public Program(String root, String vertex, String fragment) {
-        	GL3 gl3=gl.getGL3();
-        	
+        		
         	String add="3";
-        	if(glver==GLVer.GL4)add="4";
-            ShaderCode vertShader = ShaderCode.create(gl3, GL_VERTEX_SHADER, this.getClass(), root, null, vertex+add,
+        	if(glver==4)add="4";
+        	//root+="/gl"+add;
+            ShaderCode vertShader = ShaderCode.create(gl23, GL_VERTEX_SHADER, this.getClass(), root, null, vertex+add,
                     "vert", null, true);
-            ShaderCode fragShader = ShaderCode.create(gl3, GL_FRAGMENT_SHADER, this.getClass(), root, null, fragment+add,
+            ShaderCode fragShader = ShaderCode.create(gl23, GL_FRAGMENT_SHADER, this.getClass(), root, null, fragment+add,
                     "frag", null, true);
 
             ShaderProgram shaderProgram = new ShaderProgram();
@@ -692,14 +689,14 @@ public class JCGLObjects {
             shaderProgram.add(vertShader);
             shaderProgram.add(fragShader);
 
-            shaderProgram.init(gl3);
-            shaderProgram.link(gl3, System.err);
-            if(glver==GLVer.GL3 && !shaderProgram.validateProgram(gl3, System.err)) {
+            shaderProgram.init(gl23);
+            shaderProgram.link(gl23, System.err);
+            if(glver<4 && !shaderProgram.validateProgram(gl23, System.err)) {
             	System.out.println("Going to 330");
             	add="330";
-            	vertShader = ShaderCode.create(gl3, GL_VERTEX_SHADER, this.getClass(), root, null, vertex+add,
+            	vertShader = ShaderCode.create(gl23, GL_VERTEX_SHADER, this.getClass(), root, null, vertex+add,
                         "vert", null, true);
-                fragShader = ShaderCode.create(gl3, GL_FRAGMENT_SHADER, this.getClass(), root, null, fragment+add,
+                fragShader = ShaderCode.create(gl23, GL_FRAGMENT_SHADER, this.getClass(), root, null, fragment+add,
                         "frag", null, true);
 
                 shaderProgram = new ShaderProgram();
@@ -707,17 +704,17 @@ public class JCGLObjects {
                 shaderProgram.add(vertShader);
                 shaderProgram.add(fragShader);
 
-                shaderProgram.init(gl3);
-                shaderProgram.link(gl3, System.err);
+                shaderProgram.init(gl23);
+                shaderProgram.link(gl23, System.err);
             }
-            if(!shaderProgram.validateProgram(gl3, System.err))System.out.println("Shader failed");
+            if(!shaderProgram.validateProgram(gl23, System.err))System.out.println("Shader failed");
             
             name=shaderProgram.program();
             
-            if(glver==GLVer.GL3) {
-        		gl3.glUniformBlockBinding(name, gl3.glGetUniformBlockIndex(name, "Transform0"), 1);
-        		gl3.glUniformBlockBinding(name, gl3.glGetUniformBlockIndex(name, "Transform1"), 2);
-        		if(fragment.equals("texture"))gl3.glUniformBlockBinding(name, gl3.glGetUniformBlockIndex(name, "lutblock"), 3);
+            if(glver<4) {
+        		gl3.glUniformBlockBinding(name, gl23.glGetUniformBlockIndex(name, "Transform0"), 1);
+        		gl3.glUniformBlockBinding(name, gl23.glGetUniformBlockIndex(name, "Transform1"), 2);
+        		if(fragment.equals("texture"))gl23.glUniformBlockBinding(name, gl23.glGetUniformBlockIndex(name, "lutblock"), 3);
             }
             
         	}
@@ -728,11 +725,11 @@ public class JCGLObjects {
         	}
         	
         	public void addLocation(String var) {
-        		locations.put(var, gl.getGL3().glGetUniformLocation(name, var));
+            	locations.put(var, gl23.glGetUniformLocation(name, var));
         	}
         	
         	public void dispose() {
-        		gl.getGL3().glDeleteProgram(name);
+            	gl23.glDeleteProgram(name);
         	}
         	
         }

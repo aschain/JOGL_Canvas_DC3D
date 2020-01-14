@@ -4,7 +4,6 @@ import ij.CompositeImage;
 import ij.IJ;
 import ij.ImageListener;
 import ij.ImagePlus;
-import ij.Menus;
 import ij.Prefs;
 import ij.gui.ImageCanvas;
 import ij.gui.Roi;
@@ -44,23 +43,18 @@ import java.awt.event.MouseMotionListener;
 import java.awt.event.MouseWheelEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
-import java.awt.event.WindowListener;
 import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.nio.Buffer;
 import java.nio.FloatBuffer;
 import java.nio.ShortBuffer;
-
-import javax.swing.JFrame;
 import javax.swing.JPopupMenu;
 
 import java.nio.ByteBuffer;
 
 import com.jogamp.common.nio.Buffers;
-import com.jogamp.opengl.GL3;
-import static com.jogamp.opengl.GL3.*;
+import com.jogamp.opengl.GL2GL3;
+import static com.jogamp.opengl.GL2.*;
 import com.jogamp.opengl.GLAutoDrawable;
 import com.jogamp.opengl.util.texture.awt.AWTTextureIO;
 
@@ -103,7 +97,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	
 	private StackBuffer sb;
 
-	private GL3 gl=null;
+	private GL2GL3 gl=null;
 	private JCGLObjects glos;
 	private FloatBuffer zoomIndVerts=null;
 	private int lim;
@@ -155,12 +149,16 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	}
 	
 	private void setGL(GLAutoDrawable drawable) {
-		gl = drawable.getGL().getGL3();
+		if(glos.glver==2)gl = drawable.getGL().getGL2();
+		else if(glos.glver==3)gl = drawable.getGL().getGL3();
+		else if(glos.glver==4)gl = drawable.getGL().getGL4();
 	}
 
 	//GLEventListener methods
 	@Override
 	public void init(GLAutoDrawable drawable) {
+		JCP.version=drawable.getGL().glGetString(GL_VERSION);
+		glos=new JCGLObjects(drawable);
 		GraphicsConfiguration gc=icc.getParent().getGraphicsConfiguration();
 		AffineTransform t=gc.getDefaultTransform();
 		dpimag=t.getScaleX();
@@ -169,7 +167,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(dpimag>1.0)IJ.log("Dpimag: "+dpimag);
 		//if(IJ.isMacOSX())icc.setLocation(4,47);
 		setGL(drawable);
-		JCP.version=drawable.getGL().glGetString(GL_VERSION);
 		gl.glClearColor(0f, 0f, 0f, 0f);
 		gl.glDisable(GL_DEPTH_TEST);
 		gl.glDisable(GL_MULTISAMPLE);
@@ -211,7 +208,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		*/
 		
 
-		glos=new JCGLObjects(drawable);
 		glos.newTexture("image3d", imp.getNChannels());
 		glos.newBuffer(GL_ARRAY_BUFFER, "image3d", maxsize*floatsPerVertex*4*Buffers.SIZEOF_FLOAT, null);
 		glos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "image3d", elementBuffer.capacity()*Buffers.SIZEOF_SHORT, elementBuffer);
@@ -230,7 +226,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		glos.newBuffer(GL_ARRAY_BUFFER, "image2d", floatsPerVertex*4*Buffers.SIZEOF_FLOAT, vertb);
 		glos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "image2d", elementBuffer2d.capacity()*Buffers.SIZEOF_BYTE, elementBuffer2d);
 		glos.newVao("image2d", 3, GL_FLOAT, 3, GL_FLOAT);
-		glos.textures.initiate("image2d",getPixelType(), sb.bufferWidth, sb.bufferHeight, 1, 1);
 
 		glos.newTexture("roiGraphic");
 		glos.newBuffer(GL_ARRAY_BUFFER, "roiGraphic");
@@ -364,6 +359,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			}else {
 				glos.buffers.loadIdentity("model", 0);
 				resetGlobalMatricies();
+				glos.textures.initiate("image2d",getPixelType(), sb.bufferWidth, sb.bufferHeight, 1, 1);
 			}
 			threeDupdated=false;
 		}
@@ -373,18 +369,18 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		ij.gui.Overlay overlay=imp.getCanvas().getOverlay();
 		boolean doRoi=false;
 		if(!JCP.openglroi && (roi!=null || (!go3d && overlay!=null))) {
-			BufferedImage roiImage=new BufferedImage(srcRectWidthMag, srcRectHeightMag, BufferedImage.TYPE_INT_ARGB);
+			BufferedImage roiImage=new BufferedImage(imageWidth, imageHeight, BufferedImage.TYPE_INT_ARGB);
 			Graphics g=roiImage.getGraphics();
-			if(roi!=null) {roi.draw(g); doRoi=true;}
+			if(roi!=null) {roi.setImage(null); roi.draw(g); roi.setImage(imp); doRoi=true;}
 			if(overlay!=null) {
 				for(int i=0;i<overlay.size();i++) {
 					Roi oroi=overlay.get(i);
-					oroi.setImage(imp);
+					//oroi.setImage(null);
 					int rc=oroi.getCPosition(), rz=oroi.getZPosition(),rt=oroi.getTPosition();
 					if((rc==0||rc==imp.getC()) && (rz==0||rz==(sl+1)) && (rt==0||rt==imp.getT())) {oroi.drawOverlay(g); doRoi=true;}
 				}
 			}
-			if(doRoi)glos.textures.createRgbaTexture("roiGraphic", AWTTextureIO.newTextureData(gl.getGLProfile(), roiImage, false).getBuffer(), srcRectWidthMag, srcRectHeightMag, 1, 4, false);
+			if(doRoi)glos.textures.createRgbaTexture("roiGraphic", AWTTextureIO.newTextureData(gl.getGLProfile(), roiImage, false).getBuffer(), roiImage.getWidth(), roiImage.getHeight(), 1, 4, false);
 		}
 		boolean[] doOv=null;
 		if(!JCP.openglroi && overlay!=null && go3d) {
@@ -403,16 +399,16 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					int rc=oroi.getCPosition(), rz=oroi.getZPosition(),rt=oroi.getTPosition();
 					if((rc==0||rc==imp.getC()) && (rz==0||rz==(osl+1)) && (rt==0||rt==imp.getT())) {
 						if(g==null) {
-							roiImage=new BufferedImage(srcRectWidthMag, srcRectHeightMag, BufferedImage.TYPE_INT_ARGB);
+							roiImage=new BufferedImage(imageWidth, imageHeight, BufferedImage.TYPE_INT_ARGB);
 							g=roiImage.getGraphics();
 						}
-						oroi.setImage(imp);
+						//oroi.setImage(imp);
 						oroi.drawOverlay(g);
 						doOv[osl]=true;
 					}
 				}
 				if(doOv[osl]) {
-					glos.textures.createRgbaTexture("overlay", osl, AWTTextureIO.newTextureData(gl.getGLProfile(), roiImage, false).getBuffer(), srcRectWidthMag, srcRectHeightMag, 1, 4, false);
+					glos.textures.createRgbaTexture("overlay", osl, AWTTextureIO.newTextureData(gl.getGLProfile(), roiImage, false).getBuffer(), roiImage.getWidth(), roiImage.getHeight(), 1, 4, false);
 				}
 			}
 		}
@@ -511,10 +507,17 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				-1f-offx, 			(-1f-offy+vheight)*yrat, 	-zmax,		0, 0, go3d?1f:0
 		};
 		
-		float[] matrix=FloatUtil.multMatrix(
-				FloatUtil.makeScale(new float[16], 0, false, (float)magnification, (float)magnification, (float)magnification),
-				FloatUtil.makeTranslation(new float[16], false, offx, offy, 0f));
+		//float[] scale=new float[] {(float)imageWidth/srcRect.width, (float)imageHeight/srcRect.height};
+		float[] matrix=FloatUtil.makeIdentity(new float[16]);//FloatUtil.makeScale(new float[16], 0, false, scale[0], scale[1], scale[0]);
+		matrix=FloatUtil.multMatrix( 
+				matrix,
+				FloatUtil.makeTranslation(
+						new float[16], false, 
+						((float)(srcRect.x*2+srcRect.width)/imageWidth-1f),  
+						-((float)(srcRect.y*2+srcRect.height)/imageHeight-1f), 0f)
+				);
 		glos.buffers.loadMatrix("model", matrix);
+		//glos.buffers.loadIdentity("model");
 		
 		//drawing
 		gl.glDisable(GL_SCISSOR_TEST);
@@ -841,7 +844,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		return -1;
 	}
 	
-	private void drawGraphics(GL3 gl, String name, int index, String modelmatrix, Buffer vb) {
+	private void drawGraphics(GL2GL3 gl, String name, int index, String modelmatrix, Buffer vb) {
 
 		ShortBuffer eb=GLBuffers.newDirectShortBuffer(new short[] {0,1,2,2,3,0});
 		gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -853,7 +856,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(Prefs.interpolateScaledImages)gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	}
 	
-	private void drawGraphics(GL3 gl, float z, String name, int index) {
+	private void drawGraphics(GL2GL3 gl, float z, String name, int index) {
 		FloatBuffer vb=GLBuffers.newDirectFloatBuffer(new float[] {
 				-1,	-1,	z, 	0,1,0.5f,
 				1,	-1,	z, 	1,1,0.5f,
@@ -1024,9 +1027,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		x2=x2/w*2f; y2=y2/h*2f*yrat;
 		w2=w2/w*2f; h2=h2/h*2f*yrat;
 		
-		GL3 gl3=drawable.getGL().getGL3();
-		gl3.glDisable(GL_BLEND);
-		gl3.glLineWidth((float)dpimag);
+		gl.glDisable(GL_BLEND);
+		gl.glLineWidth((float)dpimag);
 		zoomIndVerts.rewind();
 		float[] color=new float[] {(float)128/255, (float)128/255, 1f, 1f};
 		zoomIndVerts.put(x1).put(y1).put(0f).put(color);
@@ -1049,7 +1051,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 
 		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 1, 0);
 		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 2, 0);
-		gl3.glLineWidth(1f);
+		gl.glLineWidth(1f);
 		
 	}
 
@@ -1460,8 +1462,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			sx = e.getX();
 			sy = e.getY();
 			if(IJ.spaceBarDown()) {
-				setupScroll(offScreenX(sx),offScreenX(sy));
-			}
+				setupScroll(offScreenX(sx),offScreenY(sy));
+			} 
 		}else super.mousePressed(e);
 	}
 	

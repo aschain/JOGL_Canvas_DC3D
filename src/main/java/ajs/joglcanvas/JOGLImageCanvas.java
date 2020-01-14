@@ -59,8 +59,10 @@ import javax.swing.JPopupMenu;
 import java.nio.ByteBuffer;
 
 import com.jogamp.common.nio.Buffers;
-import com.jogamp.opengl.GL3;
-import static com.jogamp.opengl.GL3.*;
+import com.jogamp.opengl.GL2ES3;
+//import com.jogamp.opengl.GL3;
+import static com.jogamp.opengl.GL2.*;
+import static com.jogamp.opengl.GL2ES3.*;
 import com.jogamp.opengl.GLAutoDrawable;
 import com.jogamp.opengl.util.texture.awt.AWTTextureIO;
 
@@ -103,7 +105,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	
 	private StackBuffer sb;
 
-	private GL3 gl=null;
+	private GL2ES3 gl=null;
 	private JCGLObjects glos;
 	private FloatBuffer zoomIndVerts=null;
 	private int lim;
@@ -155,7 +157,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	}
 	
 	private void setGL(GLAutoDrawable drawable) {
-		gl = drawable.getGL().getGL3();
+		gl = drawable.getGL().getGL2ES3();
 	}
 
 	//GLEventListener methods
@@ -505,8 +507,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		//gl.glDrawBuffers(1, new int[] {GL_BACK_LEFT},0);
 		//gl.glDrawBuffer(GL_BACK_LEFT);
 		gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		gl.glClearBufferfv(GL_COLOR, 0, new float[] {0f,0f,0f,0f},0);
-        gl.glClearBufferfv(GL_DEPTH, 0, new float[] {0f},0);
+		//gl.glClearBufferfv(GL_COLOR, 0, new float[] {0f,0f,0f,0f},0);
+        //gl.glClearBufferfv(GL_DEPTH, 0, new float[] {0f},0);
 		Rectangle r=getViewportAspectRectangle(0,0,drawable.getSurfaceWidth(),drawable.getSurfaceHeight());
 		gl.glViewport(r.x, r.y, r.width, r.height);
 		
@@ -520,8 +522,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				int height=(int)(srcRectHeightMag*dpimag+0.5);
 				if(stereoType==StereoType.QUADBUFFER) {
 					if(stereoi==1)
-						gl.glDrawBuffer(GL_RIGHT);
-						//gl.glDrawBuffers(1, new int[] {GL_BACK_RIGHT},0);
+						//gl.glDrawBuffer(GL_RIGHT);
+						gl.glDrawBuffers(1, new int[] {GL_BACK_RIGHT},0);
 				}else if(stereoType==StereoType.CARDBOARD) {
 					float[] ortho = FloatUtil.makeOrtho(new float[16], 0, false, -CB_MAXSIZE, CB_MAXSIZE, -CB_MAXSIZE*yrat, CB_MAXSIZE*yrat, -CB_MAXSIZE, CB_MAXSIZE);
 					float[] translate=FloatUtil.makeTranslation(new float[16], 0, false, (stereoi==0?(-CB_MAXSIZE*CB_TRANSLATE):(CB_MAXSIZE*CB_TRANSLATE)), 0f, 0f);
@@ -728,7 +730,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 							rgldu.drawRoiGL(drawable, overlay.get(i), false, anacolor, go3d);
 						}
 					}
-					
+
 					gl.glBindBufferBase(GL_UNIFORM_BUFFER, 1, 0);
 					gl.glBindBufferBase(GL_UNIFORM_BUFFER, 2, 0);
 				}
@@ -830,7 +832,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		return -1;
 	}
 	
-	private void drawGraphics(GL3 gl, String name, int index, String modelmatrix, Buffer vb) {
+	private void drawGraphics(GL2ES3 gl, String name, int index, String modelmatrix, Buffer vb) {
 
 		ShortBuffer eb=GLBuffers.newDirectShortBuffer(new short[] {0,1,2,2,3,0});
 		gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -842,7 +844,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(Prefs.interpolateScaledImages)gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	}
 	
-	private void drawGraphics(GL3 gl, float z, String name, int index) {
+	private void drawGraphics(GL2ES3 gl, float z, String name, int index) {
 		float yrat=(float)srcRect.height/srcRect.width;
 		FloatBuffer vb=GLBuffers.newDirectFloatBuffer(new float[] {
 				-1,	-yrat,	z, 	0,1,0.5f,
@@ -1014,7 +1016,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		x2=x2/w*2f; y2=y2/h*2f*yrat;
 		w2=w2/w*2f; h2=h2/h*2f*yrat;
 		
-		GL3 gl3=drawable.getGL().getGL3();
+		GL2ES3 gl3=drawable.getGL().getGL2ES3();
 		gl3.glDisable(GL_BLEND);
 		gl3.glLineWidth((float)dpimag);
 		zoomIndVerts.rewind();

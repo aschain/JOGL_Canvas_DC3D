@@ -1,6 +1,7 @@
 package ajs.joglcanvas;
 
-import static com.jogamp.opengl.GL3.*;
+import static com.jogamp.opengl.GL2ES3.*;
+import static com.jogamp.opengl.GL2.*;
 
 import java.awt.Color;
 import java.awt.Font;
@@ -11,7 +12,7 @@ import java.nio.FloatBuffer;
 
 import com.jogamp.opengl.GL;
 import com.jogamp.opengl.GL2ES2;
-import com.jogamp.opengl.GL3;
+import com.jogamp.opengl.GL2ES3;
 import com.jogamp.opengl.GLAutoDrawable;
 import com.jogamp.opengl.fixedfunc.GLMatrixFunc;
 import com.jogamp.opengl.util.GLBuffers;
@@ -35,7 +36,7 @@ import ij.process.FloatPolygon;
 public class RoiGLDrawUtility {
 	private RegionRenderer regionRenderer=null;
 	private ImagePlus imp;
-	private GL3 gl;
+	private GL2ES3 gl;
 	private GLAutoDrawable drawable;
 	private JCGLObjects rglos=null;
 	float px=2f/1024f;
@@ -56,7 +57,7 @@ public class RoiGLDrawUtility {
 		rglos.newVao("roiGL", 3, GL_FLOAT, 4, GL_FLOAT);
 		rglos.programs.newProgram("color", "shaders", "color", "color");
 		this.drawable=drawable;
-		this.gl=drawable.getGL().getGL3();
+		this.gl=drawable.getGL().getGL2ES3();
 	}
 	
 	private void updateSrcRect(GLAutoDrawable drawable) {
@@ -81,7 +82,7 @@ public class RoiGLDrawUtility {
 	}
 	
 	private void setGL(GL gl) {
-		this.gl=gl.getGL3();
+		this.gl=gl.getGL2ES3();
 		rglos.setGL(gl);
 	}
 

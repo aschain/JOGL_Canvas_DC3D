@@ -296,9 +296,10 @@ public class JCP implements PlugIn {
 		}
 		fillAnaColors();
 
-		GLProfile glProfile = GLProfile.getMaxProgrammable(true);
-		if(!glProfile.isGL3()) {
-			IJ.showMessage("Deep Color requires at least OpenGL 2 ES2");
+		//GLProfile glProfile = GLProfile.getMaxProgrammable(true);
+		GLProfile glProfile = GLProfile.getDefault();
+		if(!glProfile.isGL2ES3()) {
+			IJ.showMessage("Deep Color requires at least OpenGL 2/ GLES3");
 			return false;
 		}
 		if(glCapabilities==null) glCapabilities = new GLCapabilities( glProfile );

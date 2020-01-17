@@ -335,7 +335,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		//IJ.log("\\Update2:Display took: "+(System.nanoTime()-starttime)/1000000L+"ms");
 		//starttime=System.nanoTime();
 		if(imp.isLocked())return;
-		imp.lock();
+		imp.lockSilently();
 		int sl=imp.getZ()-1, fr=imp.getT()-1,chs=imp.getNChannels(),sls=imp.getNSlices(),frms=imp.getNFrames();
 		if(go3d&&sls==1)go3d=false;
 		sb.setPixelType(go3d?pixelType3d:getPixelType(), go3d?undersample:1);
@@ -360,6 +360,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				glos.textures.initiate("image3d",pixelType3d, sb.bufferWidth, sb.bufferHeight, sls, 1);
 			}else {
 				glos.buffers.loadIdentity("model", 0);
+				prevSrcRect.width=0;
 				resetGlobalMatricies();
 				glos.textures.initiate("image2d",getPixelType(), sb.bufferWidth, sb.bufferHeight, 1, 1);
 			}
@@ -371,13 +372,13 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		ij.gui.Overlay overlay=imp.getCanvas().getOverlay();
 		boolean doRoi=false;
 		if(!JCP.openglroi && (roi!=null || (!go3d && overlay!=null))) {
-			BufferedImage roiImage=new BufferedImage(srcRect.width, srcRect.height, BufferedImage.TYPE_INT_ARGB);
+			BufferedImage roiImage=new BufferedImage(srcRectWidthMag, srcRectHeightMag, BufferedImage.TYPE_INT_ARGB);
 			Graphics g=roiImage.getGraphics();
 			if(roi!=null) {roi.draw(g); doRoi=true;}
 			if(overlay!=null) {
 				for(int i=0;i<overlay.size();i++) {
 					Roi oroi=overlay.get(i);
-					//oroi.setImage(null);
+					oroi.setImage(imp);
 					int rc=oroi.getCPosition(), rz=oroi.getZPosition(),rt=oroi.getTPosition();
 					if((rc==0||rc==imp.getC()) && (rz==0||rz==(sl+1)) && (rt==0||rt==imp.getT())) {oroi.drawOverlay(g); doRoi=true;}
 				}
@@ -401,10 +402,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					int rc=oroi.getCPosition(), rz=oroi.getZPosition(),rt=oroi.getTPosition();
 					if((rc==0||rc==imp.getC()) && (rz==0||rz==(osl+1)) && (rt==0||rt==imp.getT())) {
 						if(g==null) {
-							roiImage=new BufferedImage(srcRect.width, srcRect.height, BufferedImage.TYPE_INT_ARGB);
+							roiImage=new BufferedImage(srcRectWidthMag, srcRectHeightMag, BufferedImage.TYPE_INT_ARGB);
 							g=roiImage.getGraphics();
 						}
-						//oroi.setImage(imp);
+						oroi.setImage(imp);
 						oroi.drawOverlay(g);
 						doOv[osl]=true;
 					}
@@ -495,20 +496,12 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		Calibration cal=imp.getCalibration();
 		float zmax=0f;
 		int zmaxsls=(int)((cal.pixelDepth*(double)sls)/(cal.pixelWidth));
-		if(go3d)zmax=(float)(zmaxsls)/(float)srcRect.width;
+		if(go3d)zmax=(float)(zmaxsls)/(float)imageWidth;
 		
-		float 	offx=2f*(float)srcRect.x/srcRect.width, vwidth=2f*(float)imageWidth/srcRect.width,
-				offy=2f*(1f-((float)(srcRect.y+srcRect.height)/imageHeight))*(float)imageHeight/srcRect.height,
-				vheight=2f*(float)imageHeight/srcRect.height, 
-				tw=(2*imageWidth-tex4div(imageWidth))/(float)imageWidth,th=(2*imageHeight-tex4div(imageHeight))/(float)imageHeight;
+		float 	tw=(2*imageWidth-tex4div(imageWidth))/(float)imageWidth,
+				th=(2*imageHeight-tex4div(imageHeight))/(float)imageHeight;
 		//Quad, 3 space verts, 3 texture verts per each of 4 points of a quad
 		float[] initVerts=new float[] {
-				-1f-offx, 			(-1f-offy)*yrat, 			-zmax,		0, th, go3d?1f:0,
-				-1f-offx+vwidth, 	(-1f-offy)*yrat, 			zmax,		tw, th, 0,
-				-1f-offx+vwidth, 	(-1f-offy+vheight)*yrat, 	zmax,		tw, 0, 0,
-				-1f-offx, 			(-1f-offy+vheight)*yrat, 	-zmax,		0, 0, go3d?1f:0
-		};
-		initVerts=new float[] {
 				-1f, -1f, -zmax,   0, th, go3d?1f:0,
 				 1f, -1f,  zmax,  tw, th, 0,
 				 1f,  1f,  zmax,  tw,  0, 0,
@@ -606,10 +599,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 							float xt,xv;
 							if(reverse) {
 								xt=(p+0.5f)/imageWidth*tw;
-								xv=(p*2f-srcRect.width-2f*srcRect.x)/srcRect.width;
+								xv=(p*2f-imageWidth)/imageWidth;
 							} else {
 								xt=(imageWidth-(p+0.5f))/imageWidth*tw;
-								xv=((imageWidth-p)*2f-srcRect.width-2f*srcRect.x)/srcRect.width;
+								xv=((imageWidth-p)*2f-imageWidth)/imageWidth;
 							}
 							for(int i=0;i<4;i++) {
 								vertb.putFloat(xv); vertb.putFloat(initVerts[i*6+1]); vertb.putFloat(initVerts[i*6+2]);
@@ -622,10 +615,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 							float yt,yv;
 							if(reverse) {
 								yt=(p+0.5f)/imageHeight*th;
-								yv=(float)(imageHeight-p)/srcRect.height*2f*yrat+initVerts[1];
+								yv=(float)(imageHeight-p)/imageHeight*2f*yrat+initVerts[1];
 							}else {
 								yt=(float)(imageHeight-(p+0.5f))/imageHeight*th;
-								yv=(float)p/srcRect.height*2f*yrat+initVerts[1];
+								yv=(float)p/imageHeight*2f*yrat+initVerts[1];
 							}
 							for(int i=0;i<4;i++) {
 								float zv=initVerts[i*6+2];
@@ -642,7 +635,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 							float z=csl;
 							if(!reverse) z=((float)zmaxsls-csl-1f);
 							for(int i=0;i<4;i++) {
-								vertb.putFloat(initVerts[i*6]); vertb.putFloat(initVerts[i*6+1]); vertb.putFloat(((float)zmaxsls-2f*z)/srcRect.width); 
+								vertb.putFloat(initVerts[i*6]); vertb.putFloat(initVerts[i*6+1]); vertb.putFloat(((float)zmaxsls-2f*z)/imageWidth); 
 								vertb.putFloat(initVerts[i*6+3]); vertb.putFloat(initVerts[i*6+4]); vertb.putFloat((z+0.5f)/zmaxsls); 
 							}
 						}
@@ -659,7 +652,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					gl.glBlendEquation(GL_FUNC_ADD);
 					gl.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 				}
-				
 			}else {
 				gl.glDisable(GL_BLEND);
 				lim=24;
@@ -743,7 +735,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					gl.glDisable(GL_BLEND);
 					rgldu.setImp(imp);
 					glos.bindUniformBuffer("global", 1);
-					glos.bindUniformBuffer("idm", 2);
+					glos.bindUniformBuffer(go3d?"model":"idm", 2);
 					
 					rgldu.drawRoiGL(drawable, roi, true, anacolor, go3d);
 					if(overlay!=null) {

@@ -50,7 +50,7 @@ public class JCGLObjects {
 	}
 
 	public JCGLObjects(GL gl) {
-		setGL(gl.getGL());
+		setGL(gl);
 	}
 	
 	public void dispose() {
@@ -71,16 +71,42 @@ public class JCGLObjects {
 		if(glver==2) {gl23=gl.getGL2();}
 		if(glver==3) {gl23=gl.getGL3();gl3=gl.getGL3();}
 		if(glver==4) {gl23=gl.getGL4();gl4=gl.getGL4();}
-		
+	}
+	
+	public GL2GL3 getGL2GL3() {
+		return gl23;
 	}
 	
 	public void setGLVer() {
 		String version=gl.glGetString(GL_VERSION);
+		//System.out.println("JCGLO gl version "+version);
 		float v=Float.parseFloat(version.substring(0, 3));
+		int glNameVer=getVersionFromProfileName(JCP.glProfileName);
 		glver=2;
 		if(v>=3.0f)glver=3;
 		if(v>=4.5f)glver=4;
+		if(glNameVer>-1 && glNameVer<glver) {
+			glver=glNameVer;
+			System.out.println("Demoting gl version to "+glver+" because using profile "+JCP.glProfileName);
+		}
 	}
+	
+	private int getVersionFromProfileName(String pn) {
+		int res=-1;
+		if(pn==null)return res;
+		for(int i=0;i<pn.length();i++) {
+			int c;
+			try {
+				c=Integer.parseInt(pn.substring(i,i+1));
+				if(c>res)res=c;
+			}catch(Exception e) {}
+		}
+		return res;
+		/*
+		GL4bc GL3bc GL2 GL4 GL3 GLES3 GL4ES3 
+		GL2GL3 GLES2 GL2ES2 GLES1 GL2ES1 */
+	}
+
 	
 	public void newTexture(String name) {
 		textures.newTexture(name, 1);

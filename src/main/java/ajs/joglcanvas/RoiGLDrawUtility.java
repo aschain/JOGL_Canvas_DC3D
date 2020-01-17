@@ -11,7 +11,7 @@ import java.nio.FloatBuffer;
 
 import com.jogamp.opengl.GL;
 import com.jogamp.opengl.GL2ES2;
-import com.jogamp.opengl.GL3;
+import com.jogamp.opengl.GL2GL3;
 import com.jogamp.opengl.GLAutoDrawable;
 import com.jogamp.opengl.fixedfunc.GLMatrixFunc;
 import com.jogamp.opengl.util.GLBuffers;
@@ -35,7 +35,7 @@ import ij.process.FloatPolygon;
 public class RoiGLDrawUtility {
 	private RegionRenderer regionRenderer=null;
 	private ImagePlus imp;
-	private GL3 gl;
+	private GL2GL3 gl;
 	private GLAutoDrawable drawable;
 	private JCGLObjects rglos=null;
 	float px=2f/1024f;
@@ -45,44 +45,34 @@ public class RoiGLDrawUtility {
 
 	public RoiGLDrawUtility(ImagePlus imp, GLAutoDrawable drawable) {
 		this.imp=imp;
-		Rectangle srcRect=imp.getCanvas().getSrcRect();
-		w=(float)srcRect.width; h=(float)srcRect.height;
-		offx=(float)srcRect.x; offy=(float)srcRect.y;
-		px=2f/((float)imp.getCanvas().getMagnification()*w);
-		yrat=(float)srcRect.height/srcRect.width;
 		rglos= new JCGLObjects(drawable);
 		rglos.newBuffer(GL_ARRAY_BUFFER, "roiGL");
 		rglos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "roiGL");
 		rglos.newVao("roiGL", 3, GL_FLOAT, 4, GL_FLOAT);
 		rglos.programs.newProgram("color", "shaders", "color", "color");
-		this.drawable=drawable;
-		this.gl=drawable.getGL().getGL3();
+		updateSrcRect();
+		setGL(drawable);
 	}
 	
-	private void updateSrcRect(GLAutoDrawable drawable) {
-		this.drawable=drawable;
+	private void updateSrcRect() {
 		Rectangle srcRect=imp.getCanvas().getSrcRect();
 		mag=imp.getCanvas().getMagnification();
 		w=(float)srcRect.width; h=(float)srcRect.height;
 		offx=(float)srcRect.x; offy=(float)srcRect.y;
 		dw=(int)(mag*w+0.5);
 		dh=(int)(mag*h+0.5);
-		px=2f/dw;
-		yrat=(float)srcRect.height/srcRect.width;
+		px=2f/(int)(mag*h+0.5);
+		yrat=1f;//(float)srcRect.height/srcRect.width;
 	}
 	
-	public void setGL(GLAutoDrawable drawable) {
+	private void setGL(GLAutoDrawable drawable) {
 		this.drawable=drawable;
-		setGL(drawable.getGL());
+		rglos.setGL(drawable.getGL());
+		this.gl=rglos.getGL2GL3();
 	}
 	
 	public void setImp(ImagePlus imp) {
 		this.imp=imp;
-	}
-	
-	private void setGL(GL gl) {
-		this.gl=gl.getGL3();
-		rglos.setGL(gl);
 	}
 
 	/**
@@ -100,7 +90,7 @@ public class RoiGLDrawUtility {
 		if(!(rfr==0 || rfr==fr))return;
 		if(!go3d && !((rch==0 || ch==rch) && (rsl==0 || rsl==sl)))return;
 		setGL(drawable);
-		updateSrcRect(drawable);
+		updateSrcRect();
 		boolean drawHandles=isRoi;
 		if(isRoi && roi.getState()==Roi.CONSTRUCTING)drawHandles=false;
 
@@ -254,6 +244,7 @@ public class RoiGLDrawUtility {
 		}
 		drawGLfb(drawable, fb, toDraw);
 	}
+	
 	/**
 	 * drawGLfb requires a FloatBuffer fb which has 3 position floats followed by 4 color floats per vertex.
 	 * @param gl
@@ -570,7 +561,7 @@ public class RoiGLDrawUtility {
 	}
 	
 	/** FloatPolygon has coordinates in IMAGEJ (NOT opengl -1 to 1) except z*/
-	public void drawGLFP(int GLtypetodraw, FloatPolygon fp, float z, Color color) {
+	private void drawGLFP(int GLtypetodraw, FloatPolygon fp, float z, Color color) {
 		drawGL(getGLCoords(fp,z,false), color,GLtypetodraw);
 	}
 	

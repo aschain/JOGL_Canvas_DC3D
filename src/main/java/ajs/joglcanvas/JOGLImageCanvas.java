@@ -56,6 +56,7 @@ import com.jogamp.common.nio.Buffers;
 import com.jogamp.opengl.GL2GL3;
 import static com.jogamp.opengl.GL2.*;
 import com.jogamp.opengl.GLAutoDrawable;
+import com.jogamp.opengl.GLCapabilities;
 import com.jogamp.opengl.util.texture.awt.AWTTextureIO;
 
 import com.jogamp.opengl.GLEventListener;
@@ -63,7 +64,6 @@ import com.jogamp.opengl.GLException;
 import com.jogamp.opengl.awt.GLCanvas;
 import com.jogamp.opengl.util.awt.AWTGLReadBufferUtil;
 import com.jogamp.opengl.math.FloatUtil;
-import com.jogamp.opengl.math.Matrix4;
 import com.jogamp.opengl.util.GLBuffers;
 
 public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, ImageListener, KeyListener, ActionListener, ItemListener{
@@ -128,11 +128,17 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(!mirror) {setOverlay(imp.getCanvas().getOverlay());}
 		updateLastPosition();
 		prevSrcRect=new Rectangle(0, 0, 0, 0);
-		if(JCP.glCapabilities==null && !JCP.setGLCapabilities()) IJ.showMessage("error in GL Capabilities");
+		GLCapabilities glc=JCP.getGLCapabilities();
+		int bits=imp.getBitDepth();
+		if((bits<16 || bits==24)&& (glc.getRedBits()>8 || glc.getGreenBits()>8 || glc.getBlueBits()>8) ) {
+			IJ.log("JOGLCanvas Deep Color Warning:\nOriginal image is 8 bits or less and therefore \nwon't display any differently with HDR 10 bits or higher display.");
+		}
+		if(glc==null) {
+			IJ.showMessage("error in GL Capabilities, using default");
+			icc=new GLCanvas();
+		}else icc=new GLCanvas(glc);
 		createPopupMenu();
 		sb=new StackBuffer(imp);
-		System.out.println("before icc");
-		icc=new GLCanvas(JCP.glCapabilities);
 		float[] res=new float[] {1.0f,1.0f};
 		icc.setSurfaceScale(res);
 		//res=icc.getRequestedSurfaceScale(res);
@@ -236,10 +242,12 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		
 		glos.newBuffer(GL_UNIFORM_BUFFER, "global", 16*2 * Buffers.SIZEOF_FLOAT, null);
 		glos.newBuffer(GL_UNIFORM_BUFFER, "model", 16 * Buffers.SIZEOF_FLOAT, null);
+		glos.newBuffer(GL_UNIFORM_BUFFER, "modelr", 16 * Buffers.SIZEOF_FLOAT, null);
 		glos.newBuffer(GL_UNIFORM_BUFFER, "lut", 6*4 * Buffers.SIZEOF_FLOAT, null);
 		glos.newBuffer(GL_UNIFORM_BUFFER, "idm", 16 * Buffers.SIZEOF_FLOAT, GLBuffers.newDirectFloatBuffer(FloatUtil.makeIdentity(new float[16])));
-		
+
 		glos.buffers.loadIdentity("model");
+		glos.buffers.loadIdentity("modelr");
 		//global written during reshape call
 
 		glos.programs.newProgram("image", "shaders", "texture", "texture");
@@ -513,7 +521,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				scX=(float)imageWidth/srcRect.width,
 				scY=(float)imageHeight/srcRect.height;
 		float[] translate=null,scale=null,rotate=null;
-		if(!prevSrcRect.equals(srcRect) || go3d) {
+		if( (!prevSrcRect.equals(srcRect)) || go3d) {
 			translate=FloatUtil.makeTranslation(new float[16], false, trX, trY, 0f);
 			scale=FloatUtil.makeScale(new float[16], false, scX, scY, scX);
 			if(!go3d)
@@ -710,7 +718,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 
 			
 			if(roi!=null || overlay!=null) { 
-				if(go3d)glos.buffers.loadMatrix("model", rotate);
+				if(go3d)glos.buffers.loadMatrix("modelr", rotate);
 				float z=0f;
 				float zf=(float)(cal.pixelDepth/cal.pixelWidth)/srcRect.width;
 				if(go3d) z=((float)sls-2f*sl)*zf;
@@ -718,11 +726,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				gl.glBlendEquation(GL_FUNC_ADD);
 				gl.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 				if(!JCP.openglroi) {
-					if(doRoi)drawGraphics(gl, z, "roiGraphic", 0, (go3d?"model":"idm"));
+					if(doRoi)drawGraphics(gl, z, "roiGraphic", 0, (go3d?"modelr":"idm"));
 					if(doOv!=null) {
 						for(int osl=0;osl<sls;osl++) {
 							if(doOv[osl]) {
-								drawGraphics(gl, ((float)sls-2f*(float)osl)*zf, "overlay", osl, (go3d?"model":"idm"));
+								drawGraphics(gl, ((float)sls-2f*(float)osl)*zf, "overlay", osl, (go3d?"modelr":"idm"));
 							}
 						}
 					}
@@ -735,7 +743,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					gl.glDisable(GL_BLEND);
 					rgldu.setImp(imp);
 					glos.bindUniformBuffer("global", 1);
-					glos.bindUniformBuffer(go3d?"model":"idm", 2);
+					glos.bindUniformBuffer(go3d?"modelr":"idm", 2);
 					
 					rgldu.drawRoiGL(drawable, roi, true, anacolor, go3d);
 					if(overlay!=null) {
@@ -915,15 +923,12 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		//addMirrorListeners();
 		mirror=new Frame("JOGL-DC3D Mirror of "+imp.getTitle());
 		//mirror=new ImageWindow("DC3D Mirror of "+imp.getTitle());
-		System.out.println("created Frame");
 		mirror.add(icc);
-		System.out.println("added icc");
 		mirror.addWindowListener(new WindowAdapter() {
 			public void windowClosing(WindowEvent e) {
 				revert();
 			}
 		});
-		System.out.println("added WindowL");
 		mirror.addMouseWheelListener(new MouseAdapter() {
 			@Override
 			public void mouseWheelMoved(MouseWheelEvent e) {
@@ -932,7 +937,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				updateMirror(); repaint();
 			}
 		});
-		System.out.println("added MouseWlL");
 		mirror.setVisible(true);
 		updateMirror();
 	}

@@ -64,7 +64,8 @@ public class JCP implements PlugIn {
 
 	public static JOGLCanvasService listenerInstance=null;
 	public static String defaultBitString="default";
-	public static GLCapabilities glCapabilities=null;
+	//public static GLCapabilities glCapabilities=null;
+	public static String glProfileName;
 	public static int undersample=(int)Prefs.get("ajs.joglcanvas.undersample", 1.0);
 	public static String renderFunction=Prefs.get("ajs.joglcanvas.renderFunction", "MAX");
 	public static boolean backgroundLoadBuffers=Prefs.get("ajs.joglcanvas.backgroundLoadBuffers", false);
@@ -106,10 +107,6 @@ public class JCP implements PlugIn {
 			}
 		}
 
-		
-		if(!setGLCapabilities()) return;
-
-
 		if(arg.equals("MirrorWindow")) {
 			addJOGLCanvasMirror(imp);
 			return;
@@ -140,16 +137,11 @@ public class JCP implements PlugIn {
 	}
 
 	private static void convertToJOGLCanvas(ImagePlus imp, boolean doMirror) {
-		if(glCapabilities==null && !setGLCapabilities())return;
 		if(imp==null)return;
 		String classname= imp.getWindow().getClass().getSimpleName();
 		if(classname.equals("ImageWindow") || classname.equals("StackWindow")) {
-			int bits=imp.getBitDepth();
-			if((bits<16 || bits==24)&& (glCapabilities.getRedBits()>8 || glCapabilities.getGreenBits()>8 || glCapabilities.getBlueBits()>8) ) {
-				IJ.log("JCDC3D Warning:\nOriginal image is 8 bits or less and therefore \nwon't display any differently with 10 bits or higher display.");
-			}
-			if(imp.getNChannels()>4) {
-				IJ.error("JOGL Canvas currently limited to 4 channels");
+			if(imp.getNChannels()>6) {
+				IJ.error("JOGL Canvas currently limited to 6 channels");
 				return;
 			}
 			if(doMirror) {
@@ -289,33 +281,37 @@ public class JCP implements PlugIn {
 		testimp.updateAndRepaintWindow();
 	}
 	
-	public static boolean setGLCapabilities() {
+	public static GLCapabilities getGLCapabilities() {
 		if(IJ.isLinux())System.setProperty("jogl.disable.openglcore", "true"); //avoids this bug https://github.com/processing/processing/issues/5476
-		if(glCapabilities==null) {
-			GLProfile.initSingleton();
-		}
 		fillAnaColors();
 
-		GLProfile glProfile = GLProfile.getMaxProgrammable(true);
-		if(!glProfile.isGL3()) {
-			IJ.showMessage("Deep Color requires at least OpenGL 3");
-			return false;
+		GLProfile glProfile=null;
+		if(glProfileName!=null) glProfile=GLProfile.get(glProfileName);
+		else glProfile = GLProfile.getMaxProgrammable(true);
+		if(!glProfile.isGL2ES2()) {
+			IJ.showMessage("Deep Color requires at least OpenGL 2ES2");
+			return null;
 		}
-		if(glCapabilities==null) glCapabilities = new GLCapabilities( glProfile );
+		GLCapabilities glCapabilities = new GLCapabilities( glProfile );
 		
 		//If setprefs is run before glCapabilites was defined, defaultBitString might be the intended bits
 		//Otherwise it will still be "default" and then get it from preferences
 		if(defaultBitString.equals("default")) defaultBitString=Prefs.get("ajs.joglcanvas.colordepths",defaultBitString);
 		//If it is still not defined then ask
-		if(defaultBitString.contentEquals("default")) preferences();
-		if(defaultBitString==null || defaultBitString.equals("default")) return false;
-		setGLCapabilities(defaultBitString);
-		IJ.log("Initialized GL:");
+		if(defaultBitString.contentEquals("default")) {
+			preferences();
+			if(glProfileName!=null) glProfile=GLProfile.get(glProfileName);
+			else glProfile = GLProfile.getMaxProgrammable(true);
+			glCapabilities = new GLCapabilities( glProfile );
+		}
+		if(defaultBitString==null || defaultBitString.equals("default")) return null;
+		setGLCapabilities(glCapabilities, defaultBitString);
+		IJ.log("GL Settings:");
 		IJ.log(""+glCapabilities);
-		return true;
+		return glCapabilities;
 	}
 	
-	public static void setGLCapabilities(String bitdepthstr) {
+	public static void setGLCapabilities(GLCapabilities glCapabilities, String bitdepthstr) {
 
 		String[] bitdepths=bitdepthstr.split(",");
 		if(bitdepths.length!=4)return;
@@ -337,16 +333,14 @@ public class JCP implements PlugIn {
 	private static void getGLVersion(boolean max) {
 		IJ.log("Getting OpenGL version...");
 		boolean glCisnull=false;
-		if(glCapabilities==null) {
-			if(IJ.isLinux())System.setProperty("jogl.disable.openglcore", "true"); //avoids this bug https://github.com/processing/processing/issues/5476
-			glCisnull=true;
-			GLProfile.initSingleton();
-			GLProfile glProfile=null;
-			if(max) glProfile= GLProfile.getMaxProgrammable(true);
-			else glProfile= GLProfile.getDefault();
-			if(!glProfile.isGL2ES2()) IJ.showMessage("Deep Color requires at least OpenGL 2 ES2");
-			glCapabilities = new GLCapabilities( glProfile );
-		}
+		if(IJ.isLinux())System.setProperty("jogl.disable.openglcore", "true"); //avoids this bug https://github.com/processing/processing/issues/5476
+		glCisnull=true;
+		GLProfile.initSingleton();
+		GLProfile glProfile=null;
+		if(max) glProfile= GLProfile.getMaxProgrammable(true);
+		else glProfile= GLProfile.getDefault();
+		if(!glProfile.isGL2ES2()) IJ.showMessage("Deep Color requires at least OpenGL 2 ES2");
+		GLCapabilities glCapabilities = new GLCapabilities( glProfile );
 		Frame win=new Frame();
 		win.setSize(100,100);
 		GLCanvas glc=new GLCanvas(glCapabilities);
@@ -411,9 +405,15 @@ public class JCP implements PlugIn {
 			for(int j=0;j<bitdepths.size();j++) {if(bitdepths.get(j).equals(tempstr)) {add=false; break;}}
 			if(add)bitdepths.add(tempstr);
 		}
+		ArrayList<String> profiles=new ArrayList<String>();
+		for(String prof : GLProfile.GL_PROFILE_LIST_ALL) {
+			if(GLProfile.isAvailable(prof))profiles.add(prof);
+		}
 		GenericDialog gd=new GenericDialog("JOGL Canvas Deep Color 3D Display Options");
 		if(!version.equals(""))gd.addMessage("GL Ver: "+version);
 		if(!defaultVersion.equals(""))gd.addMessage("GL Default Ver: "+defaultVersion);
+		gd.addMessage("You can choose a specific GLProfile instead of the default if you like:");
+		if(profiles.size()>1)gd.addChoice("GLProfile:", profiles.toArray(new String[profiles.size()]), glProfileName==null?GLProfile.getMaxProgrammable(true).getImplName():glProfileName);
 		gd.addMessage("For High-bit Monitors:\nChoose the color bit depths from those available\nChoices are bits for R,G,B,A respectively");
 		gd.addChoice("Bitdepths:", bitdepths.toArray(new String[bitdepths.size()]), bitdepths.get(0));
 		gd.addStringField("Or enter R,G,B,A if you are sure (e.g. 10,10,10,2)", "");
@@ -434,6 +434,7 @@ public class JCP implements PlugIn {
 		gd.addCheckbox("Open test image", false);
 		gd.showDialog();
 		if(gd.wasCanceled())return;
+		if(profiles.size()>1)glProfileName=gd.getNextChoice();
 		String bd=gd.getNextChoice();
 		String userbd=gd.getNextString();
 		if(!userbd.equals("")) {
@@ -443,7 +444,6 @@ public class JCP implements PlugIn {
 			else bd=userbd;
 		}
 		defaultBitString=bd;
-		setGLCapabilities(defaultBitString);
 		Prefs.set("ajs.joglcanvas.colordepths",bd);
 		if(gd.getNextBoolean()) {
 			if(listenerInstance==null)

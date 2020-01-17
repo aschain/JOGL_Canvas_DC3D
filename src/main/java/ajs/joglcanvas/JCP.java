@@ -298,7 +298,7 @@ public class JCP implements PlugIn {
 
 		GLProfile glProfile = GLProfile.getMaxProgrammable(true);
 		if(!glProfile.isGL3()) {
-			IJ.showMessage("Deep Color requires at least OpenGL 2 ES2");
+			IJ.showMessage("Deep Color requires at least OpenGL 3");
 			return false;
 		}
 		if(glCapabilities==null) glCapabilities = new GLCapabilities( glProfile );
@@ -307,8 +307,8 @@ public class JCP implements PlugIn {
 		//Otherwise it will still be "default" and then get it from preferences
 		if(defaultBitString.equals("default")) defaultBitString=Prefs.get("ajs.joglcanvas.colordepths",defaultBitString);
 		//If it is still not defined then ask
-		if(defaultBitString.equals("default")) preferences();
-		if(defaultBitString==null || defaultBitString.equals("default"))return false;
+		if(defaultBitString.contentEquals("default")) preferences();
+		if(defaultBitString==null || defaultBitString.equals("default")) return false;
 		setGLCapabilities(defaultBitString);
 		IJ.log("Initialized GL:");
 		IJ.log(""+glCapabilities);
@@ -398,7 +398,7 @@ public class JCP implements PlugIn {
 	public static void preferences() {
 		if(version.equals("")) {getGLVersion(false); getGLVersion(true);}
 		String defaultstr=defaultBitString;
-		if(defaultstr.equals("default"))defaultstr=Prefs.get("ajs.joglcanvas.colordepths","default");
+		if(defaultstr.equals("default"))defaultstr=Prefs.get("ajs.joglcanvas.colordepths","8,8,8,8");
 		if(defaultstr.equals("default"))defaultstr="8,8,8,8";
 		List<GLCapabilitiesImmutable> glcList=GLDrawableFactory.getFactory(GLProfile.getDefault()).getAvailableCapabilities(null);
 		if(glcList.size()==0)glcList=GLDrawableFactory.getFactory(GLProfile.getMaxProgrammable(true)).getAvailableCapabilities(null);
@@ -417,7 +417,6 @@ public class JCP implements PlugIn {
 		gd.addMessage("For High-bit Monitors:\nChoose the color bit depths from those available\nChoices are bits for R,G,B,A respectively");
 		gd.addChoice("Bitdepths:", bitdepths.toArray(new String[bitdepths.size()]), bitdepths.get(0));
 		gd.addStringField("Or enter R,G,B,A if you are sure (e.g. 10,10,10,2)", "");
-		gd.addCheckbox("Save depths as default?", false);
 		gd.addMessage("Service:");
 		gd.addCheckbox("Run service now? (Run on all opened images?)", listenerInstance!=null);
 		gd.addMessage("Add to ImageJ Popup Menu:");
@@ -437,12 +436,15 @@ public class JCP implements PlugIn {
 		if(gd.wasCanceled())return;
 		String bd=gd.getNextChoice();
 		String userbd=gd.getNextString();
-		if(!userbd.equals(""))bd=userbd;
+		if(!userbd.equals("")) {
+			if(userbd.split(",").length!=4) 
+				IJ.showMessage("Bit depths string was not valid (need 4 bit depths separated by commas).\n"
+							+ "Using "+bd);
+			else bd=userbd;
+		}
 		defaultBitString=bd;
 		setGLCapabilities(defaultBitString);
-		if(gd.getNextBoolean()) {
-			Prefs.set("ajs.joglcanvas.colordepths",bd);
-		}
+		Prefs.set("ajs.joglcanvas.colordepths",bd);
 		if(gd.getNextBoolean()) {
 			if(listenerInstance==null)
 				startListener();

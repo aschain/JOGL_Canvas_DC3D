@@ -4,6 +4,11 @@ import static com.jogamp.opengl.GL2.*;
 import static com.jogamp.opengl.GL3.*;
 import static com.jogamp.opengl.GL4.*;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.PrintStream;
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
@@ -690,8 +695,16 @@ public class JCGLObjects {
             shaderProgram.add(fragShader);
 
             shaderProgram.init(gl23);
-            shaderProgram.link(gl23, System.err);
-            if(glver<4 && !shaderProgram.validateProgram(gl23, System.err)) {
+            PrintStream ps=null;
+            File temp=null;
+            try {
+            	temp=File.createTempFile("ImageJ-JOGLCanvas-shader-err", "txt");
+				ps=new PrintStream(temp);
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+            shaderProgram.link(gl23, ps);
+            if(glver<4 && !shaderProgram.validateProgram(gl23, ps)) {
             	System.out.println("Going to 330");
             	add="330";
             	vertShader = ShaderCode.create(gl23, GL_VERTEX_SHADER, this.getClass(), root, null, vertex+add,
@@ -707,7 +720,20 @@ public class JCGLObjects {
                 shaderProgram.init(gl23);
                 shaderProgram.link(gl23, System.err);
             }
-            if(!shaderProgram.validateProgram(gl23, System.err))System.out.println("Shader failed");
+            if(!shaderProgram.validateProgram(gl23, System.err)) {
+            	System.out.println("Shader "+add+" failed");
+				try {
+					FileReader fr = new FileReader(temp);
+					System.err.println("Shader 300 es error:");
+					int i; 
+					while ((i=fr.read()) != -1) 
+						System.err.print((char) i);
+					fr.close();
+					System.err.println("");
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+            }
             
             name=shaderProgram.program();
             

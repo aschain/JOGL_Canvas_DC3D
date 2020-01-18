@@ -342,7 +342,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		//IJ.log("\\Update2:Display took: "+(System.nanoTime()-starttime)/1000000L+"ms");
 		//starttime=System.nanoTime();
 		if(imp.isLocked())return;
-		imp.lockSilently();
+		//imp.lockSilently(); //causing z scrollbar to lost focus or something
 		int sl=imp.getZ()-1, fr=imp.getT()-1,chs=imp.getNChannels(),sls=imp.getNSlices(),frms=imp.getNFrames();
 		if(go3d&&sls==1)go3d=false;
 		sb.setPixelType(go3d?pixelType3d:getPixelType(), go3d?undersample:1);
@@ -799,7 +799,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				myscreengrabber.screenUpdated(bi);
 			}
 		}
-		imp.unlock();
+		//imp.unlock();
 	}
 	
 	public BufferedImage grabScreen(GLAutoDrawable drawable) {

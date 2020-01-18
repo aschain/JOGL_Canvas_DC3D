@@ -117,7 +117,7 @@
 				       <goal>exec</goal>
 				    </goals>
 				    <configuration>
-				      <executable>"../copyToFiji.bat"</executable>
+				      <executable>../copyToFiji.bat</executable>
 				      <workingDirectory>${basedir}</workingDirectory>
 				      <arguments>
 				    	  <argument>plugins</argument>

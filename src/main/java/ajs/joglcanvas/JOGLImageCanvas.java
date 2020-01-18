@@ -157,9 +157,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	}
 	
 	private void setGL(GLAutoDrawable drawable) {
-		if(glos.glver==2)gl = drawable.getGL().getGL2();
-		else if(glos.glver==3)gl = drawable.getGL().getGL3();
-		else if(glos.glver==4)gl = drawable.getGL().getGL4();
+		glos.setGL(drawable);
+		gl=glos.getGL2GL3();
 	}
 
 	//GLEventListener methods
@@ -353,7 +352,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		int srcRectWidthMag = (int)(srcRect.width*magnification+0.5);
 		int srcRectHeightMag = (int)(srcRect.height*magnification+0.5);
 		setGL(drawable);
-		glos.setGL(drawable);
 		
 		if(stereoUpdated) {
 			if(stereoType!=StereoType.CARDBOARD) {
@@ -525,7 +523,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			translate=FloatUtil.makeTranslation(new float[16], false, trX, trY, 0f);
 			scale=FloatUtil.makeScale(new float[16], false, scX, scY, scX);
 			if(!go3d)
-				glos.buffers.loadMatrix("model", FloatUtil.multMatrix(scale, translate));
+				glos.buffers.loadMatrix("model", FloatUtil.multMatrix(scale, translate));//note this modifies scale
 		}
 		
 		//drawing
@@ -587,6 +585,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				//IJ.log("\\Update0:X x"+Math.round(100.0*matrix[0])/100.0+" y"+Math.round(100.0*matrix[1])/100.0+" z"+Math.round(100.0*matrix[2])/100.0);
 				//IJ.log("\\Update1:Y x"+Math.round(100.0*matrix[4])/100.0+" y"+Math.round(100.0*matrix[5])/100.0+" z"+Math.round(100.0*matrix[6])/100.0);
 				//IJ.log("\\Update2:Z x"+Math.round(100.0*matrix[8])/100.0+" y"+Math.round(100.0*matrix[9])/100.0+" z"+Math.round(100.0*matrix[10])/100.0);
+				//IJ.log(FloatUtil.matrixToString(null, "rot: ", "%10.4f", rotate, 0, 4, 4, false).toString());
 				
 				boolean left,top,reverse;
 				float Xza=Math.abs(rotate[2]), Yza=Math.abs(rotate[6]), Zza=Math.abs(rotate[10]);
@@ -596,7 +595,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				reverse=(Zza==-rotate[10]);
 				if(left)reverse=Xza==rotate[2];
 				if(top)reverse=Yza==-rotate[6];
-				glos.buffers.loadMatrix("model", FloatUtil.multMatrix(scale, FloatUtil.multMatrix(rotate, translate)));
+				glos.buffers.loadMatrix("model", FloatUtil.multMatrix(scale, FloatUtil.multMatrix(rotate, translate, new float[16])));//note scale will be the result
 				
 				if(ltr==null || !(ltr[0]==left && ltr[1]==top && ltr[2]==reverse) || !srcRect.equals(prevSrcRect)) {
 					ByteBuffer vertb=(ByteBuffer)glos.buffers.getDirectBuffer(GL_ARRAY_BUFFER, "image3d");
@@ -719,6 +718,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			
 			if(roi!=null || overlay!=null) { 
 				if(go3d)glos.buffers.loadMatrix("modelr", rotate);
+				//if(go3d)IJ.log(FloatUtil.matrixToString(null, "rot2: ", "%10.4f", rotate, 0, 4, 4, false).toString());
 				float z=0f;
 				float zf=(float)(cal.pixelDepth/cal.pixelWidth)/srcRect.width;
 				if(go3d) z=((float)sls-2f*sl)*zf;

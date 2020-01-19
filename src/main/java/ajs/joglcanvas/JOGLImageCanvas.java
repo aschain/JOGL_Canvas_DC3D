@@ -147,7 +147,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		icc.addMouseMotionListener(this);
 		icc.addKeyListener(ij);
 		icc.setFocusTraversalKeysEnabled(false);
-		icc.setSize(imageWidth, imageHeight);
+		//icc.setSize(imageWidth, imageHeight);
 		icc.setPreferredSize(new Dimension(imageWidth,imageHeight));
 		icc.addGLEventListener(this);
 		icc.setMinimumSize(new Dimension(10,10));
@@ -170,7 +170,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		AffineTransform t=gc.getDefaultTransform();
 		dpimag=t.getScaleX();
 		if(IJ.isMacOSX())dpimag=1.0;
-		icc.setSize(dstWidth, dstHeight);
+		//icc.setSize(dstWidth, dstHeight);
 		if(dpimag>1.0)IJ.log("Dpimag: "+dpimag);
 		//if(IJ.isMacOSX())icc.setLocation(4,47);
 		setGL(drawable);
@@ -178,48 +178,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		gl.glDisable(GL_DEPTH_TEST);
 		gl.glDisable(GL_MULTISAMPLE);
 		
-		Calibration cal=imp.getCalibration();
-		long zmaxsls=(long)((double)imp.getNSlices()*cal.pixelDepth/cal.pixelWidth);
-		int vertsPerSlice=6;
-		int floatsPerVertex=6;
-		long maxsize=Math.max((long)imp.getWidth(), Math.max((long)imp.getHeight(), zmaxsls));
-		ShortBuffer elementBuffer=GLBuffers.newDirectShortBuffer((int)maxsize*vertsPerSlice);
-		for(int i=0; i<(maxsize);i++) {
-			elementBuffer.put((short)(i*4+0)).put((short)(i*4+1)).put((short)(i*4+2));
-			elementBuffer.put((short)(i*4+2)).put((short)(i*4+3)).put((short)(i*4+0));
-		}
-		elementBuffer.rewind();
-		
-		ByteBuffer elementBuffer2d=GLBuffers.newDirectByteBuffer(vertsPerSlice);
-		elementBuffer2d.put(new byte[] {0,1,2,2,3,0});
-		elementBuffer2d.rewind();
-		
-		/*
-		long vbms=(imageWidth*4L*6L + imageHeight*4L*6L + zmaxsls*4L*6L)*2;
-		vertb=GLBuffers.newDirectByteBuffer((int)vbms);
-		float yrat=imageHeight/imageWidth;
-		float[] initVerts=new float[] {
-				-1f, 	-yrat, 	0,		0, 1, 0.5f,
-				 1f, 	-yrat, 	0,		1, 1, 0.5f,
-				 1f, 	yrat, 	0,		1, 0, 0.5f,
-				-1f, 	yrat, 	0,		0, 0, 0.5f
-		};
-		
-		for(float z=zmaxsls-1;z>-0.5f;z-=1.0f) {
-			for(int i=0;i<4;i++) {
-				vertb.putFloat(initVerts[i*6]); vertb.putFloat(initVerts[i*6+1]); vertb.putFloat(((float)zmaxsls/2-z)/imageWidth); 
-				vertb.putFloat(initVerts[i*6+3]); vertb.putFloat(initVerts[i*6+4]); vertb.putFloat((z+0.5f)/zmaxsls); 
-			}
-		}
-
-		*/
-		
-
-		glos.newTexture("image3d", imp.getNChannels());
-		glos.newBuffer(GL_ARRAY_BUFFER, "image3d", maxsize*floatsPerVertex*4*Buffers.SIZEOF_FLOAT, null);
-		glos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "image3d", elementBuffer.capacity()*Buffers.SIZEOF_SHORT, elementBuffer);
-		glos.newVao("image3d", 3, GL_FLOAT, 3, GL_FLOAT);
-
+		ByteBuffer elementBuffer2d=GLBuffers.newDirectByteBuffer(new byte[] {0,1,2,2,3,0});
 		ByteBuffer vertb=GLBuffers.newDirectByteBuffer(4*6*Buffers.SIZEOF_FLOAT);
 		float[] initVerts=new float[] {
 				-1f, 	-1f, 	0,		0, 1, 0.5f,
@@ -230,8 +189,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		vertb.asFloatBuffer().put(initVerts);
 		
 		glos.newTexture("image2d", imp.getNChannels());
-		glos.newBuffer(GL_ARRAY_BUFFER, "image2d", floatsPerVertex*4*Buffers.SIZEOF_FLOAT, vertb);
-		glos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "image2d", elementBuffer2d.capacity()*Buffers.SIZEOF_BYTE, elementBuffer2d);
+		glos.newBuffer(GL_ARRAY_BUFFER, "image2d", vertb.capacity(), vertb);
+		glos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "image2d", elementBuffer2d.capacity(), elementBuffer2d);
 		glos.newVao("image2d", 3, GL_FLOAT, 3, GL_FLOAT);
 
 		glos.newTexture("roiGraphic");
@@ -281,6 +240,25 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			setSize(s);
 			icc.getParent().setSize(s.width+ins.left+ins.right,s.height+ins.top+ins.bottom);
 		}
+	}
+	
+	private void init3dTex() {
+		Calibration cal=imp.getCalibration();
+		long zmaxsls=(long)((double)imp.getNSlices()*cal.pixelDepth/cal.pixelWidth);
+		int vertsPerSlice=6;
+		int floatsPerVertex=6;
+		long maxsize=Math.max((long)imp.getWidth(), Math.max((long)imp.getHeight(), zmaxsls));
+		ShortBuffer elementBuffer=GLBuffers.newDirectShortBuffer((int)maxsize*vertsPerSlice);
+		for(int i=0; i<(maxsize);i++) {
+			elementBuffer.put((short)(i*4+0)).put((short)(i*4+1)).put((short)(i*4+2));
+			elementBuffer.put((short)(i*4+2)).put((short)(i*4+3)).put((short)(i*4+0));
+		}
+		elementBuffer.rewind();
+
+		glos.newTexture("image3d", imp.getNChannels());
+		glos.newBuffer(GL_ARRAY_BUFFER, "image3d", maxsize*floatsPerVertex*4*Buffers.SIZEOF_FLOAT, null);
+		glos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "image3d", elementBuffer.capacity()*Buffers.SIZEOF_SHORT, elementBuffer);
+		glos.newVao("image3d", 3, GL_FLOAT, 3, GL_FLOAT);
 	}
 	
 	@Override
@@ -363,6 +341,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}
 		if(threeDupdated || deletePBOs) {
 			if(go3d) {
+				if(!glos.textures.containsKey("image3d")) init3dTex();
 				glos.textures.initiate("image3d",pixelType3d, sb.bufferWidth, sb.bufferHeight, sls, 1);
 			}else {
 				glos.buffers.loadIdentity("model", 0);
@@ -530,7 +509,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		gl.glDisable(GL_SCISSOR_TEST);
 		//gl.glDrawBuffers(1, new int[] {GL_BACK_LEFT},0);
 		//gl.glDrawBuffer(GL_BACK_LEFT);
-		gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		//gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		gl.glClearBufferfv(GL_COLOR, 0, new float[] {0f,0f,0f,0f},0);
         gl.glClearBufferfv(GL_DEPTH, 0, new float[] {0f},0);
 		Rectangle r=getViewportAspectRectangle(0,0,drawable.getSurfaceWidth(),drawable.getSurfaceHeight());

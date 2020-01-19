@@ -205,7 +205,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		double dpimag2=drawable.getSurfaceHeight()/dstHeight;
 		if(dpimag>1.0)IJ.log("Dpimag: "+dpimag+" "+dpimag2);
 		if(IJ.isMacOSX())icc.setLocation(4,47);
-		GL2ES2 gl2 = drawable.getGL().getGL2ES2();
+		GL2 gl2 = drawable.getGL().getGL2();
 		gl2.glClearColor(0f, 0f, 0f, 0f);
 		gl2.glDisable(GL2ES2.GL_DEPTH_TEST);
 
@@ -249,9 +249,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(isFrameStack) {sl=fr; fr=0; sls=frms; frms=1;}
 		float yrat=(float)srcRect.height/srcRect.width;
 		
-		GL2ES2 gl2es2 = drawable.getGL().getGL2ES2();
-		GL2 gl2=gl2es2.getGL2();
-		gl2es2.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT);
+		GL2 gl2 = drawable.getGL().getGL2();
+		gl2.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT);
 		gl2.glColor4f(1f, 1f, 1f,1f);
 		
 		int srcRectWidthMag = (int)(srcRect.width*magnification+0.5);
@@ -280,7 +279,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					if((rc==0||rc==imp.getC()) && (rz==0||rz==(sl+1)) && (rt==0||rt==imp.getT())) {oroi.drawOverlay(g); doRoi=true;}
 				}
 			}
-			if(doRoi)createRgbaTexture(gl2es2, roiTexture, AWTTextureIO.newTextureData(gl2es2.getGLProfile(), roiImage, false).getBuffer(), srcRectWidthMag, srcRectHeightMag, 1);
+			if(doRoi)createRgbaTexture(gl2, roiTexture, AWTTextureIO.newTextureData(gl2.getGLProfile(), roiImage, false).getBuffer(), srcRectWidthMag, srcRectHeightMag, 1);
 		}
 		boolean[] doOv=null;
 		if(!JCP.openglroi && overlay!=null && go3d) {
@@ -308,13 +307,13 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				}
 				if(doOv[osl]) {
 					if(overlayTextures[osl]==0)gl2.glGenTextures(1, overlayTextures, osl);
-					createRgbaTexture(gl2es2, overlayTextures[osl], AWTTextureIO.newTextureData(gl2es2.getGLProfile(), roiImage, false).getBuffer(), srcRectWidthMag, srcRectHeightMag, 1);
+					createRgbaTexture(gl2, overlayTextures[osl], AWTTextureIO.newTextureData(gl2.getGLProfile(), roiImage, false).getBuffer(), srcRectWidthMag, srcRectHeightMag, 1);
 				}
 			}
 		}
 		
 		if(imagePBO==null || deletePBOs || imagePBO.length!=frms) {
-			if(imagePBO!=null)gl2es2.glDeleteBuffers(imagePBO.length, imagePBO,0);
+			if(imagePBO!=null)gl2.glDeleteBuffers(imagePBO.length, imagePBO,0);
 			imagePBO=new int[frms];
 			updatedBuffersSlices=new boolean[sls*frms];
 			deletePBOs=false;
@@ -346,7 +345,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						try {
 							updateImageStackBuffer(imageFBs[fr],sliceImage,sl+1);
 							int offset=psize*sl;
-							imagePBO[fr]=updateSubRgbaPBO(gl2es2, imagePBO[fr],imageFBs[fr],offset, psize, bsize);
+							imagePBO[fr]=updateSubRgbaPBO(gl2, imagePBO[fr],imageFBs[fr],offset, psize, bsize);
 							updatedBuffersSlices[fr*sls+sl]=true;
 						}catch(Exception e) {
 							if(e instanceof GLException) {
@@ -355,7 +354,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 								IJ.log("Out of memory, switching usePBOforSlices off");
 								usePBOforSlices=false;
 								imageFBs[fr]=null; 
-								gl2es2.glDeleteBuffers(imagePBO.length, imagePBO,0);
+								gl2.glDeleteBuffers(imagePBO.length, imagePBO,0);
 								imagePBO=new int[frms];
 								updatedBuffersSlices=new boolean[sls*frms];
 							}
@@ -364,10 +363,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				}else {
 					sliceImage=getImageBufferSlice(false, imp.getZ(), imp.getT());
 				}
-				if(loadtex)loadTexFromPBO(gl2es2, imagePBO[fr], imageTexture, imageWidth, imageHeight, 1, sl, pixelType);
+				if(loadtex)loadTexFromPBO(gl2, imagePBO[fr], imageTexture, imageWidth, imageHeight, 1, sl, pixelType);
 				else {
-					gl2es2.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT);
-					createRgbaTexture(gl2es2, imageTexture, sliceImage, imageWidth, imageHeight, 1);
+					gl2.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT);
+					createRgbaTexture(gl2, imageTexture, sliceImage, imageWidth, imageHeight, 1);
 				}
 			}
 			myImageUpdated=false;
@@ -378,12 +377,12 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			if(updatingBuffers>0 && !updatedBuffers[fr])updateBuffers(fr+1,false);
 			for(int ifr=0;ifr<frms;ifr++) {
 				if(updatedBuffers[ifr]) {
-					imagePBO[ifr]=updateRgbaPBO(gl2es2, imagePBO[ifr], imageFBs[ifr]);
+					imagePBO[ifr]=updateRgbaPBO(gl2, imagePBO[ifr], imageFBs[ifr]);
 					updatedBuffers[ifr]=false;
 					IJ.showStatus("PBO load");
 				}
 			}
-			loadTexFromPBO(gl2es2, imagePBO[fr], imageTexture, imageWidth/undersample, imageHeight/undersample, sls, 0, pixelType3d);
+			loadTexFromPBO(gl2, imagePBO[fr], imageTexture, imageWidth/undersample, imageHeight/undersample, sls, 0, pixelType3d);
 		}
 		
 
@@ -407,22 +406,22 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(stereoType==StereoType.ANAGLYPH) {
 			renderFunction="MAX";
 		}
-		gl2es2.glDrawBuffers(1, new int[] {GL2ES2.GL_BACK}, 0);
+		gl2.glDrawBuffers(1, new int[] {GL2ES2.GL_BACK}, 0);
 
-		gl2es2.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT);
+		gl2.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT);
 		int views=1;
 		if(go3d && stereoType.ordinal()>0)views=2;
 		for(int stereoi=0;stereoi<views;stereoi++) {
 			
 			gl2.glMatrixMode(GL2.GL_MODELVIEW);
 			gl2.glLoadIdentity();
-			gl2es2.glEnable(GL2ES2.GL_TEXTURE_3D);
-			gl2es2.glBindTexture(GL2ES2.GL_TEXTURE_3D, imageTexture);
+			gl2.glEnable(GL2ES2.GL_TEXTURE_3D);
+			gl2.glBindTexture(GL2ES2.GL_TEXTURE_3D, imageTexture);
 			if(go3d) {
-				gl2es2.glEnable(GL2ES2.GL_BLEND);
+				gl2.glEnable(GL2ES2.GL_BLEND);
 				if(stereoType==StereoType.QUADBUFFER) {
-					if(stereoi==0)gl2es2.glDrawBuffers(1, new int[] {GL2.GL_BACK_LEFT}, 0);
-					else gl2es2.glDrawBuffers(1, new int[] {GL2.GL_BACK_RIGHT}, 0);
+					if(stereoi==0)gl2.glDrawBuffers(1, new int[] {GL2.GL_BACK_LEFT}, 0);
+					else gl2.glDrawBuffers(1, new int[] {GL2.GL_BACK_RIGHT}, 0);
 				}
 				gl2.glMatrixMode(GL2.GL_PROJECTION);
 				gl2.glLoadIdentity();
@@ -536,7 +535,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				}				
 			}
 			drawTexGL6f(gl2, vertb, GL2.GL_QUADS);
-			gl2es2.glDisable(GL2ES2.GL_TEXTURE_3D);
+			gl2.glDisable(GL2ES2.GL_TEXTURE_3D);
 
 			//brighten
 			LUT[] luts=imp.getLuts();
@@ -604,11 +603,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				gl2.glBlendEquation(GL2.GL_FUNC_ADD);
 				gl2.glBlendFunc(GL2.GL_SRC_ALPHA, GL2.GL_ONE_MINUS_SRC_ALPHA);
 				if(!JCP.openglroi) {
-					if(doRoi)drawGraphics(gl2es2, z, roiTexture);
+					if(doRoi)drawGraphics(gl2, z, roiTexture);
 					if(doOv!=null) {
 						for(int osl=0;osl<sls;osl++) {
 							if(doOv[osl]) {
-								drawGraphics(gl2es2, ((float)osl/(float)(sls)*2f-1f)*zmax, overlayTextures[osl]);
+								drawGraphics(gl2, ((float)osl/(float)(sls)*2f-1f)*zmax, overlayTextures[osl]);
 							}
 						}
 					}
@@ -644,7 +643,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				drawMyZoomIndicator(drawable);
 			}
 			//IJ.log("\\Update0:Display took: "+(System.nanoTime()-starttime)/1000000L+"ms");
-			gl2es2.glFlush();
+			gl2.glFlush();
 		}
 		//IJ.log("\\Update1:Display took: "+(System.nanoTime()-starttime)/1000000L+"ms");
 		
@@ -1092,7 +1091,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}
 	}
 	
-	private void drawGraphics(GL2ES2 gl2es2, float z, int texture) {
+	private void drawGraphics(GL2 gl2, float z, int texture) {
 		float yrat=(float)srcRect.height/srcRect.width;
 		FloatBuffer vb=Buffers.newDirectFloatBuffer(new float[] {
 				-1,	-yrat,	z, 	0,1,0,
@@ -1100,20 +1099,19 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				1,	yrat,	z, 	1,0,0,
 				-1,	yrat,	z,	0,0,0
 		});
-		drawGraphics(gl2es2, vb, texture);
+		drawGraphics(gl2, vb, texture);
 	}
 	
-	private void drawGraphics(GL2ES2 gl2es2, FloatBuffer vb, int texture) {
+	private void drawGraphics(GL2 gl2, FloatBuffer vb, int texture) {
 
-		gl2es2.glEnable(GL2ES2.GL_TEXTURE_3D);
-		gl2es2.glBindTexture(GL2ES2.GL_TEXTURE_3D, texture);
-		gl2es2.glTexParameteri(GL2ES2.GL_TEXTURE_3D, GL2ES2.GL_TEXTURE_MAG_FILTER, GL2ES2.GL_NEAREST);
+		gl2.glEnable(GL2ES2.GL_TEXTURE_3D);
+		gl2.glBindTexture(GL2ES2.GL_TEXTURE_3D, texture);
+		gl2.glTexParameteri(GL2ES2.GL_TEXTURE_3D, GL2ES2.GL_TEXTURE_MAG_FILTER, GL2ES2.GL_NEAREST);
 		
-		GL2 gl2=gl2es2.getGL2();
 		drawTexGL6f(gl2, vb, GL2.GL_QUADS);
-		if(Prefs.interpolateScaledImages)gl2es2.glTexParameteri(GL2ES2.GL_TEXTURE_3D, GL2ES2.GL_TEXTURE_MAG_FILTER,GL2ES2.GL_LINEAR);
-		gl2es2.glBindTexture(GL2ES2.GL_TEXTURE_3D, 0);
-		gl2es2.glDisable(GL2ES2.GL_TEXTURE_3D);
+		if(Prefs.interpolateScaledImages)gl2.glTexParameteri(GL2ES2.GL_TEXTURE_3D, GL2ES2.GL_TEXTURE_MAG_FILTER,GL2ES2.GL_LINEAR);
+		gl2.glBindTexture(GL2ES2.GL_TEXTURE_3D, 0);
+		gl2.glDisable(GL2ES2.GL_TEXTURE_3D);
 	}
 	
 	private void drawTexGL6f(GL2 gl2, FloatBuffer vb, int toDraw) {
@@ -1128,7 +1126,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	}
 
 	//Based on jogamp forum user Moa's code, http://forum.jogamp.org/GL-RGBA32F-with-glTexImage2D-td4035766.html
-	protected void createRgbaTexture(GL2ES2 gl, int glTextureHandle, Buffer buffer, int width, int height, int depth) { 
+	protected void createRgbaTexture(GL2 gl, int glTextureHandle, Buffer buffer, int width, int height, int depth) { 
 
 		int internalFormat=GL.GL_RGBA32F;
 		int pixelType=GL.GL_FLOAT;
@@ -1163,7 +1161,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		gl.glDisable(GL2ES2.GL_TEXTURE_3D);
 	} 
 	
-	private int updateRgbaPBO(GL2ES2 gl, int pboHandle, Buffer buffer) {
+	private int updateRgbaPBO(GL2 gl, int pboHandle, Buffer buffer) {
 		
 		return updateSubRgbaPBO(gl, pboHandle, buffer, 0, buffer.limit(), buffer.limit());
 	}

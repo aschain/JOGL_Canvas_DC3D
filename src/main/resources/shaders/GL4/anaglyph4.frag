@@ -1,4 +1,4 @@
-#version 330 core
+#version 450 core
 
 precision highp float;
 precision highp int;
@@ -17,8 +17,8 @@ void main(){
 	vec4 texColor=texture(mytex, texCoord);
 	if(dubois<0.8){
 		texColor.r=max(max(texColor.r,texColor.g),texColor.b);
-		texColor.g=0;
-		texColor.b=0;
+		texColor.g=0.0;
+		texColor.b=0.0;
 	}
 	outputColor=vec4(texColor.rgb*ana,texColor.a);
 }

@@ -74,6 +74,10 @@ public class RoiGLDrawUtility {
 	public void setImp(ImagePlus imp) {
 		this.imp=imp;
 	}
+	
+	public void startDrawing() {
+		rglos.programs.useProgram("color");
+	}
 
 	/**
 	 * 

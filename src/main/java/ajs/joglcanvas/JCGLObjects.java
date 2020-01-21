@@ -620,11 +620,18 @@ public class JCGLObjects {
 					int[] pr=new int[1];gl.glGetIntegerv(GL_CURRENT_PROGRAM, pr,0);
 					//gl3.glUniform1i(gl3.glGetUniformLocation(pr[0], "mytex"),0);
 					JCPrograms.Program program=programs.findProgram(pr[0]);
-					if(name.contentEquals("global")) gl2.glUniformMatrix4fv(program.getLocation("proj"), 2, false, ubuffers.get(name).asFloatBuffer());
-					if(name.contentEquals("model")) gl2.glUniformMatrix4fv(program.getLocation("model"), 1, false, ubuffers.get(name).asFloatBuffer());
-					if(name.contentEquals("idm")) gl2.glUniformMatrix4fv(program.getLocation("model"), 1, false, ubuffers.get(name).asFloatBuffer());
-					if(name.contentEquals("modelr")) gl2.glUniformMatrix4fv(program.getLocation("model"), 1, false, ubuffers.get(name).asFloatBuffer());
-					if(name.contentEquals("lut")) gl2.glUniform3fv(program.getLocation("luts"), 6, ubuffers.get(name).asFloatBuffer());
+					if(name.contentEquals("global")) {
+						int loc=(program==null?gl2.glGetUniformLocation(pr[0], "proj"):program.getLocation("proj"));
+						gl2.glUniformMatrix4fv(loc, 2, false, ubuffers.get(name).asFloatBuffer());
+					}
+					if(name.contentEquals("model") || name.contentEquals("idm") || name.contentEquals("modelr")) {
+						int loc=(program==null?gl2.glGetUniformLocation(pr[0], "model"):program.getLocation("model"));
+						gl2.glUniformMatrix4fv(loc, 1, false, ubuffers.get(name).asFloatBuffer());
+					}
+					if(name.contentEquals("lut")) {
+						int loc=(program==null?gl2.glGetUniformLocation(pr[0], "luts"):program.getLocation("luts"));
+						gl2.glUniform3fv(loc, 6, ubuffers.get(name).asFloatBuffer());
+					}
 				}
 				return;
 			}

@@ -538,7 +538,9 @@ public class JCP implements PlugIn {
 				}
 			}
 			@Override
-			public void reshape(GLAutoDrawable drawable, int x, int y, int width, int height) {setSize(width/2,width/4);}
+			public void reshape(GLAutoDrawable drawable, int x, int y, int width, int height) {
+				//setSize(width/2,width/4);
+			}
 			@Override
 			public void mousePressed(MouseEvent e) {
 				sx = e.getX();

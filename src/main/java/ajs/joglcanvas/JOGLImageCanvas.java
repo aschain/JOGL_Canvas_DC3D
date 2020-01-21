@@ -169,7 +169,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		GraphicsConfiguration gc=icc.getParent().getGraphicsConfiguration();
 		AffineTransform t=gc.getDefaultTransform();
 		dpimag=t.getScaleX();
-		//if(IJ.isMacOSX())dpimag=2.0;
+		//if(IJ.isMacOSX())dpimag=1.0;
 		//icc.setSize(dstWidth, dstHeight);
 		if(dpimag>1.0)IJ.log("Dpimag: "+dpimag);
 		//if(IJ.isMacOSX())icc.setLocation(4,47);
@@ -827,11 +827,15 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 
 		ShortBuffer eb=GLBuffers.newDirectShortBuffer(new short[] {0,1,2,2,3,0});
 		gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 1, glos.buffers.get(GL_UNIFORM_BUFFER, "global"));
-		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 2, glos.buffers.get(GL_UNIFORM_BUFFER, modelmatrix));
+		glos.bindUniformBuffer("global", 1);
+		glos.bindUniformBuffer(modelmatrix, 2);
+		//gl.glBindBufferBase(GL_UNIFORM_BUFFER, 1, glos.buffers.get(GL_UNIFORM_BUFFER, "global"));
+		//gl.glBindBufferBase(GL_UNIFORM_BUFFER, 2, glos.buffers.get(GL_UNIFORM_BUFFER, modelmatrix));
 		glos.drawTexVaoWithEBOVBO(name, index, eb, vb);
-		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 1, 0);
-		gl.glBindBufferBase(GL_UNIFORM_BUFFER, 2, 0);
+		glos.unBindBuffer(GL_UNIFORM_BUFFER,1);
+		glos.unBindBuffer(GL_UNIFORM_BUFFER,2);
+		//gl.glBindBufferBase(GL_UNIFORM_BUFFER, 1, 0);
+		//gl.glBindBufferBase(GL_UNIFORM_BUFFER, 2, 0);
 		if(Prefs.interpolateScaledImages)gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	}
 	
@@ -854,15 +858,14 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	
 	public static PixelType getPixelType(ImagePlus imp) {
 		switch(imp.getBitDepth()) {
-		case 1 : return PixelType.BYTE;
-		case 8 : return PixelType.BYTE;
-		case 16 : return PixelType.SHORT;
-		case 24 : return PixelType.INT_RGBA8;
-		case 32 : return PixelType.FLOAT;
+			case 1 : return PixelType.BYTE;
+			case 8 : return PixelType.BYTE;
+			case 16 : return PixelType.SHORT;
+			case 24 : return PixelType.INT_RGBA8;
+			case 32 : return PixelType.FLOAT;
 		}
 		return PixelType.BYTE;
 	}
-	
 	
 	public void toggle3d() {
 		set3d(!go3d);

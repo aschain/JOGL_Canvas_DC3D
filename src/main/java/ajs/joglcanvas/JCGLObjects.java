@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
+import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.nio.ShortBuffer;
 import java.util.Enumeration;
@@ -507,17 +508,22 @@ public class JCGLObjects {
 			Hashtable<String,ByteBuffer> bdict=abuffers;
 			if(gltype==GL_UNIFORM_BUFFER) {dict=uniform; bdict=ubuffers;}
 			else if(gltype==GL_ELEMENT_ARRAY_BUFFER) {dict=element;bdict=ebuffers;}
+			boolean write=(buffer==null);
 			int[] bn=new int[1];
 			if(glver==4) {gl4.glCreateBuffers(1, bn, 0);}
-			else gl23.glGenBuffers(1, bn, 0);
+			else if(glver==3 || (glver==2 && gltype!=GL_UNIFORM_BUFFER)) gl23.glGenBuffers(1, bn, 0);
+			else {
+				bdict.put(name,initGL2ByteBuffer((int)size,buffer));
+				dict.put(name,bn);
+				return bdict.get(name);
+			}
 			dict.put(name, bn);
 			if(define) {
-				boolean write=(buffer==null);
 				gl23.glBindBuffer(gltype, bn[0]);
 				if(glver==4){
 					gl4.glBufferStorage(gltype, size, buffer,  (buffer==null)?(GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT):0);
 					gl4.glBindBuffer(gltype,  0);
-				}else{
+				}else {
 					gl23.glBufferData(gltype, size, buffer, (buffer==null)?GL_DYNAMIC_DRAW:GL_STATIC_DRAW);
 				}
 				
@@ -529,22 +535,30 @@ public class JCGLObjects {
 							0,
 							size,
 							GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT | GL_MAP_INVALIDATE_RANGE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT); // flags
-				}else { 
-					if(glver==3) {
-						outbuffer= gl3.glMapBufferRange(
-							gltype,
-			                0,
-			                size,
-			                GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_RANGE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT); // flags
-					}else {
-						outbuffer=GLBuffers.newDirectByteBuffer((int)size);
-					}
-					bdict.put(name, outbuffer);
-					gl.glBindBuffer(gltype,  0);
+				}else if(glver==3) {
+					outbuffer= gl3.glMapBufferRange(
+						gltype,
+		                0,
+		                size,
+		                GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_RANGE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT); // flags
+				}else {
+					outbuffer=initGL2ByteBuffer((int)size, buffer);
 				}
 				bdict.put(name, outbuffer);
+				gl.glBindBuffer(gltype,  0);
 				return outbuffer;
 			}else return null;
+		}
+		
+		private ByteBuffer initGL2ByteBuffer(long size, Buffer buffer) {
+			ByteBuffer outbuffer=GLBuffers.newDirectByteBuffer((int)size);
+			if(buffer!=null) {
+				if(buffer instanceof FloatBuffer)outbuffer.asFloatBuffer().put((FloatBuffer)buffer);
+				if(buffer instanceof ShortBuffer)outbuffer.asShortBuffer().put((ShortBuffer)buffer);
+				if(buffer instanceof IntBuffer)outbuffer.asIntBuffer().put((IntBuffer)buffer);
+				if(buffer instanceof ByteBuffer)outbuffer.put((ByteBuffer)buffer);
+			}
+			return outbuffer;
 		}
 		
 		public int get(int gltype, String name) {
@@ -591,16 +605,17 @@ public class JCGLObjects {
 			//buffer.rewind(); buffer.asFloatBuffer().rewind();
 			//buffer.asFloatBuffer().put(matrix);
 			//buffer.rewind(); buffer.asFloatBuffer().rewind();
-			if(glver==2) {
-				gl2.glBindBuffer(GL_UNIFORM_BUFFER, uniform.get(name)[0]);
-				gl2.glBufferData(GL_UNIFORM_BUFFER, buffer.capacity(), buffer, GL_DYNAMIC_DRAW);
-				gl2.glBindBuffer(GL_UNIFORM_BUFFER, 0);
-			}
+			//if(glver==2) {
+			//	gl2.glBindBuffer(GL_UNIFORM_BUFFER, uniform.get(name)[0]);
+			//	gl2.glBufferData(GL_UNIFORM_BUFFER, buffer.capacity(), buffer, GL_DYNAMIC_DRAW);
+			//	gl2.glBindBuffer(GL_UNIFORM_BUFFER, 0);
+			//
 		}
 		
 		public void bindBuffer(int gltype, String name, int binding) {
 			if(gltype==GL_UNIFORM_BUFFER) {
-				if(glver>2)gl23.glBindBufferBase(gltype, binding, uniform.get(name)[0]);
+				if(glver>2)
+					gl23.glBindBufferBase(gltype, binding, uniform.get(name)[0]);
 				else {
 					int[] pr=new int[1];gl.glGetIntegerv(GL_CURRENT_PROGRAM, pr,0);
 					//gl3.glUniform1i(gl3.glGetUniformLocation(pr[0], "mytex"),0);
@@ -621,6 +636,7 @@ public class JCGLObjects {
 		
 		public void unBindBuffer(int gltype, int binding) {
 			if(gltype==GL_UNIFORM_BUFFER) {
+				if(glver==2)return;
 				gl23.glBindBufferBase(gltype, binding, 0);
 				return;
 			}
@@ -821,9 +837,9 @@ public class JCGLObjects {
 	            name=shaderProgram.program();
 	            
 	            if(glver==4) {
-	        		gl3.glUniformBlockBinding(name, gl23.glGetUniformBlockIndex(name, "Transform0"), 1);
-	        		gl3.glUniformBlockBinding(name, gl23.glGetUniformBlockIndex(name, "Transform1"), 2);
-	        		if(fragment.equals("texture"))gl23.glUniformBlockBinding(name, gl23.glGetUniformBlockIndex(name, "lutblock"), 3);
+	        		gl4.glUniformBlockBinding(name, gl4.glGetUniformBlockIndex(name, "Transform0"), 1);
+	        		gl4.glUniformBlockBinding(name, gl4.glGetUniformBlockIndex(name, "Transform1"), 2);
+	        		if(fragment.equals("texture"))gl4.glUniformBlockBinding(name, gl4.glGetUniformBlockIndex(name, "lutblock"), 3);
 	            }else if(glver==2) {
 	            	addLocation("proj");
 	            	addLocation("model");

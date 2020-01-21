@@ -474,9 +474,9 @@ public class JCP implements PlugIn {
 		openglroi=gd.getNextBoolean();
 		Prefs.set("ajs.joglcanvas.openglroi", openglroi);
 		usePBOforSlices=gd.getNextBoolean();
-		wrappedBuffers=gd.getNextBoolean();
-		Prefs.set("ajs.joglcanvas.go3d", wrappedBuffers);
 		Prefs.set("ajs.joglcanvas.usePBOforSlices", usePBOforSlices);
+		wrappedBuffers=gd.getNextBoolean();
+		Prefs.set("ajs.joglcanvas.wrappedBuffers", wrappedBuffers);
 		if(gd.getNextBoolean()) anaglyphSettings();
 		if(gd.getNextBoolean()) openTestImage();
 

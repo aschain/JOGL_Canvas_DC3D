@@ -80,6 +80,7 @@ public class JCP implements PlugIn {
 	public static String glslVersion="",glslDefVersion="";
 	public static float[][] anaColors;
 	public static boolean go3d=Prefs.get("ajs.joglcanvas.go3d", false);;
+	public static boolean wrappedBuffers=Prefs.get("ajs.joglcanvas.wrappedBuffers", false);
 	
 	/**
 	 * This method gets called by ImageJ / Fiji.
@@ -430,6 +431,7 @@ public class JCP implements PlugIn {
 		gd.addChoice("Undersample?", new String[] {"None","2","4","6"},undersample==1?"None":(""+undersample));
 		gd.addCheckbox("Draw ROI with OpenGL (in progress)", openglroi);
 		gd.addCheckbox("Keep image of whole stack in memory in non-3d (faster but more memory)", usePBOforSlices);
+		gd.addCheckbox("Can use imageJ arrays wrapped in a buffer for video memory", wrappedBuffers);
 		gd.addCheckbox("Stereoscopic settings", false);
 		gd.addCheckbox("Open test image", false);
 		gd.showDialog();
@@ -468,6 +470,8 @@ public class JCP implements PlugIn {
 		openglroi=gd.getNextBoolean();
 		Prefs.set("ajs.joglcanvas.openglroi", openglroi);
 		usePBOforSlices=gd.getNextBoolean();
+		wrappedBuffers=gd.getNextBoolean();
+		Prefs.set("ajs.joglcanvas.go3d", wrappedBuffers);
 		Prefs.set("ajs.joglcanvas.usePBOforSlices", usePBOforSlices);
 		if(gd.getNextBoolean()) anaglyphSettings();
 		if(gd.getNextBoolean()) openTestImage();

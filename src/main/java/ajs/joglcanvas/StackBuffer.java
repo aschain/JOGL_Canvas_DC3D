@@ -23,6 +23,7 @@ public class StackBuffer {
 	private boolean[] updatedSlices;
 	private PixelType pixelType=PixelType.BYTE;
 	private int undersample=1;
+	private boolean wrappedBuffers=JCP.wrappedBuffers;
 	public boolean isFrameStack=false, okDirect=false;
 	public int sliceSize,bufferSize,bufferWidth,bufferHeight;
 	
@@ -130,35 +131,48 @@ public class StackBuffer {
 		int bits=(outPixels instanceof byte[])?8:(outPixels instanceof short[])?16:(outPixels instanceof float[])?32:24;
 		int size=((bits==8)?((byte[])outPixels).length:(bits==16)?((short[])outPixels).length:(bits==32)?((float[])outPixels).length:((int[])outPixels).length);
 		if(pixelType==PixelType.BYTE) {
-			if(bits==8)return ByteBuffer.wrap((byte[])outPixels);
+			if(bits==8) {
+				if(wrappedBuffers)return ByteBuffer.wrap((byte[])outPixels);
+				else return GLBuffers.newDirectByteBuffer(size).put((byte[])outPixels);
+			}
 			else {
-				buffer=GLBuffers.newDirectByteBuffer(size);
-				for(int i=0;i<size;i++) {
-					if(bits==16)((ByteBuffer)buffer).put((byte)(((int)((((short[])outPixels)[i]&0xffff)/256.0))));
-					else if(bits==32)((ByteBuffer)buffer).put((byte)(((int)(((float[])outPixels)[i]/* *255f*/))));
-					else {
-						IJ.error("Don't convert RGB to bytes");
-						//int rgb=((int[])outPixels)[i];
-						//requires new imageFBs length to be frms*3
-						//((ByteBuffer)buffer[fr*chs+0]).put((byte)((rgb&0xff0000)>>16));
-						//((ByteBuffer)buffer[fr*chs+1]).put((byte)((rgb&0xff00)>>8));
-						//((ByteBuffer)buffer[fr*chs+2]).put((byte)(rgb&0xff));
+				if(bits==16 || bits==32) {
+					buffer=GLBuffers.newDirectByteBuffer(size);
+					for(int i=0;i<size;i++) {
+						if(bits==16)((ByteBuffer)buffer).put((byte)(((int)((((short[])outPixels)[i]&0xffff)/256.0))));
+						else /*if(bits==32)*/((ByteBuffer)buffer).put((byte)(((int)(((float[])outPixels)[i]/* *255f*/))));
+						//else {
+							//IJ.error("Don't convert RGB to bytes");
+							//int rgb=((int[])outPixels)[i];
+							//requires new imageFBs length to be frms*3
+							//((ByteBuffer)buffer[fr*chs+0]).put((byte)((rgb&0xff0000)>>16));
+							//((ByteBuffer)buffer[fr*chs+1]).put((byte)((rgb&0xff00)>>8));
+							//((ByteBuffer)buffer[fr*chs+2]).put((byte)(rgb&0xff));
+						//}
 					}
-				}
+				}else IJ.error("Don't convert RGB to bytes");
 				//if(bits==24) {for(int i=0;i<3;i++)imageFBs[fr*chs+i].position(sl*sliceSize);}
 			}
 		}else if(pixelType==PixelType.INT_RGBA8){
-			if(bits==24)return IntBuffer.wrap((int[])outPixels);
+			if(bits==24) {
+				if(wrappedBuffers)return IntBuffer.wrap((int[])outPixels);
+				else return GLBuffers.newDirectIntBuffer(size).put((int[])outPixels);
+			}
 			else {
-				//buffer=GLBuffers.newDirectIntBuffer(size);
 				IJ.error("INT_RGBA8 only for 24bit images");
 			}
 		}else if(pixelType==PixelType.SHORT) {
-			if(bits==16)return ShortBuffer.wrap((short[])outPixels);
+			if(bits==16) {
+				if(wrappedBuffers)return ShortBuffer.wrap((short[])outPixels);
+				else return GLBuffers.newDirectShortBuffer(size).put((short[])outPixels);
+			}
 			else {
-				if(bits==8 || bits==24) IJ.error("Don't use short pixel type with 8 bit image");
+				if(bits==8 || bits==24) {
+					IJ.error("Don't use short pixel type with 8 bit image");
+					return null;
+				}
+				buffer=GLBuffers.newDirectShortBuffer(size);
 				if(bits==32) {
-					buffer=GLBuffers.newDirectShortBuffer(size);
 					//LUT[] luts=imp.getLuts();
 					for(int i=0;i<size;i++) {
 						//double px=(double)(((float[])outPixels)[i]);
@@ -193,8 +207,10 @@ public class StackBuffer {
 			}else IJ.error("Don't use 10bit INT for 8 bit images");*/
 			IJ.error("Not using RGB10A2 anymore");
 		}else if(pixelType==PixelType.FLOAT) {
-			if(bits==32)return FloatBuffer.wrap((float[])outPixels);
-			else IJ.error("Don't use less than 32 bit image with 32 bit pixels");
+			if(bits==32) {
+				if(wrappedBuffers)return FloatBuffer.wrap((float[])outPixels);
+				else return GLBuffers.newDirectFloatBuffer(size).put((float[])outPixels);
+			} else IJ.error("Don't use less than 32 bit image with 32 bit pixels");
 			//buffer=GLBuffers.newDirectFloatBuffer(size);
 		}
 		return buffer;

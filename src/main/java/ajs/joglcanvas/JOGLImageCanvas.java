@@ -509,9 +509,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		gl.glDisable(GL_SCISSOR_TEST);
 		//gl.glDrawBuffers(1, new int[] {GL_BACK_LEFT},0);
 		//gl.glDrawBuffer(GL_BACK_LEFT);
-		//gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		gl.glClearBufferfv(GL_COLOR, 0, new float[] {0f,0f,0f,0f},0);
-        gl.glClearBufferfv(GL_DEPTH, 0, new float[] {0f},0);
+		glos.clearColorDepth();
 		Rectangle r=getViewportAspectRectangle(0,0,drawable.getSurfaceWidth(),drawable.getSurfaceHeight());
 		gl.glViewport(r.x, r.y, r.width, r.height);
 		

@@ -169,7 +169,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		GraphicsConfiguration gc=icc.getParent().getGraphicsConfiguration();
 		AffineTransform t=gc.getDefaultTransform();
 		dpimag=t.getScaleX();
-		if(IJ.isMacOSX())dpimag=1.0;
+		//if(IJ.isMacOSX())dpimag=2.0;
 		//icc.setSize(dstWidth, dstHeight);
 		if(dpimag>1.0)IJ.log("Dpimag: "+dpimag);
 		//if(IJ.isMacOSX())icc.setLocation(4,47);

@@ -19,6 +19,7 @@ import static com.jogamp.opengl.GL.GL_VERSION;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.Dimension;
 import java.awt.Frame;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -390,7 +391,7 @@ public class JCP implements PlugIn {
 	}
 	
 	public static void preferences() {
-		if(version.equals("")) {getGLVersion(false); getGLVersion(true);}
+		//if(version.equals("")) {getGLVersion(false); getGLVersion(true);}
 		String defaultstr=defaultBitString;
 		if(defaultstr.equals("default"))defaultstr=Prefs.get("ajs.joglcanvas.colordepths","8,8,8,8");
 		if(defaultstr.equals("default"))defaultstr="8,8,8,8";
@@ -410,8 +411,10 @@ public class JCP implements PlugIn {
 			if(GLProfile.isAvailable(prof))profiles.add(prof);
 		}
 		GenericDialog gd=new GenericDialog("JOGL Canvas Deep Color 3D Display Options");
-		if(!version.equals(""))gd.addMessage("GL Ver: "+version);
-		if(!defaultVersion.equals(""))gd.addMessage("GL Default Ver: "+defaultVersion);
+		gd.addMessage("GL Ver: "+GLProfile.getDefault().getGLImplBaseClassName());
+		gd.addMessage("GL Default Ver: "+GLProfile.getMaxProgrammable(true).getGLImplBaseClassName());
+		//if(!version.equals(""))gd.addMessage("GL Ver: "+version);
+		//if(!defaultVersion.equals(""))gd.addMessage("GL Default Ver: "+defaultVersion);
 		gd.addMessage("You can choose a specific GLProfile instead of the default if you like:");
 		if(profiles.size()>1)gd.addChoice("GLProfile:", profiles.toArray(new String[profiles.size()]), glProfileName==null?GLProfile.getMaxProgrammable(true).getImplName():glProfileName);
 		gd.addMessage("For High-bit Monitors:\nChoose the color bit depths from those available\nChoices are bits for R,G,B,A respectively");
@@ -474,9 +477,9 @@ public class JCP implements PlugIn {
 
 	}
 	
-	static void anaglyphSettings(){
+	public static void anaglyphSettings(){
 		JFrame asettings=new JFrame("JOGLCanvas Stereo Options");
-		asettings.setSize(500,500);
+		asettings.setSize(500,750);
 		
 		class MyCanvas extends GLCanvas implements GLEventListener, MouseListener, MouseMotionListener{
 			private static final long serialVersionUID = 1L;
@@ -530,7 +533,7 @@ public class JCP implements PlugIn {
 				}
 			}
 			@Override
-			public void reshape(GLAutoDrawable drawable, int x, int y, int width, int height) {setSize(width,width/2);}
+			public void reshape(GLAutoDrawable drawable, int x, int y, int width, int height) {setSize(width/2,width/4);}
 			@Override
 			public void mousePressed(MouseEvent e) {
 				sx = e.getX();
@@ -560,6 +563,7 @@ public class JCP implements PlugIn {
 		}
 		
 		MyCanvas canvas=new MyCanvas();
+		canvas.setPreferredSize(new Dimension(500,250));
 		JSlider[] sds=new JSlider[6];
 		sds[0]=new JSlider(JSlider.HORIZONTAL, 0, 255, leftAnaglyphColor.getRed());
 		sds[1]=new JSlider(JSlider.HORIZONTAL, 0, 255, leftAnaglyphColor.getGreen());
@@ -601,25 +605,24 @@ public class JCP implements PlugIn {
 		JPanel panel=new JPanel();
 		panel.setLayout(new GridBagLayout());
 		GridBagConstraints c=new GridBagConstraints();
-		c.gridx=0; c.weighty=1; c.gridy=0; c.gridwidth=1; c.weightx=1;
-		panel.add(new JLabel("   "),c);
-		c.gridx=1; c.weightx=9; panel.add(new JLabel("Anaglyph Left Eye Color"),c);
-		c.gridx=2; c.weighty=1; panel.add(new JLabel("   "),c);
-		c.gridx=3; c.weightx=9; panel.add(new JLabel("Anaglyph Right Eye Color"),c);
+		c.gridy=0;
+		//c.weighty=1; c.weightx=1;
+		c.gridx=0; c.gridwidth=1; panel.add(new JLabel("   "),c);
+		c.gridx=1; c.gridwidth=9; panel.add(new JLabel("Anaglyph Left Eye Color"),c);
+		c.gridx=10; c.gridwidth=1; panel.add(new JLabel("   "),c);
+		c.gridx=11; c.gridwidth=9; panel.add(new JLabel("Anaglyph Right Eye Color"),c);
 		for(int i=0;i<3;i++) {
 			String clr=(i==0)?"Red":(i==1)?"Green":"Blue";
 			c.gridy++;
-			c.gridx=0; c.weightx=1; c.anchor=GridBagConstraints.NORTH; panel.add(new JLabel(clr),c);
-			c.gridx=1; c.weightx=9; c.anchor=GridBagConstraints.CENTER; panel.add(sds[i],c);
-			c.gridx=2; c.weightx=1; c.anchor=GridBagConstraints.NORTH; panel.add(new JLabel(clr),c);
-			c.gridx=3; c.weightx=9; c.anchor=GridBagConstraints.CENTER; panel.add(sds[i+3],c);
+			c.gridx=0; c.gridwidth=1; c.anchor=GridBagConstraints.CENTER; panel.add(new JLabel(clr),c);
+			c.gridx=1; c.gridwidth=9; c.anchor=GridBagConstraints.CENTER; panel.add(sds[i],c);
+			c.gridx=10; c.gridwidth=1; c.anchor=GridBagConstraints.CENTER; panel.add(new JLabel(clr),c);
+			c.gridx=11; c.gridwidth=9; c.anchor=GridBagConstraints.CENTER; panel.add(sds[i+3],c);
 		}
-		c.gridy=4; c.gridx=0; c.gridwidth=4; panel.add(new JLabel(" "),c);
-		c.gridy=5; c.gridwidth=1;
-		c.gridx=1; c.weightx=5; c.anchor=GridBagConstraints.EAST; panel.add(new JLabel("Angle of separation"),c);
-		c.gridx=3; c.anchor=GridBagConstraints.CENTER; panel.add(sepsl,c);
-		
-		c.gridx=0; c.weightx=3; c.anchor=GridBagConstraints.WEST;
+		c.gridy++; 
+		c.gridx=0; c.gridwidth=20; panel.add(new JLabel(" "),c);
+		c.gridy++; 
+		c.gridx=0; c.gridwidth=3; c.anchor=GridBagConstraints.WEST;
 		JCheckBox cb=new JCheckBox("Dubois-red-cyan",dubois);
 		cb.addItemListener(new ItemListener() {
 			@Override
@@ -628,6 +631,8 @@ public class JCP implements PlugIn {
 			}
 		});
 		panel.add(cb,c);
+		c.gridx=3; c.gridwidth=7; c.anchor=GridBagConstraints.EAST; panel.add(new JLabel("Angle of separation"),c);
+		c.gridx=11; c.gridwidth=9; c.anchor=GridBagConstraints.CENTER; panel.add(sepsl,c);
 		
 		JPanel bpanel=new JPanel();
 		bpanel.setLayout(new GridLayout(1,2,10,2));
@@ -656,13 +661,15 @@ public class JCP implements PlugIn {
 			}
 		});
 		bpanel.add(button);
-		JPanel bigpanel=new JPanel();
-		bigpanel.setLayout(new GridLayout(3,1));
-		bigpanel.add(panel);
-		bigpanel.add(canvas);
-		bigpanel.add(new JLabel("   "));
+		c.gridy++; c.gridx=0; c.gridwidth=20; c.anchor=GridBagConstraints.CENTER;
+		panel.add(canvas, c);
+		//JPanel bigpanel=new JPanel();
+		//bigpanel.setLayout(new BorderLayout());
+		//bigpanel.add(panel, BorderLayout.NORTH);
+		//bigpanel.add(canvas, BorderLayout.SOUTH);
 		//bigpanel.add(bpanel);
-		asettings.add(bigpanel, BorderLayout.NORTH);
+		asettings.setLayout(new BorderLayout());
+		asettings.add(panel, BorderLayout.NORTH);
 		asettings.add(bpanel,BorderLayout.SOUTH);
 		asettings.pack();
 		asettings.setVisible(true);
@@ -696,7 +703,5 @@ public class JCP implements PlugIn {
 								{rr,rr,rr,gr,gr,gr,br,br,br}};
 		}
 	}
-
-
 
 }

@@ -85,7 +85,15 @@ public class JCGLObjects {
 	public void setGLVer() {
 		String version=gl.glGetString(GL_VERSION);
 		//System.out.println("JCGLO gl version "+version);
-		float v=Float.parseFloat(version.substring(0, 3));
+		float v=0f;
+		int st=0;
+		if(version.startsWith("OpenGL ES"))st=10;
+		try{
+			v=Float.parseFloat(version.substring(st, st+3));
+		}catch(Exception e) {
+			System.out.println("Could not parse version:");
+			System.out.println(version);
+		}
 		int glNameVer=getVersionFromProfileName(JCP.glProfileName);
 		glver=2;
 		if(v>=3.0f)glver=3;

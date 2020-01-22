@@ -140,6 +140,7 @@ public class JCP implements PlugIn {
 
 	private static void convertToJOGLCanvas(ImagePlus imp, boolean doMirror) {
 		if(imp==null)return;
+		if(IJ.isLinux())System.setProperty("jogl.disable.openglcore", "true"); //avoids this bug https://github.com/processing/processing/issues/5476
 		String classname= imp.getWindow().getClass().getSimpleName();
 		if(classname.equals("ImageWindow") || classname.equals("StackWindow")) {
 			if(imp.getNChannels()>6) {
@@ -289,8 +290,8 @@ public class JCP implements PlugIn {
 
 		GLProfile glProfile=null;
 		if(glProfileName!=null) glProfile=GLProfile.get(glProfileName);
-		else glProfile = GLProfile.getDefault();
-		//else glProfile = GLProfile.getMaxProgrammable(true);
+		//else glProfile = GLProfile.getDefault();
+		else glProfile = GLProfile.getMaxProgrammable(true);
 		if(!glProfile.isGL2ES2()) {
 			IJ.showMessage("Deep Color requires at least OpenGL 2ES2");
 			return null;
@@ -394,6 +395,7 @@ public class JCP implements PlugIn {
 	
 	public static void preferences() {
 		//if(version.equals("")) {getGLVersion(false); getGLVersion(true);}
+		if(IJ.isLinux())System.setProperty("jogl.disable.openglcore", "true"); //avoids this bug https://github.com/processing/processing/issues/5476
 		String defaultstr=defaultBitString;
 		if(defaultstr.equals("default"))defaultstr=Prefs.get("ajs.joglcanvas.colordepths","8,8,8,8");
 		if(defaultstr.equals("default"))defaultstr="8,8,8,8";

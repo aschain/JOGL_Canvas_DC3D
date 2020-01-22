@@ -543,7 +543,7 @@ public class JCGLObjects {
 				if(glver==4){
 					gl4.glBufferStorage(gltype, size, buffer,  (buffer==null)?(GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT):0);
 					gl4.glBindBuffer(gltype,  0);
-				}else {
+				}else if(glver==3 || (glver==2 && gltype!=GL_UNIFORM_BUFFER)){
 					gl23.glBufferData(gltype, size, buffer, (buffer==null)?GL_DYNAMIC_DRAW:GL_STATIC_DRAW);
 				}
 				

@@ -849,11 +849,11 @@ public class JCGLObjects {
 	            
 	            name=shaderProgram.program();
 	            
-	            if(glver==4) {
-	        		gl4.glUniformBlockBinding(name, gl4.glGetUniformBlockIndex(name, "Transform0"), 1);
-	        		gl4.glUniformBlockBinding(name, gl4.glGetUniformBlockIndex(name, "Transform1"), 2);
-	        		if(fragment.equals("texture"))gl4.glUniformBlockBinding(name, gl4.glGetUniformBlockIndex(name, "lutblock"), 3);
-	            }else if(glver==2) {
+	            if(glver>2) {
+	        		gl23.glUniformBlockBinding(name, gl23.glGetUniformBlockIndex(name, "Transform0"), 1);
+	        		gl23.glUniformBlockBinding(name, gl23.glGetUniformBlockIndex(name, "Transform1"), 2);
+	        		if(fragment.equals("texture"))gl23.glUniformBlockBinding(name, gl23.glGetUniformBlockIndex(name, "lutblock"), 3);
+	            }else{
 	            	addLocation("proj");
 	            	addLocation("model");
 	            	if(fragment.equals("texture"))addLocation("luts");

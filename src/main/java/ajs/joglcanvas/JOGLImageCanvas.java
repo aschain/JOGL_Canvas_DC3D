@@ -234,10 +234,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private void init3dTex() {
 		Calibration cal=imp.getCalibration();
 		long zmaxsls=(long)((double)imp.getNSlices()*cal.pixelDepth/cal.pixelWidth);
-		int vertsPerSlice=6;
+		int elementsPerSlice=6;
 		int floatsPerVertex=6;
 		long maxsize=Math.max((long)imp.getWidth(), Math.max((long)imp.getHeight(), zmaxsls));
-		ShortBuffer elementBuffer=GLBuffers.newDirectShortBuffer((int)maxsize*vertsPerSlice);
+		ShortBuffer elementBuffer=GLBuffers.newDirectShortBuffer((int)maxsize*elementsPerSlice);
 		for(int i=0; i<(maxsize);i++) {
 			elementBuffer.put((short)(i*4+0)).put((short)(i*4+1)).put((short)(i*4+2));
 			elementBuffer.put((short)(i*4+2)).put((short)(i*4+3)).put((short)(i*4+0));
@@ -588,7 +588,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				
 				if(ltr==null || !(ltr[0]==left && ltr[1]==top && ltr[2]==reverse) || !srcRect.equals(prevSrcRect)) {
 					ByteBuffer vertb=(ByteBuffer)glos.buffers.getDirectBuffer(GL_ARRAY_BUFFER, "image3d");
-					vertb.rewind();
+					vertb.clear();
 					if(left) { //left or right
 						lim=imageWidth*4*6;
 						for(float p=0;p<imageWidth;p+=1.0f) {
@@ -636,6 +636,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 							}
 						}
 					}
+					//vertb.limit(lim*4);
 				}
 				ltr=new boolean[] {left,top,reverse};
 				

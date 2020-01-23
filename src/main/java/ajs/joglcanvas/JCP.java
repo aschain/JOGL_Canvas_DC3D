@@ -66,7 +66,7 @@ public class JCP implements PlugIn {
 	public static JOGLCanvasService listenerInstance=null;
 	public static String defaultBitString="default";
 	//public static GLCapabilities glCapabilities=null;
-	public static String glProfileName;
+	public static String glProfileName=Prefs.get("ajs.joglcanvas.glProfileName", "");
 	public static int undersample=(int)Prefs.get("ajs.joglcanvas.undersample", 1.0);
 	public static String renderFunction=Prefs.get("ajs.joglcanvas.renderFunction", "MAX");
 	public static boolean backgroundLoadBuffers=Prefs.get("ajs.joglcanvas.backgroundLoadBuffers", false);
@@ -289,7 +289,7 @@ public class JCP implements PlugIn {
 		fillAnaColors();
 
 		GLProfile glProfile=null;
-		if(glProfileName!=null) glProfile=GLProfile.get(glProfileName);
+		if(!glProfileName.contentEquals("")) glProfile=GLProfile.get(glProfileName);
 		//else glProfile = GLProfile.getDefault();
 		else glProfile = GLProfile.getMaxProgrammable(true);
 		if(!glProfile.isGL2ES2()) {
@@ -304,7 +304,7 @@ public class JCP implements PlugIn {
 		//If it is still not defined then ask
 		if(defaultBitString.contentEquals("default")) {
 			preferences();
-			if(glProfileName!=null) glProfile=GLProfile.get(glProfileName);
+			if(!glProfileName.contentEquals("")) glProfile=GLProfile.get(glProfileName);
 			else glProfile = GLProfile.getMaxProgrammable(true);
 			glCapabilities = new GLCapabilities( glProfile );
 		}
@@ -399,8 +399,10 @@ public class JCP implements PlugIn {
 		String defaultstr=defaultBitString;
 		if(defaultstr.equals("default"))defaultstr=Prefs.get("ajs.joglcanvas.colordepths","8,8,8,8");
 		if(defaultstr.equals("default"))defaultstr="8,8,8,8";
-		List<GLCapabilitiesImmutable> glcList=GLDrawableFactory.getFactory(GLProfile.getDefault()).getAvailableCapabilities(null);
-		if(glcList.size()==0)glcList=GLDrawableFactory.getFactory(GLProfile.getMaxProgrammable(true)).getAvailableCapabilities(null);
+		GLProfile def=GLProfile.getDefault();
+		GLProfile max=GLProfile.getMaxProgrammable(true);
+		List<GLCapabilitiesImmutable> glcList=GLDrawableFactory.getFactory(def).getAvailableCapabilities(null);
+		if(glcList.size()==0)glcList=GLDrawableFactory.getFactory(max).getAvailableCapabilities(null);
 		ArrayList<String> bitdepths=new ArrayList<String>();
 		bitdepths.add(defaultstr);
 		for(int i=0;i<glcList.size();i++) {
@@ -412,20 +414,29 @@ public class JCP implements PlugIn {
 		}
 		ArrayList<String> profiles=new ArrayList<String>();
 		for(String prof : GLProfile.GL_PROFILE_LIST_ALL) {
-			if(GLProfile.isAvailable(prof))profiles.add(prof);
+			if(GLProfile.isAvailable(prof)) {
+				if(prof.contentEquals(def.getImplName()))prof=prof+" (Default)";
+				else if(prof.contentEquals(max.getImplName()))prof=prof+" (Max Default)";
+				profiles.add(prof);
+			}
 		}
 		GenericDialog gd=new GenericDialog("JOGL Canvas Deep Color 3D Display Options");
-		gd.addMessage("GL Ver: "+GLProfile.getDefault().getGLImplBaseClassName());
-		gd.addMessage("GL Default Ver: "+GLProfile.getMaxProgrammable(true).getGLImplBaseClassName());
+		gd.addMessage("GL Ver: "+GLProfile.getDefault().getImplName());
+		gd.addMessage("GL Default Ver: "+GLProfile.getMaxProgrammable(true).getImplName());
 		//if(!version.equals(""))gd.addMessage("GL Ver: "+version);
 		//if(!defaultVersion.equals(""))gd.addMessage("GL Default Ver: "+defaultVersion);
 		gd.addMessage("You can choose a specific GLProfile instead of the default if you like:");
-		if(profiles.size()>1)gd.addChoice("GLProfile:", profiles.toArray(new String[profiles.size()]), glProfileName==null?GLProfile.getMaxProgrammable(true).getImplName():glProfileName);
+		boolean hasPref=!Prefs.get("ajs.joglcanvas.glProfileName", "").contentEquals("");
+		if(profiles.size()>1) {
+			gd.addChoice("GLProfile:", profiles.toArray(new String[profiles.size()]), glProfileName.contentEquals("")?GLProfile.getMaxProgrammable(true).getImplName():glProfileName);
+			gd.addCheckbox("Always use this profile?", hasPref);
+			if(hasPref)gd.addCheckbox("Clear saved profile", false);
+		}
 		gd.addMessage("For High-bit Monitors:\nChoose the color bit depths from those available\nChoices are bits for R,G,B,A respectively");
 		gd.addChoice("Bitdepths:", bitdepths.toArray(new String[bitdepths.size()]), bitdepths.get(0));
 		gd.addStringField("Or enter R,G,B,A if you are sure (e.g. 10,10,10,2)", "");
 		gd.addMessage("Service:");
-		gd.addCheckbox("Run service now? (Run on all opened images?)", listenerInstance!=null);
+		gd.addCheckbox("Run on all opened images?", listenerInstance!=null);
 		gd.addMessage("Add to ImageJ Popup Menu:");
 		gd.addCheckbox("Convert to JOGL Canvas", hasInstalledPopup("convert"));
 		gd.addCheckbox("Add JOGL Canvas Mirror", hasInstalledPopup("mirror"));
@@ -442,7 +453,11 @@ public class JCP implements PlugIn {
 		gd.addCheckbox("Open test image", false);
 		gd.showDialog();
 		if(gd.wasCanceled())return;
-		if(profiles.size()>1)glProfileName=gd.getNextChoice();
+		if(profiles.size()>1) {
+			glProfileName=gd.getNextChoice().replace(" (Default)","").replace(" (Max Default)", "");
+			if(gd.getNextBoolean())Prefs.set("ajs.joglcanvas.glProfileName", glProfileName);
+			if(hasPref && gd.getNextBoolean())Prefs.set("ajs.joglcanvas.glProfileName", "");
+		}
 		String bd=gd.getNextChoice();
 		String userbd=gd.getNextString();
 		if(!userbd.equals("")) {

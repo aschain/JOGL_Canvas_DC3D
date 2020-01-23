@@ -1,13 +1,8 @@
 package ajs.joglcanvas;
 
 import static com.jogamp.opengl.GL2.*;
-import static com.jogamp.opengl.GL2ES3.GL_COLOR;
-import static com.jogamp.opengl.GL2ES3.GL_DEPTH;
-import static com.jogamp.opengl.GL3.*;
-import static com.jogamp.opengl.GL4.*;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -32,7 +27,6 @@ import com.jogamp.opengl.util.glsl.ShaderCode;
 import com.jogamp.opengl.util.glsl.ShaderProgram;
 
 import ajs.joglcanvas.JOGLImageCanvas.PixelType;
-import ij.Prefs;
 
 public class JCGLObjects {
 	
@@ -91,8 +85,7 @@ public class JCGLObjects {
 		try{
 			v=Float.parseFloat(version.substring(st, st+3));
 		}catch(Exception e) {
-			System.out.println("Could not parse version:");
-			System.out.println(version);
+			System.out.println("Could not parse version: "+version);
 		}
 		int glNameVer=getVersionFromProfileName(JCP.glProfileName);
 		glver=2;
@@ -235,6 +228,7 @@ public class JCGLObjects {
 		
 		for(int i=0;i<chs;i++) {
 			gl.glActiveTexture(GL_TEXTURE0+i);
+			if(glver==2)gl2.glEnable(gltype);
 			gl.glBindTexture(gltype, textures.get(name, texIndex+i));
 			if(glver==4)
 				gl4.glUniform1i(gl23.glGetUniformLocation(pr[0], "mytex["+i+"]"),i);
@@ -246,35 +240,20 @@ public class JCGLObjects {
 		if(glver>2)gl23.glBindVertexArray(vaos.get(name));
 		
 		if(glver<4){
-			if(buffers.element.containsKey(name)) {
-				gl.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffers.element.get(name)[0]);
-				if(glver==2 && buffers.ebuffers.containsKey("name")) {
-					ByteBuffer buffer=buffers.ebuffers.get(name);
-					gl.glBufferData(GL_ELEMENT_ARRAY_BUFFER, buffer.capacity(), buffer, GL_DYNAMIC_DRAW);
-				}
-			}else System.out.println("AJS MISSING ELEMENT BUFFER "+name);
-			if(buffers.array.containsKey(name)) {
-				gl.glBindBuffer(GL_ARRAY_BUFFER, buffers.array.get(name)[0]);
-				if(glver==2 && buffers.ebuffers.containsKey("name")) {
-					ByteBuffer buffer=buffers.abuffers.get(name);
-					gl.glBufferData(GL_ARRAY_BUFFER, buffer.capacity(), buffer, GL_DYNAMIC_DRAW);
-				}
-			}else System.out.println("AJS MISSING ARRAY BUFFER "+name);
-			if(glver<4) {
-				int[] sizes=vaos.vsizes.get(name);
-				gl23.glVertexAttribPointer(0, sizes[0], sizes[1], false, sizes[4]+sizes[5], 0);
-				gl23.glEnableVertexAttribArray(0);
-				gl23.glVertexAttribPointer(1, sizes[2], sizes[3], false, sizes[4]+sizes[5], sizes[4]);
-				gl23.glEnableVertexAttribArray(1);
-			}
+			buffers.bindBuffer(GL_ELEMENT_ARRAY_BUFFER, name);
+			buffers.bindBuffer(GL_ARRAY_BUFFER, name);
+			int[] sizes=vaos.vsizes.get(name);
+			gl23.glVertexAttribPointer(0, sizes[0], sizes[1], false, sizes[4]+sizes[5], 0);
+			gl23.glEnableVertexAttribArray(0);
+			gl23.glVertexAttribPointer(1, sizes[2], sizes[3], false, sizes[4]+sizes[5], sizes[4]);
+			gl23.glEnableVertexAttribArray(1);
 		}
 	
         gl23.glDrawElements(GL_TRIANGLES, count, glElementBufferType, 0);
         if(glver>2)gl23.glBindVertexArray(0);
 		gl23.glBindTexture(gltype, 0);
 		if(glver==2){
-			gl23.glDisableVertexAttribArray(0);
-			gl23.glDisableVertexAttribArray(1);
+			gl2.glDisable(gltype);
 		}
 		gl.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 		gl.glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -301,10 +280,6 @@ public class JCGLObjects {
 		gl23.glDrawElements(glDraw, elementBuffer.capacity(), getGLType(elementBuffer), 0);
 		if(glver>2)gl23.glBindVertexArray(0);
 		unBindEBOVBO(name);
-		if(glver<4) {
-			gl23.glDisableVertexAttribArray(0);
-			gl23.glDisableVertexAttribArray(1);
-		}
 	}
 	
 	
@@ -533,15 +508,15 @@ public class JCGLObjects {
 			if(gltype==GL_UNIFORM_BUFFER) {dict=uniform; bdict=ubuffers;}
 			else if(gltype==GL_ELEMENT_ARRAY_BUFFER) {dict=element;bdict=ebuffers;}
 			int[] bn=new int[1];
+			boolean write=(buffer==null);
 			if(glver==4) {gl4.glCreateBuffers(1, bn, 0);}
 			else if(glver==3 || (glver==2 && gltype!=GL_UNIFORM_BUFFER)) gl23.glGenBuffers(1, bn, 0);
-			else define=true;
+			else {define=true; write=true;}
 			dict.put(name, bn);
 			if(define) {
-				boolean write=(buffer==null);
 				gl23.glBindBuffer(gltype, bn[0]);
 				if(glver==4){
-					gl4.glBufferStorage(gltype, size, buffer,  (buffer==null)?(GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT):0);
+					gl4.glBufferStorage(gltype, size, buffer,  (buffer==null)?(GL_MAP_WRITE_BIT | GL4.GL_MAP_PERSISTENT_BIT | GL4.GL_MAP_COHERENT_BIT):0);
 					gl4.glBindBuffer(gltype,  0);
 				}else if(glver==3 || (glver==2 && gltype!=GL_UNIFORM_BUFFER)){
 					gl23.glBufferData(gltype, size, buffer, (buffer==null)?GL_DYNAMIC_DRAW:GL_STATIC_DRAW);
@@ -554,14 +529,14 @@ public class JCGLObjects {
 							bn[0],
 							0,
 							size,
-							GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT | GL_MAP_INVALIDATE_RANGE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT); // flags
-				}else if(glver==3) {
-					outbuffer= gl3.glMapBufferRange(
-						gltype,
-		                0,
-		                size,
-		                GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_RANGE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT); // flags
-				}else {
+							GL_MAP_WRITE_BIT | GL4.GL_MAP_PERSISTENT_BIT | GL4.GL_MAP_COHERENT_BIT | GL_MAP_INVALIDATE_RANGE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT); // flags
+				}else {//if(glver==3) {
+				//	outbuffer= gl3.glMapBufferRange(
+				//		gltype,
+		         //       0,
+		        //        size,
+		        //        GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_RANGE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT); // flags
+				//}else {
 					outbuffer=initGL2ByteBuffer((int)size, buffer);
 				}
 				bdict.put(name, outbuffer);
@@ -610,27 +585,27 @@ public class JCGLObjects {
 		}
 		
 		public void loadMatrix(String name, float[] matrix, int offset) {
-			ByteBuffer buffer=(ByteBuffer)ubuffers.get(name);
+			ByteBuffer buffer=ubuffers.get(name);
 			buffer.rewind();
 			for (int i = 0; i < 16; i++) {
 	            buffer.putFloat(offset + i * 4, matrix[i]);
 	        }
 	        buffer.rewind();
-			//buffer.rewind(); buffer.asFloatBuffer().rewind();
-			//buffer.asFloatBuffer().put(matrix);
-			//buffer.rewind(); buffer.asFloatBuffer().rewind();
-			//if(glver==2) {
-			//	gl2.glBindBuffer(GL_UNIFORM_BUFFER, uniform.get(name)[0]);
-			//	gl2.glBufferData(GL_UNIFORM_BUFFER, buffer.capacity(), buffer, GL_DYNAMIC_DRAW);
-			//	gl2.glBindBuffer(GL_UNIFORM_BUFFER, 0);
-			//
 		}
 		
+		public void bindBuffer(int gltype, String name) {
+			bindBuffer(gltype, name, 0);
+		}
 		public void bindBuffer(int gltype, String name, int binding) {
 			if(gltype==GL_UNIFORM_BUFFER) {
-				if(glver>2)
+				if(glver>2) {
+					if(glver==3 && ubuffers.containsKey(name)) {
+						gl.glBindBuffer(gltype, uniform.get(name)[0]);
+						gl.glBufferSubData(gltype, 0, ubuffers.get(name).limit(), ubuffers.get(name));
+						gl.glBindBuffer(gltype, 0);
+					}
 					gl23.glBindBufferBase(gltype, binding, uniform.get(name)[0]);
-				else {
+				}else {
 					int[] pr=new int[1];gl.glGetIntegerv(GL_CURRENT_PROGRAM, pr,0);
 					//gl3.glUniform1i(gl3.glGetUniformLocation(pr[0], "mytex"),0);
 					JCPrograms.Program program=programs.findProgram(pr[0]);
@@ -651,8 +626,16 @@ public class JCGLObjects {
 			}
 
 			Hashtable<String, int[]> dict=array;
-			if(gltype==GL_ELEMENT_ARRAY_BUFFER)dict=element;
-			gl.glBindBuffer(gltype, dict.get(name)[0]);
+			Hashtable<String, ByteBuffer> bdict=abuffers;
+			if(gltype==GL_ELEMENT_ARRAY_BUFFER) {dict=element; bdict=ebuffers;}
+			if(dict.containsKey(name)) {
+				//String type=(gltype==GL_ELEMENT_ARRAY_BUFFER?"ebo":"vbo");
+				gl.glBindBuffer(gltype, dict.get(name)[0]);
+				if(glver<4 && bdict.containsKey(name)) {
+					ByteBuffer buffer=bdict.get(name);
+					gl.glBufferSubData(gltype, 0, buffer.limit(), buffer);
+				}
+			}else System.err.println("AJS Could not find buffer "+name);
 		}
 		
 		public void unBindBuffer(int gltype, int binding) {

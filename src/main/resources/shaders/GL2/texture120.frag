@@ -26,9 +26,10 @@ void main(){
 			else if(i==4)texColor=texture3D(mytex4, texCoord);
 			else if(i==5)texColor=texture3D(mytex5, texCoord);
 			if(rgb>7){
-				outputColor.r=texColor.g;
-				outputColor.g=texColor.b;
-				outputColor.b=texColor.a;
+				outputColor.rgb=texColor.gba;
+				outputColor.a=max(outputColor.r,max(outputColor.g,outputColor.b));
+				gl_FragColor=outputColor;
+				return;
 			}else{
 				float col=max((texColor.r-lut.r),0.0)/(lut.g-lut.r);
 				color[2]=(rgb>3);

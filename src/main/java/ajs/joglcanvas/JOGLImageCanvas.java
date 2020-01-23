@@ -111,6 +111,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private boolean stereoUpdated=true,threeDupdated=true;
 	private int[] stereoFramebuffers=new int[2];
 	private FloatBuffer avb;
+	private boolean mylock=false;
 
 	enum PixelType{BYTE, SHORT, FLOAT, INT_RGB10A2, INT_RGBA8};
 	private static final String[] pixelTypeStrings=new String[] {"4 bytes (8bpc, 32bit)","4 shorts (16bpc 64bit)","4 floats (32bpc 128bit)","1 int RGB10A2 (10bpc, 32bit)","1 int RGBA8 (8bpc, 32bit)"};
@@ -328,6 +329,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		//IJ.log("\\Update2:Display took: "+(System.nanoTime()-starttime)/1000000L+"ms");
 		//starttime=System.nanoTime();
 		if(imp.isLocked())return;
+		if(mylock)return;
+		mylock=true;
 		//imp.lockSilently(); //causing z scrollbar to lost focus or something
 		int sl=imp.getZ()-1, fr=imp.getT()-1,chs=imp.getNChannels(),sls=imp.getNSlices(),frms=imp.getNFrames();
 		if(go3d&&sls==1)go3d=false;
@@ -689,6 +692,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			}
 			lutMatrixPointer.rewind();
 			
+			
 			glos.bindUniformBuffer("global", 1);
 			glos.bindUniformBuffer("model", 2);
 			glos.bindUniformBuffer("lut", 3);
@@ -787,6 +791,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			}
 		}
 		//imp.unlock();
+		mylock=false;
 	}
 	
 	public BufferedImage grabScreen(GLAutoDrawable drawable) {

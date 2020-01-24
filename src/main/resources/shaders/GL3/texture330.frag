@@ -21,7 +21,13 @@ void main(){
 		int rgb=int(lut.b);
 		if(rgb>0){
 			bool color[3];
-			vec4 texColor=texture(mytex[i], texCoord);
+			vec4 texColor;
+			if(i==0)texColor=texture(mytex[0], texCoord);
+			else if(i==1)texColor=texture(mytex[1], texCoord);
+			else if(i==2)texColor=texture(mytex[2], texCoord);
+			else if(i==3)texColor=texture(mytex[3], texCoord);
+			else if(i==4)texColor=texture(mytex[4], texCoord);
+			else if(i==5)texColor=texture(mytex[5], texCoord);
 			if(rgb>7){
 				outputColor.r=texColor.g;
 				outputColor.g=texColor.b;

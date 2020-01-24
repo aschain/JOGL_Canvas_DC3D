@@ -177,7 +177,7 @@ public class JCGLObjects {
 	}
 	
 	/**
-	 * Could make this more complicated
+	 * 
 	 * @param vertexBuffer
 	 * @param vertexSize
 	 * @return
@@ -601,7 +601,7 @@ public class JCGLObjects {
 				if(glver>2) {
 					if(glver==3 && ubuffers.containsKey(name)) {
 						gl.glBindBuffer(gltype, uniform.get(name)[0]);
-						gl.glBufferSubData(gltype, 0, ubuffers.get(name).limit(), ubuffers.get(name));
+						gl.glBufferSubData(gltype, 0, ubuffers.get(name).capacity(), ubuffers.get(name));
 						gl.glBindBuffer(gltype, 0);
 					}
 					gl23.glBindBufferBase(gltype, binding, uniform.get(name)[0]);
@@ -633,7 +633,9 @@ public class JCGLObjects {
 				gl.glBindBuffer(gltype, dict.get(name)[0]);
 				if(glver<4 && bdict.containsKey(name)) {
 					ByteBuffer buffer=bdict.get(name);
-					gl.glBufferSubData(gltype, 0, buffer.limit(), buffer);
+					buffer.rewind();
+					gl.glBufferSubData(gltype, 0L, (long)buffer.limit(), buffer);
+					gl.glFinish();
 				}
 			}else System.err.println("AJS Could not find buffer "+name);
 		}

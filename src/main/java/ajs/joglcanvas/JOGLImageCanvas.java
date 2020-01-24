@@ -237,11 +237,12 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		int elementsPerSlice=6;
 		int floatsPerVertex=6;
 		long maxsize=Math.max((long)imp.getWidth(), Math.max((long)imp.getHeight(), zmaxsls));
-		ShortBuffer elementBuffer=GLBuffers.newDirectShortBuffer((int)maxsize*elementsPerSlice);
+		short[] e=new short[(int)maxsize*elementsPerSlice];
 		for(int i=0; i<(maxsize);i++) {
-			elementBuffer.put((short)(i*4+0)).put((short)(i*4+1)).put((short)(i*4+2));
-			elementBuffer.put((short)(i*4+2)).put((short)(i*4+3)).put((short)(i*4+0));
+			e[i*6+0]=(short)(i*4+0); e[i*6+1]=(short)(i*4+1); e[i*6+2]=(short)(i*4+2);
+			e[i*6+3]=(short)(i*4+2); e[i*6+4]=(short)(i*4+3); e[i*6+5]=(short)(i*4+0);
 		}
+		ShortBuffer elementBuffer=GLBuffers.newDirectShortBuffer(e);
 		elementBuffer.rewind();
 
 		glos.newTexture("image3d", imp.getNChannels());
@@ -636,7 +637,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 							}
 						}
 					}
-					//vertb.limit(lim*4);
+					vertb.limit(lim*4);
 				}
 				ltr=new boolean[] {left,top,reverse};
 				

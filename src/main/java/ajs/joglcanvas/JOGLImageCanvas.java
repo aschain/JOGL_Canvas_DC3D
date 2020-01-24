@@ -1260,8 +1260,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			else {end=1; if(bits>8)end++; if(bits>16)end++;}
 			for(int i=0;i<end;i++) addCMI(menu,pixelTypeStrings[i],pixelType3d==PixelType.values()[i]);
 			threeDmenu.add(menu);
-			
-			addMI(threeDmenu,"Start 3d Background Load","bgload");
+
 			addMI(threeDmenu,"Update 3d Image","update");
 			addMI(threeDmenu,"Reset 3d view","reset3d");
 			
@@ -1324,11 +1323,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		else if(cmd.equals("revert")){revert();}
 		else if(cmd.equals("reset3d")){resetAngles();}
 		else if(cmd.equals("prefs")){JCP.preferences();}
-		else if(cmd.equals("bgload")) {
-			IJ.error("TODO: bgload");
-			//if(go3d) updateBuffers(imp.getT(),true); 
-			//else updateBuffersBackground(null);
-		}else if(cmd.equals("Recorder")){
+		else if(cmd.equals("Recorder")){
 			IJ.run("JOGL Canvas Recorder",imp.getTitle());
 		}else if(cmd.equals("usePBOforSlices")) {
 			if(usePBOforSlices) {

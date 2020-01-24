@@ -225,17 +225,17 @@ public class JCGLObjects {
 		//gl3.glBindTexture(gltype, textures.get(name, texIndex));
 		int[] pr=new int[1];gl.glGetIntegerv(GL_CURRENT_PROGRAM, pr,0);
 		//gl3.glUniform1i(gl3.glGetUniformLocation(pr[0], "mytex"),0);
-		
+
+		//if(glver==2)gl2.glEnable(gltype);
+		int[] tns=new int[chs];
 		for(int i=0;i<chs;i++) {
 			gl.glActiveTexture(GL_TEXTURE0+i);
-			if(glver==2)gl2.glEnable(gltype);
+			//if(glver==2)gl2.glEnable(gltype);
 			gl.glBindTexture(gltype, textures.get(name, texIndex+i));
-			if(glver==4)
-				gl4.glUniform1i(gl23.glGetUniformLocation(pr[0], "mytex["+i+"]"),i);
-			else
-				gl23.glUniform1i(gl23.glGetUniformLocation(pr[0], "mytex"+i),i);
+			tns[i]=i;
 		}
 		gl.glActiveTexture(GL_TEXTURE0);
+		gl23.glUniform1iv(gl23.glGetUniformLocation(pr[0], "mytex"),chs, tns,0);
 
 		if(glver>2)gl23.glBindVertexArray(vaos.get(name));
 		
@@ -619,7 +619,7 @@ public class JCGLObjects {
 					}
 					if(name.contentEquals("lut")) {
 						int loc=(program==null?gl2.glGetUniformLocation(pr[0], "luts"):program.getLocation("luts"));
-						gl2.glUniform3fv(loc, 6, ubuffers.get(name).asFloatBuffer());
+						gl2.glUniform4fv(loc, 6, ubuffers.get(name).asFloatBuffer());
 					}
 				}
 				return;

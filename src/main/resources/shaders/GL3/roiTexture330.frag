@@ -9,8 +9,8 @@ in vec3 texCoord;
 // Outgoing final color.
 out vec4 outputColor;
 
-uniform highp sampler3D mytex0;
+uniform highp sampler3D mytex[1];
 
 void main(){
-	outputColor=texture(mytex0, texCoord);
+	outputColor=texture(mytex[0], texCoord);
 }

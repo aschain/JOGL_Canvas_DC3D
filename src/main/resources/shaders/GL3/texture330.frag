@@ -12,32 +12,21 @@ in vec3 texCoord;
 // Outgoing final color.
 out vec4 outputColor;
 
-uniform highp sampler3D mytex0;
-uniform highp sampler3D mytex1;
-uniform highp sampler3D mytex2;
-uniform highp sampler3D mytex3;
-uniform highp sampler3D mytex4;
-uniform highp sampler3D mytex5;
+uniform highp sampler3D mytex[6];
 
 void main(){
 	outputColor=vec4(0,0,0,0);
 	for(int i=0;i<6;i++){
-		bool color[3];
 		vec3 lut=luts[i];
-		if(lut.b>0.8){
-			vec4 texColor;
-			if(i==0) texColor=texture(mytex0, texCoord);
-			else if(i==1)texColor=texture(mytex1, texCoord);
-			else if(i==2)texColor=texture(mytex2, texCoord);
-			else if(i==3)texColor=texture(mytex3, texCoord);
-			else if(i==4)texColor=texture(mytex4, texCoord);
-			else if(i==5)texColor=texture(mytex5, texCoord);
-			if(lut.b>7.8){
+		int rgb=int(lut.b);
+		if(rgb>0){
+			bool color[3];
+			vec4 texColor=texture(mytex[i], texCoord);
+			if(rgb>7){
 				outputColor.r=texColor.g;
 				outputColor.g=texColor.b;
 				outputColor.b=texColor.a;
 			}else{
-				int rgb=int(lut.b);
 				float col=max((texColor.r-lut.r),0.0)/(lut.g-lut.r);
 				color[2]=(rgb>3);
 				if(color[2])rgb=rgb-4;

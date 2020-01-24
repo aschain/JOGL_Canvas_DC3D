@@ -635,7 +635,6 @@ public class JCGLObjects {
 					ByteBuffer buffer=bdict.get(name);
 					buffer.rewind();
 					gl.glBufferSubData(gltype, 0L, (long)buffer.limit(), buffer);
-					gl.glFinish();
 				}
 			}else System.err.println("AJS Could not find buffer "+name);
 		}

@@ -34,6 +34,7 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
 import java.awt.event.WindowListener;
+//import java.awt.event.WindowListener;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
@@ -167,8 +168,8 @@ public class JCP implements PlugIn {
 	public static JOGLImageCanvas getJOGLImageCanvas(ImagePlus imp) {
 		ImageCanvas ic=imp.getCanvas();
 		if(ic instanceof JOGLImageCanvas)return (JOGLImageCanvas)ic;
-		for(WindowListener wl:imp.getWindow().getWindowListeners()) {if(wl instanceof JOGLImageCanvas)return (JOGLImageCanvas)wl;}
-		return null;
+		Object jic=imp.getProperty("JOGLImageCanvas");
+		return (JOGLImageCanvas)jic;
 	}
 	
 	public static void addJCPopups() {

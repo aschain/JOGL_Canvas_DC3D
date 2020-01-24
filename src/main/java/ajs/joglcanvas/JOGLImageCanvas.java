@@ -953,6 +953,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				mirror.dispose();mirror=null;
 			}
 		});
+		imp.setProperty("JOGLImageCanvas", this);
 	}
 	
 	private void updateMirror() {

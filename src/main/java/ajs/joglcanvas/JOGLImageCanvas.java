@@ -214,9 +214,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		
 		zoomIndVerts=GLBuffers.newDirectFloatBuffer(4*3+4*4);
 		
-
-		if(JCP.openglroi) rgldu=new RoiGLDrawUtility(imp, drawable);
-		
 		//int[] pf=new int[1];
 		//for(int i=1;i<5;i++) {
 		//	JCGLObjects.PixelTypeInfo pti=JCGLObjects.getPixelTypeInfo(getPixelType(),i);
@@ -335,6 +332,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(imp.isLocked())return;
 		if(mylock)return;
 		mylock=true;
+		if(JCP.openglroi && rgldu==null) rgldu=new RoiGLDrawUtility(imp, drawable);
 		//imp.lockSilently(); //causing z scrollbar to lost focus or something
 		int sl=imp.getZ()-1, fr=imp.getT()-1,chs=imp.getNChannels(),sls=imp.getNSlices(),frms=imp.getNFrames();
 		if(go3d&&sls==1)go3d=false;

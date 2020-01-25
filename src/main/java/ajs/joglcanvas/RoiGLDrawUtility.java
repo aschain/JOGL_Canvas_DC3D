@@ -9,7 +9,6 @@ import java.awt.Rectangle;
 import java.io.IOException;
 import java.nio.FloatBuffer;
 
-import com.jogamp.opengl.GL;
 import com.jogamp.opengl.GL2ES2;
 import com.jogamp.opengl.GL2GL3;
 import com.jogamp.opengl.GLAutoDrawable;

@@ -214,6 +214,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		
 		zoomIndVerts=GLBuffers.newDirectFloatBuffer(4*3+4*4);
 		
+
+		if(JCP.openglroi) rgldu=new RoiGLDrawUtility(imp, drawable);
+		
 		//int[] pf=new int[1];
 		//for(int i=1;i<5;i++) {
 		//	JCGLObjects.PixelTypeInfo pti=JCGLObjects.getPixelTypeInfo(getPixelType(),i);

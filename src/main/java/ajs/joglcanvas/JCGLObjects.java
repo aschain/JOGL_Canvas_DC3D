@@ -810,7 +810,7 @@ public class JCGLObjects {
 				}
 	            shaderProgram.link(gl23, ps);
 	            if(glver==3 && !shaderProgram.validateProgram(gl23, ps)) {
-	            	System.out.println("Going to 330");
+	            	System.out.println("JOGLCanvas Shader: 300es not working, trying 330");
 	            	add="330";
 	            	vertShader = ShaderCode.create(gl23, GL_VERTEX_SHADER, this.getClass(), root+radd, null, vertex+add,
 	                        "vert", null, true);
@@ -826,10 +826,10 @@ public class JCGLObjects {
 	                shaderProgram.link(gl23, System.err);
 	            }
 	            if(!shaderProgram.validateProgram(gl23, System.err)) {
-	            	System.out.println("Shader "+add+" failed");
+	            	System.out.println("JOGLCanvas Shader "+add+" failed");
 					try {
 						FileReader fr = new FileReader(temp);
-						System.err.println("Shader 300 es error:");
+						System.err.println("JOGLCanvas Shader 300 es error:");
 						int i; 
 						while ((i=fr.read()) != -1) 
 							System.err.print((char) i);

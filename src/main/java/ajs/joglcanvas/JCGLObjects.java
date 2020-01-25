@@ -546,6 +546,7 @@ public class JCGLObjects {
 		}
 		
 		private ByteBuffer initGL2ByteBuffer(long size, Buffer buffer) {
+			if(buffer!=null && buffer instanceof ByteBuffer && buffer.isDirect() && buffer.capacity()==size)return (ByteBuffer)buffer;
 			ByteBuffer outbuffer=GLBuffers.newDirectByteBuffer((int)size);
 			if(buffer!=null) {
 				if(buffer instanceof FloatBuffer)outbuffer.asFloatBuffer().put((FloatBuffer)buffer);

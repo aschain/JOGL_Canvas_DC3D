@@ -33,8 +33,6 @@ import java.awt.event.ItemListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
-import java.awt.event.WindowListener;
-//import java.awt.event.WindowListener;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
@@ -66,13 +64,10 @@ public class JCP implements PlugIn {
 
 	public static JOGLCanvasService listenerInstance=null;
 	public static String defaultBitString="default";
-	//public static GLCapabilities glCapabilities=null;
 	public static String glProfileName=Prefs.get("ajs.joglcanvas.glProfileName", "");
 	public static int undersample=(int)Prefs.get("ajs.joglcanvas.undersample", 1.0);
 	public static String renderFunction=Prefs.get("ajs.joglcanvas.renderFunction", "MAX");
-	public static boolean backgroundLoadBuffers=Prefs.get("ajs.joglcanvas.backgroundLoadBuffers", false);
 	public static boolean openglroi=Prefs.get("ajs.joglcanvas.openglroi", false);
-	public static boolean usePBOforSlices=Prefs.get("ajs.joglcanvas.usePBOforSlices", false);
 	public static Color leftAnaglyphColor=new Color((int) Prefs.get("ajs.joglcanvas.leftAnaglyphColor",Color.RED.getRGB()));
 	public static Color rightAnaglyphColor=new Color((int) Prefs.get("ajs.joglcanvas.rightAnaglyphColor",Color.CYAN.getRGB()));
 	public static boolean dubois=Prefs.get("ajs.joglcanvas.dubois", false);
@@ -82,7 +77,7 @@ public class JCP implements PlugIn {
 	public static String glslVersion="",glslDefVersion="";
 	public static float[][] anaColors;
 	public static boolean go3d=Prefs.get("ajs.joglcanvas.go3d", false);;
-	public static boolean wrappedBuffers=Prefs.get("ajs.joglcanvas.wrappedBuffers", false);
+	public static boolean wrappedBuffers=Prefs.get("ajs.joglcanvas.wrappedBuffers", true);
 	
 	/**
 	 * This method gets called by ImageJ / Fiji.
@@ -335,7 +330,7 @@ public class JCP implements PlugIn {
 	}
 
 	
-	private static void getGLVersion(boolean max) {
+	public static void getGLVersion(boolean max) {
 		IJ.log("Getting OpenGL version...");
 		boolean glCisnull=false;
 		if(IJ.isLinux())System.setProperty("jogl.disable.openglcore", "true"); //avoids this bug https://github.com/processing/processing/issues/5476
@@ -414,22 +409,23 @@ public class JCP implements PlugIn {
 			if(add)bitdepths.add(tempstr);
 		}
 		ArrayList<String> profiles=new ArrayList<String>();
+		String defprof="";
 		for(String prof : GLProfile.GL_PROFILE_LIST_ALL) {
 			if(GLProfile.isAvailable(prof)) {
-				if(prof.contentEquals(def.getImplName()))prof=prof+" (Default)";
-				else if(prof.contentEquals(max.getImplName()))prof=prof+" (Max Default)";
+				if(prof.contentEquals(def.getImplName())) {prof=prof+" (Default)"; defprof=prof;}
+				else if(prof.contentEquals(max.getImplName())) {prof=prof+" (Max Default)"; defprof=prof;}
 				profiles.add(prof);
 			}
 		}
 		GenericDialog gd=new GenericDialog("JOGL Canvas Deep Color 3D Display Options");
-		gd.addMessage("GL Ver: "+GLProfile.getDefault().getImplName());
-		gd.addMessage("GL Default Ver: "+GLProfile.getMaxProgrammable(true).getImplName());
+		//gd.addMessage("GL Ver: "+GLProfile.getDefault().getImplName());
+		//gd.addMessage("GL Default Ver: "+GLProfile.getMaxProgrammable(true).getImplName());
 		//if(!version.equals(""))gd.addMessage("GL Ver: "+version);
 		//if(!defaultVersion.equals(""))gd.addMessage("GL Default Ver: "+defaultVersion);
 		gd.addMessage("You can choose a specific GLProfile instead of the default if you like:");
 		boolean hasPref=!Prefs.get("ajs.joglcanvas.glProfileName", "").contentEquals("");
 		if(profiles.size()>1) {
-			gd.addChoice("GLProfile:", profiles.toArray(new String[profiles.size()]), glProfileName.contentEquals("")?GLProfile.getMaxProgrammable(true).getImplName():glProfileName);
+			gd.addChoice("GLProfile:", profiles.toArray(new String[profiles.size()]), glProfileName.contentEquals("")?defprof:glProfileName);
 			gd.addCheckbox("Always use this profile?", hasPref);
 			if(hasPref)gd.addCheckbox("Clear saved profile", false);
 		}
@@ -441,17 +437,14 @@ public class JCP implements PlugIn {
 		gd.addMessage("Add to ImageJ Popup Menu:");
 		gd.addCheckbox("Convert to JOGL Canvas", hasInstalledPopup("convert"));
 		gd.addCheckbox("Add JOGL Canvas Mirror", hasInstalledPopup("mirror"));
-		gd.addMessage("Default 3d:");
+		gd.addMessage("Other Settings:");
 		gd.addCheckbox("3D on by default?", go3d);
-		gd.addMessage("Extra:");
 		gd.addChoice("Default 3d Render Type", new String[] {"MAX","ALPHA"}, renderFunction);
-		gd.addCheckbox("Load entire stack in background immediately (for 3d)", backgroundLoadBuffers);
-		gd.addChoice("Undersample?", new String[] {"None","2","4","6"},undersample==1?"None":(""+undersample));
+		gd.addChoice("Default Undersampling for 3D", new String[] {"None","2","4","6"},undersample==1?"None":(""+undersample));
 		gd.addCheckbox("Draw ROI with OpenGL (in progress)", openglroi);
-		gd.addCheckbox("Keep image of whole stack in memory in non-3d (faster but more memory)", usePBOforSlices);
 		gd.addCheckbox("Can use imageJ arrays wrapped in a buffer for video memory", wrappedBuffers);
 		gd.addCheckbox("Stereoscopic settings", false);
-		gd.addCheckbox("Open test image", false);
+		gd.addCheckbox("Open 10-bit test image", false);
 		gd.showDialog();
 		if(gd.wasCanceled())return;
 		if(profiles.size()>1) {
@@ -484,15 +477,11 @@ public class JCP implements PlugIn {
 		Prefs.set("ajs.joglcanvas.go3d", go3d);
 		renderFunction=gd.getNextChoice();
 		Prefs.set("ajs.joglcanvas.renderFunction", renderFunction);
-		backgroundLoadBuffers=gd.getNextBoolean();
-		Prefs.set("ajs.joglcanvas.backgroundLoadBuffers", backgroundLoadBuffers);
 		String newus=gd.getNextChoice();
 		undersample=newus.equals("None")?1:Integer.parseInt(newus);
 		Prefs.set("ajs.joglcanvas.undersample", (double)undersample);
 		openglroi=gd.getNextBoolean();
 		Prefs.set("ajs.joglcanvas.openglroi", openglroi);
-		usePBOforSlices=gd.getNextBoolean();
-		Prefs.set("ajs.joglcanvas.usePBOforSlices", usePBOforSlices);
 		wrappedBuffers=gd.getNextBoolean();
 		Prefs.set("ajs.joglcanvas.wrappedBuffers", wrappedBuffers);
 		if(gd.getNextBoolean()) anaglyphSettings();

@@ -88,7 +88,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 
 	protected boolean go3d=JCP.go3d;
 	public String renderFunction=JCP.renderFunction;
-	public boolean usePBOforSlices=JCP.usePBOforSlices;
+	public boolean usePBOforSlices=true;
 	protected int sx,sy;
 	protected float dx=0f,dy=0f,dz=0f;
 	
@@ -979,6 +979,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	public void revert() {
 		showUpdateButton(false);
 		if(isMirror){
+			imp.setProperty("JOGLImageCanvas", null);
 			new StackWindow(imp,new ImageCanvas(imp));
 			mirror.dispose();
 			mirror=null;

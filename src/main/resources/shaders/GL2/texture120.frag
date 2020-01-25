@@ -13,7 +13,13 @@ void main(){
 		int rgb=int(lut.b);
 		if(rgb>0){
 			bool color[3];
-			vec4 texColor=texture3D(mytex[i], texCoord);
+			vec4 texColor;
+			if(i==0)texColor=texture3D(mytex[0], texCoord);
+			else if(i==1)texColor=texture3D(mytex[1], texCoord);
+			else if(i==2)texColor=texture3D(mytex[2], texCoord);
+			else if(i==3)texColor=texture3D(mytex[3], texCoord);
+			else if(i==4)texColor=texture3D(mytex[4], texCoord);
+			else if(i==5)texColor=texture3D(mytex[5], texCoord);
 			if(rgb>7){
 				outputColor.rgb=texColor.gba;
 				outputColor.a=max(outputColor.r,max(outputColor.g,outputColor.b));

@@ -778,7 +778,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				//gl.glDisable(GL3.GL_FRAMEBUFFER_SRGB);
 				glos.programs.stopProgram();
 			}
-		} //stereoi for
+		} //stereoi
 		//IJ.log("\\Update1:Display took: "+(System.nanoTime()-starttime)/1000000L+"ms");
 		
 		if(imageUpdated) {imageUpdated=false;} //ImageCanvas imageupdated only for single ImagePlus
@@ -1235,6 +1235,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		disablePopupMenu = status;
 	}
 	
+	/*
+	 * Popup Menu functions
+	 */
+	
 	public void createPopupMenu() {
 		if(dcpopup==null) {
 			dcpopup=new PopupMenu("JOGLCanvas Options");
@@ -1397,6 +1401,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			}
 		}
 	}
+	
+	/*
+	 * ImageListener functions
+	 */
 
 	public void imageOpened(ImagePlus imp) {}
 
@@ -1413,10 +1421,22 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}
 	}
 	
+	/**
+	 * To use the BIScreenGrabber function. Set to null to stop
+	 * the screengrabs.
+	 * @param sg
+	 */
 	public void setBIScreenGrabber(BIScreenGrabber sg) {
 		myscreengrabber=sg;
 	}
 
+	/*
+	 * Key and mouse events
+	 */
+	
+	/**
+	 * Key Events. Taken especially for mirror.
+	 */
 	@Override
 	public void keyPressed(KeyEvent arg0) {}
 	@Override
@@ -1443,7 +1463,12 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}
 	}
 	
-	//from https://stackoverflow.com/questions/2972512/how-to-detect-right-click-event-for-mac-os
+	/**
+	 * Test to keep right click or send to super
+	 * Adapted from https://stackoverflow.com/questions/2972512/how-to-detect-right-click-event-for-mac-os
+	 * @param e
+	 * @return
+	 */
 	private static boolean isRightClick(MouseEvent e) {
 	    return (e.getButton()==MouseEvent.BUTTON3 ||
 	            (System.getProperty("os.name").contains("Mac OS X") &&
@@ -1525,10 +1550,24 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(!shouldKeep(e))super.mouseClicked(e);
 	}
 	
+	/**
+	 * For testing or in case one needs the current angles
+	 * caused by dragging the 3d image.
+	 * @return float[]{dx, dy, dz}
+	 */
 	public float[] getEulerAngles() {
 		return new float[] {dx,dy,dz};
 	}
 	
+	/**
+	 * Adds an update button the the window.
+	 * The 3D image takes some time to load into memory,
+	 * So it is not updated on every draw.  In case the user
+	 * changes the image (cut, paste, draw, fill, process),
+	 * The user can then press the update button (or type
+	 * u) to update the 3d image.
+	 * @param show
+	 */
 	public void showUpdateButton(boolean show) {
 		if(imp==null || imp.getWindow()==null || !(imp.getWindow() instanceof StackWindow))return;
 		if(needImageUpdate && show)return;
@@ -1570,6 +1609,16 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}
 	}
 	
+	/**
+	 * Perhaps this could be integrated with plugins like CLIJ
+	 * so that images processed on the GPU could stay on the GPU
+	 * for display.
+	 * 
+	 * Returns an int array of GL PBO handles.  I use one PBO for
+	 * every channel and frame, indexed as:
+	 * currentFrame*channels+currentChannel
+	 * @return
+	 */
 	public int[] getPBOnames() {
 		return glos.textures.pbos.get("image");
 	}

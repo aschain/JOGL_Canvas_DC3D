@@ -121,6 +121,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private BIScreenGrabber myscreengrabber=null;
 	private AWTGLReadBufferUtil ss=null;
 	private RoiGLDrawUtility rgldu=null;
+	private Button updateButton;
 	//private long starttime=0;
 
 	public JOGLImageCanvas(ImagePlus imp, boolean mirror) {
@@ -1580,31 +1581,24 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				scr=(ScrollbarWithLabel)comps[i];
 			}
 		}
-		if(scr!=null) {
-			comps=scr.getComponents();
-			for(int i=0;i<comps.length;i++) {
-				if(comps[i] instanceof Button) {
-					String label=((Button)comps[i]).getLabel();
-					if(label.equals("Update")||label.equals("Updating...")) {
-						scr.remove(comps[i]);
-					}
+		if(updateButton !=null) {
+			Container parent=updateButton.getParent();
+			if(parent==null) updateButton=null;
+			else parent.remove(updateButton);
+		}
+		if(scr!=null && show) {
+			updateButton= new Button("Update");
+			updateButton.addActionListener(new ActionListener() {
+				public void actionPerformed(ActionEvent e) {
+					updateButton.setLabel("Updating...");
+					updateButton.setEnabled(false);
+					updateButton.repaint();
+					myImageUpdated=true; repaint();
+					if(isMirror && mirror==null)showUpdateButton(false);
 				}
-			}
-			
-			if(show) {
-				Button updateButton= new Button("Update");
-				updateButton.addActionListener(new ActionListener() {
-					public void actionPerformed(ActionEvent e) {
-						updateButton.setLabel("Updating...");
-						updateButton.setEnabled(false);
-						updateButton.repaint();
-						myImageUpdated=true; repaint();
-						if(isMirror && mirror==null)showUpdateButton(false);
-					}
-				});
-				updateButton.setFocusable(false);
-				scr.add(updateButton,BorderLayout.EAST);
-			}
+			});
+			updateButton.setFocusable(false);
+			scr.add(updateButton,BorderLayout.EAST);
 			stwin.pack();
 		}
 	}

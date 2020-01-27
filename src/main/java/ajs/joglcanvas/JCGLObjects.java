@@ -37,10 +37,11 @@ public class JCGLObjects {
 	private GL2 gl2=null;
 	private GL3 gl3=null;
 	private GL4 gl4=null;
-	public JCTextures textures=new JCTextures();
-	public JCBuffers buffers=new JCBuffers();
-	public JCVaos vaos=new JCVaos();
-	public JCPrograms programs=new JCPrograms();
+	public Hashtable<String,JCTexture> textures=new Hashtable<String,JCTexture>();
+	public Hashtable<String,JCPbo> pbos=new Hashtable<String,JCPbo>();
+	public Hashtable<String,JCBuffer> buffers=new Hashtable<String,JCBuffer>();
+	public Hashtable<String,JCVao> vaos=new Hashtable<String,JCVao>();
+	public Hashtable<String, JCProgram> programs =new Hashtable<String, JCProgram>();
 	
 	public JCGLObjects() {}
 	
@@ -53,10 +54,11 @@ public class JCGLObjects {
 	}
 	
 	public void dispose() {
-		textures.dispose();
-		buffers.dispose();
-		vaos.dispose();
-		programs.dispose();
+		for(JCTexture obj:textures.values())obj.dispose();
+		for(JCPbo obj:pbos.values())obj.dispose();
+		for(JCBuffer obj:buffers.values())obj.dispose();
+		for(JCVao obj:vaos.values())obj.dispose();
+		for(JCProgram obj:programs.values())obj.dispose();
 	}
 	
 	public void setGL(GLAutoDrawable drawable) {
@@ -123,39 +125,71 @@ public class JCGLObjects {
 	}
 	
 	public void newTexture(String name) {
-		textures.newTexture(name, 1);
+		newTexture(name, 1);
 	}
 	
 	public void newTexture(String name, int size) {
-		textures.newTexture(name, size);
+		if(textures.containsKey(name)) {
+			textures.get(name).dispose();
+			textures.remove(name);
+		}
+		textures.put(name, new JCTexture(size));
 	}
 	
-	public ByteBuffer newBuffer(int gltype, String name, long size, Buffer buffer) {
-		return buffers.newBuffer(gltype,  name, size, buffer);
+	public boolean hasTexture(String name) {
+		return textures.containsKey(name);
 	}
 	
-	public void newBuffer(int gltype, String name) {
-		buffers.newBuffer(gltype, name);
+	public int getTexture(String name, int index) {
+		return textures.get(name).handles[index];
 	}
 	
-	public void bindUniformBuffer(String name, int binding) {
-		buffers.bindBuffer(GL_UNIFORM_BUFFER, name, binding);
+	public JCTexture getTexture(String name) {
+		return textures.get(name);
 	}
 	
-	public void unBindBuffer(int gltype, int binding) {
-		buffers.unBindBuffer(gltype, binding);
+	public void disposeTexture(String name) {
+		if(textures.get(name)==null)return;
+		textures.get(name).dispose();
 	}
 	
-	public void unBindBuffer(int gltype) {
-		buffers.unBindBuffer(gltype, 0);
+	/*
+	 * Texture handling loading
+	 */
+	
+	public void loadTexFromPbo(String pboName, int pn, String texName, int tn, int width, int height, int depth, int offsetSlice, PixelType type, int COMPS, boolean endian, boolean linear) {
+		loadTexFromPbo(getTexture(texName, tn), getPbo(pboName, pn), width, height, depth, offsetSlice, type, COMPS, endian, linear);
 	}
 	
-	public void newVao(String name, int size1, int gltype1, int size2, int gltype2) {
-		vaos.newVao(name, size1, gltype1, size2, gltype2);
+	public void loadTexFromPbo(String sameName, int pn,int width, int height, int depth, int offsetSlice, PixelType type, int COMPS, boolean endian, boolean linear) {
+		loadTexFromPbo(sameName, pn, sameName, 0, width, height, depth, offsetSlice, type, COMPS, endian, linear);
 	}
 	
-	public void newProgram(String name, String root, String vertex, String fragment) {
-		programs.newProgram(name, root, vertex, fragment);
+	public void loadTexFromPbo(int texHandle, int pboHandle, int width, int height, int depth, int offsetSlice, PixelType type, int COMPS, boolean endian, boolean linear) {
+		
+		PixelTypeInfo pinfo=new PixelTypeInfo(type, COMPS);
+		
+		//gl3.glEnable(GL_TEXTURE_3D);
+		//gl3.glActiveTexture(GL_TEXTURE0);
+		gl.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pboHandle);
+		gl.glBindTexture(GL_TEXTURE_3D, texHandle); 
+		gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		if(endian)gl.glPixelStorei(GL_UNPACK_SWAP_BYTES, GL_TRUE);
+		gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_BASE_LEVEL, 0);
+		gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAX_LEVEL, 0);
+		gl23.glTexSubImage3D(GL_TEXTURE_3D, 0, 0, 0, 0, width, height, depth, pinfo.glFormat, pinfo.glPixelSize, offsetSlice*pinfo.components*width*height*pinfo.sizeBytes);
+		int magtype=linear?GL_LINEAR:GL_NEAREST;
+		gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, magtype);
+		gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, magtype);//GL_NEAREST_MIPMAP_LINEAR
+		gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+		gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+		gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
+		gl.glTexParameterfv(GL_TEXTURE_3D, GL_TEXTURE_BORDER_COLOR, new float[] {0f,0f,0f,0f},0);
+		//gl3.glGenerateMipmap(GL_TEXTURE_3D);
+		if(endian)gl.glPixelStorei(GL_UNPACK_SWAP_BYTES, GL_FALSE);
+		//gl3.glDisable(GL_TEXTURE_3D);
+		gl.glBindTexture(GL_TEXTURE_3D, 0); 
+		gl.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 	}
 	
 	public void drawTexVao(String name, int glElementBufferType, int count, int chs) {
@@ -164,16 +198,16 @@ public class JCGLObjects {
 	
 	public void drawTexVao(String name, int index, Buffer vertexBuffer) {
 		vertexBuffer.rewind();
-		int[] sizes=vaos.vsizes.get(name);
+		int[] sizes=vaos.get(name).vsizes;
 		Buffer eb=getElementBufferFromVBO(vertexBuffer, (sizes[4]+sizes[5])/getSizeofType(vertexBuffer));
 		eb.rewind();
 		drawTexVaoWithEBOVBO(name, index, eb, vertexBuffer);
 	}
 	
 	public void drawTexVao(String name, int index, Buffer vb, String pname) {
-		programs.useProgram(pname);
+		useProgram(pname);
 		drawTexVao(name, index, vb);
-		programs.stopProgram();
+		stopProgram();
 	}
 	
 	/**
@@ -207,15 +241,15 @@ public class JCGLObjects {
 	
 	private void bindEBOVBO(String name, Buffer elementBuffer, Buffer vertexBuffer) {
 		elementBuffer.rewind();  vertexBuffer.rewind();
-		if(buffers.element.containsKey(name))gl.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffers.element.get(name)[0]);
-		if(buffers.array.containsKey(name))gl.glBindBuffer(GL_ARRAY_BUFFER, buffers.array.get(name)[0]);
+		if(buffers.containsKey(name+GL_ELEMENT_ARRAY_BUFFER))gl.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, getBufferHandle(GL_ELEMENT_ARRAY_BUFFER,name));
+		if(buffers.containsKey(name+GL_ARRAY_BUFFER))gl.glBindBuffer(GL_ARRAY_BUFFER, getBufferHandle(GL_ARRAY_BUFFER,name));
 		gl.glBufferData(GL_ELEMENT_ARRAY_BUFFER, elementBuffer.capacity()*getSizeofType(elementBuffer), elementBuffer, GL_DYNAMIC_DRAW);
 		gl.glBufferData(GL_ARRAY_BUFFER, vertexBuffer.capacity()*getSizeofType(vertexBuffer), vertexBuffer, GL_DYNAMIC_DRAW);
 	}
 	
 	private void unBindEBOVBO(String name) {
-		if(buffers.element.containsKey(name))gl.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-		if(buffers.array.containsKey(name))gl.glBindBuffer(GL_ARRAY_BUFFER, 0);
+		if(buffers.containsKey(name+GL_ELEMENT_ARRAY_BUFFER))gl.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+		if(buffers.containsKey(name+GL_ARRAY_BUFFER))gl.glBindBuffer(GL_ARRAY_BUFFER, 0);
 	}
 
 	public void drawTexVao(String name, int texIndex, int glElementBufferType, int count, int chs) {
@@ -231,18 +265,18 @@ public class JCGLObjects {
 		for(int i=0;i<chs;i++) {
 			gl.glActiveTexture(GL_TEXTURE0+i);
 			//if(glver==2)gl2.glEnable(gltype);
-			gl.glBindTexture(gltype, textures.get(name, texIndex+i));
+			gl.glBindTexture(gltype, getTexture(name, texIndex+i));
 			tns[i]=i;
 		}
 		gl.glActiveTexture(GL_TEXTURE0);
 		gl23.glUniform1iv(gl23.glGetUniformLocation(pr[0], "mytex"),chs, tns,0);
 
-		if(glver>2)gl23.glBindVertexArray(vaos.get(name));
+		if(glver>2)gl23.glBindVertexArray(vaos.get(name).handle);
 		
 		if(glver<4){
-			buffers.bindBuffer(GL_ELEMENT_ARRAY_BUFFER, name);
-			buffers.bindBuffer(GL_ARRAY_BUFFER, name);
-			int[] sizes=vaos.vsizes.get(name);
+			bindBuffer(GL_ELEMENT_ARRAY_BUFFER, name);
+			bindBuffer(GL_ARRAY_BUFFER, name);
+			int[] sizes=vaos.get(name).vsizes;
 			gl23.glVertexAttribPointer(0, sizes[0], sizes[1], false, sizes[4]+sizes[5], 0);
 			gl23.glEnableVertexAttribArray(0);
 			gl23.glVertexAttribPointer(1, sizes[2], sizes[3], false, sizes[4]+sizes[5], sizes[4]);
@@ -261,14 +295,14 @@ public class JCGLObjects {
 	}
 	
 	public void drawVao(int glDraw, String vname, Buffer vb, String pname) {
-		programs.useProgram(pname);
+		useProgram(pname);
 		drawVao(glDraw, vname, vb);
-		programs.stopProgram();
+		stopProgram();
 	}
 	
 	public void drawVao(int glDraw, String name, Buffer vertexBuffer) {
-		int[] sizes=vaos.vsizes.get(name);
-		if(glver>2)gl23.glBindVertexArray(vaos.get(name));
+		int[] sizes=vaos.get(name).vsizes;
+		if(glver>2)gl23.glBindVertexArray(vaos.get(name).handle);
 		Buffer elementBuffer=getElementBufferFromVBO(vertexBuffer, (sizes[4]+sizes[5])/getSizeofType(vertexBuffer));
 		bindEBOVBO(name, elementBuffer, vertexBuffer);
 		if(glver<4) {
@@ -282,99 +316,44 @@ public class JCGLObjects {
 		unBindEBOVBO(name);
 	}
 	
-	
-	
-	
-	
-	class JCTextures{
+	class JCTexture{
 		
-		public Hashtable<String,int[]> handles=new Hashtable<String, int[]>();
-		public Hashtable<String,int[]> pbos=new Hashtable<String, int[]>();
+		public int[] handles;
 		
-		public JCTextures() {}
-		
-		public void newTexture(String name, int size) {
-			if(handles.containsKey(name)) {
-				dispose(name);
-			}
-			int[] textureHandles = new int[size]; 
-			gl.glGenTextures(size, textureHandles, 0);
-			handles.put(name, textureHandles);
-		}
-		
-		public void newPbo(String name, int size) {
-			if(pbos.containsKey(name)) {
-				disposePbo(name);
-			}
-			pbos.put(name, new int[size]);
+		public JCTexture(int size) {
+			handles=new int[size];
+			gl.glGenTextures(size, handles, 0);
 		}
 		
 		public void dispose() {
-			for(Enumeration<int[]> i=handles.elements(); i.hasMoreElements();) {
-				int[] ths=i.nextElement();
-				gl.glDeleteTextures(ths.length,ths,0);
-			}
-			for(Enumeration<int[]> i=pbos.elements(); i.hasMoreElements();) {
-				int[] phs=i.nextElement();
-				gl.glDeleteBuffers(phs.length,phs,0);
-			}
-			for(Enumeration<String> i=handles.keys(); i.hasMoreElements();)handles.remove(i.nextElement());
-			for(Enumeration<String> i=pbos.keys(); i.hasMoreElements();)pbos.remove(i.nextElement());
+			gl.glDeleteTextures(handles.length,handles,0);
 		}
 		
-		public void dispose(String name) {
-			int[] ths=handles.get(name);
-			gl.glDeleteTextures(ths.length,ths,0);
-			handles.remove(name);
-		}
-		
-		public void disposePbo(String name) {
-			int[] phs=pbos.get(name);
-			gl.glDeleteBuffers(phs.length,phs,0);
-			pbos.remove(name);
-		}
-		
-		public int get(String name) {
-			return get(name, 0);
-		}
-		
-		public int get(String name, int index) {
-			return handles.get(name)[index];
+		public int getTexture(int index) {
+			return handles[index];
 		}
 
-		public int getLength(String name) {
-			if(handles.get(name)==null)return 0;
-			return handles.get(name).length;
-		}
-		public int getPboLength(String name) {
-			if(pbos.get(name)==null)return 0;
-			return pbos.get(name).length;
+		public int getTextureLength() {
+			if(handles==null)return 0;
+			return handles.length;
 		}
 		
-		public boolean containsKey(String name) {
-			return handles.containsKey(name);
+		public void createRgbaTexture(Buffer buffer, int width, int height, int depth, int COMPS, boolean linear) {
+			createRgbaTexture(0, buffer, width, height, depth, COMPS, linear);
 		}
 		
-		public boolean containsPboKey(String name) {
-			return pbos.containsKey(name);
+		public void createRgbaTexture(int index, Buffer buffer, int width, int height, int depth, int COMPS, boolean linear) {
+			initiate(getPixelType(buffer), width, height, depth, COMPS);
+			subRgbaTexture(handles[index],buffer, 0, width, height, depth, COMPS, true, linear);
 		}
 		
-		public void createRgbaTexture(String name, Buffer buffer, int width, int height, int depth, int COMPS, boolean linear) {
-			createRgbaTexture(name, 0, buffer, width, height, depth, COMPS, linear);
+		public void subRgbaTexture(int index, Buffer buffer, int zoffset, int width, int height, int depth, int COMPS, boolean linear) {
+			subRgbaTexture(handles[index],buffer, zoffset, width, height, depth, COMPS, false, linear);
 		}
 		
-		public void createRgbaTexture(String name, int index, Buffer buffer, int width, int height, int depth, int COMPS, boolean linear) {
-			initiate(name, getPixelType(buffer), width, height, depth, COMPS);
-			subRgbaTexture(get(name,index),buffer, 0, width, height, depth, COMPS, true, linear);
-		}
-		
-		public void subRgbaTexture(String name, int index, Buffer buffer, int zoffset, int width, int height, int depth, int COMPS, boolean linear) {
-			subRgbaTexture(get(name,index),buffer, zoffset, width, height, depth, COMPS, false, linear);
-		}
-		
-		public void initiate(String name, PixelType ptype, int width, int height, int depth, int COMPS) {
+		public void initiate(PixelType ptype, int width, int height, int depth, int COMPS) {
 			PixelTypeInfo pinfo=new PixelTypeInfo(ptype, COMPS);
-			int[] ths=handles.get(name);
+			int[] ths=handles;
 			for(int i=0;i<ths.length;i++) {
 				gl.glBindTexture(GL_TEXTURE_3D, ths[i]);
 				gl23.glTexImage3D(GL_TEXTURE_3D, 0, pinfo.glInternalFormat, width, height, depth, 0, pinfo.glFormat, pinfo.glPixelSize, null);
@@ -406,43 +385,69 @@ public class JCGLObjects {
 			gl.glBindTexture(GL_TEXTURE_3D, 0);
 			//gl.glDisable(GL_TEXTURE_3D);
 		} 
+	}
+
+	public void newPbo(String name, int size) {
+		if(pbos.containsKey(name)) {
+			pbos.get(name).newPbo(size);
+		}else pbos.put(name,new JCPbo(size));
+	}
+	
+	public boolean hasPbo(String name) {
+		return pbos.containsKey(name);
+	}
+	
+	public JCPbo getPbo(String name) {
+		return pbos.get(name);
+	}
+	
+	public int getPbo(String name, int index) {
+		return pbos.get(name).pbos[index];
+	}
+	
+	public int getPboLength(String name) {
+		if(!pbos.containsKey(name))return 0;
+		if(pbos.get(name).pbos==null)return 0;
+		return pbos.get(name).pbos.length;
+	}
+	
+	public void disposePbo(String name) {
+		if(pbos.get(name)==null)return;
+		pbos.get(name).dispose();
+	}
+	
+	class JCPbo{
 		
-		public void loadTexFromPBO(String sameName, int pn, int width, int height, int depth, int offsetSlice, PixelType type, int COMPS, boolean endian, boolean linear) {
-			loadTexFromPBO(sameName, pn, sameName, 0, width, height, depth, offsetSlice, type, COMPS, endian, linear);
+		public int[] pbos;
+		
+		public JCPbo(int size) {
+			pbos=new int[size];
 		}
 		
-		public void loadTexFromPBO(String pboName, int pn, String texName, int tn, int width, int height, int depth, int offsetSlice, PixelType type, int COMPS, boolean endian, boolean linear) {
-			
-			int[] phs=pbos.get(pboName);
-			int[] ths=handles.get(texName);
-			
-			PixelTypeInfo pinfo=new PixelTypeInfo(type, COMPS);
-			
-			//gl3.glEnable(GL_TEXTURE_3D);
-			//gl3.glActiveTexture(GL_TEXTURE0);
-			gl.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, phs[pn]);
-			gl.glBindTexture(GL_TEXTURE_3D, ths[tn]); 
-			gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-			if(endian)gl.glPixelStorei(GL_UNPACK_SWAP_BYTES, GL_TRUE);
-			gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_BASE_LEVEL, 0);
-			gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAX_LEVEL, 0);
-			gl23.glTexSubImage3D(GL_TEXTURE_3D, 0, 0, 0, 0, width, height, depth, pinfo.glFormat, pinfo.glPixelSize, offsetSlice*pinfo.components*width*height*pinfo.sizeBytes);
-			int magtype=linear?GL_LINEAR:GL_NEAREST;
-			gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, magtype);
-			gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, magtype);//GL_NEAREST_MIPMAP_LINEAR
-			gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-			gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-			gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
-			gl.glTexParameterfv(GL_TEXTURE_3D, GL_TEXTURE_BORDER_COLOR, new float[] {0f,0f,0f,0f},0);
-			//gl3.glGenerateMipmap(GL_TEXTURE_3D);
-			if(endian)gl.glPixelStorei(GL_UNPACK_SWAP_BYTES, GL_FALSE);
-			//gl3.glDisable(GL_TEXTURE_3D);
-			gl.glBindTexture(GL_TEXTURE_3D, 0); 
-			gl.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+		public boolean hasPbo() {return (pbos!=null && pbos.length>0);}
+		
+		public void newPbo(int size) {
+			if(pbos!=null && pbos.length>0) {
+				dispose();
+			}
+			pbos=new int[size];
 		}
 		
-		public void updateRgbaPBO(String name, int index, Buffer buffer) {
-			updateSubRgbaPBO(name, index, buffer, 0, 0, buffer.limit(), buffer.limit());
+		public int getPbo(int index) {
+			return pbos[index];
+		}
+
+		public int getPboLength(String name) {
+			if(pbos==null)return 0;
+			return pbos.length;
+		}
+		
+		public void dispose() {
+			gl.glDeleteBuffers(pbos.length,pbos,0);
+		}
+		
+		public void updateRgbaPBO(int index, Buffer buffer) {
+			updateSubRgbaPBO(index, buffer, 0, 0, buffer.limit(), buffer.limit());
 		}
 		
 		/**
@@ -455,8 +460,8 @@ public class JCGLObjects {
 		 * @param length
 		 * @param bsize
 		 */
-		public void updateSubRgbaPBO(String name, int index, Buffer buffer, int bufferOffset, int PBOoffset, int length, int bsize) {
-			int[] phs=pbos.get(name);
+		public void updateSubRgbaPBO(int index, Buffer buffer, int bufferOffset, int PBOoffset, int length, int bsize) {
+			int[] phs=pbos;
 			int size=getSizeofType(buffer);
 			
 			boolean isNew=false;
@@ -478,43 +483,87 @@ public class JCGLObjects {
 			gl.glBufferSubData(GL_PIXEL_UNPACK_BUFFER, (long)PBOoffset*size, (long)length*size, buffer);
 			gl.glBindBuffer(GL_PIXEL_UNPACK_BUFFER,0);
 		}
-		
+	}
+	
+	public ByteBuffer newBuffer(int gltype, String name, long size, Buffer buffer) {
+		JCBuffer buf=new JCBuffer(gltype,  name, size, buffer);
+		buffers.put(name+gltype, buf);
+		return buf.buffer;
+	}
+	
+	public JCBuffer getBuffer(int gltype, String name) {
+		return buffers.get(name+gltype);
+	}
+	
+	public JCBuffer getUniformBuffer(String name) {
+		return buffers.get(name+GL_UNIFORM_BUFFER);
+	}
+	
+	public int getBufferHandle(int gltype, String name) {
+		return buffers.get(name+gltype).handle;
+	}
+	
+	public ByteBuffer getDirectBuffer(int gltype, String name) {
+		return buffers.get(name+gltype).buffer;
+	}
+	
+	public void newBuffer(int gltype, String name) {
+		buffers.put(name+gltype, new JCBuffer(gltype,  name));
+	}
+	
+	public void bindUniformBuffer(String name, int binding) {
+		bindBuffer(GL_UNIFORM_BUFFER, name, binding);
+	}
+	
+	public void bindBuffer(int gltype, String name) {
+		bindBuffer(gltype, name, 0);
+	}
+	
+	public void bindBuffer(int gltype, String name, int binding) {
+		JCBuffer buf=buffers.get(name+gltype);
+		if(buf!=null)buf.bindBuffer(binding);
+		else System.err.println("AJS Could not find buffer "+name+" "+gltype);
+	}
+	
+	public void unBindBuffer(int gltype, int binding) {
+		if(gltype==GL_UNIFORM_BUFFER) {
+			if(glver==2)return;
+			gl23.glBindBufferBase(gltype, binding, 0);
+			return;
+		}
+		gl.glBindBuffer(gltype, 0);
+	}
+	
+	public void unBindBuffer(int gltype) {
+		unBindBuffer(gltype, 0);
 	}
 
-	class JCBuffers{
+	class JCBuffer{
 
-		public Hashtable<String,int[]> array=new Hashtable<String, int[]>();
-		public Hashtable<String,int[]> uniform=new Hashtable<String, int[]>();
-		public Hashtable<String,int[]> element=new Hashtable<String, int[]>();
-		public Hashtable<String,ByteBuffer> abuffers=new Hashtable<String,ByteBuffer>();
-		public Hashtable<String,ByteBuffer> ubuffers=new Hashtable<String,ByteBuffer>();
-		public Hashtable<String,ByteBuffer> ebuffers=new Hashtable<String,ByteBuffer>();
+		String name;
+		public int handle;
+		public ByteBuffer buffer=null;
+		public int gltype;
 		
-		
-		
-		public JCBuffers() {}
-
-		public ByteBuffer newBuffer(int gltype, String name, long size, Buffer buffer) {
-			return newBuffer(gltype, name, size, buffer, true);
+		public JCBuffer(int gltype, String name, long size, Buffer buffer) {
+			this(gltype, name, size, buffer, true);
 		}
 		
-		public ByteBuffer newBuffer(int gltype, String name) {
-			return newBuffer(gltype, name, 0, null, false);
+		public JCBuffer(int gltype, String name) {
+			this(gltype, name, 0, null, false);
 		}
 		
-		public ByteBuffer newBuffer(int gltype, String name, long size, Buffer buffer, boolean define) {
-			Hashtable<String,int[]> dict=array;
-			Hashtable<String,ByteBuffer> bdict=abuffers;
-			if(gltype==GL_UNIFORM_BUFFER) {dict=uniform; bdict=ubuffers;}
-			else if(gltype==GL_ELEMENT_ARRAY_BUFFER) {dict=element;bdict=ebuffers;}
+		public JCBuffer(int gltype, String name, long size, Buffer buffer, boolean define) {
+			this.gltype=gltype;
+			this.name=name;
 			int[] bn=new int[1];
 			boolean write=(buffer==null);
 			if(glver==4) {gl4.glCreateBuffers(1, bn, 0);}
 			else if(glver==3 || (glver==2 && gltype!=GL_UNIFORM_BUFFER)) gl23.glGenBuffers(1, bn, 0);
 			else {define=true; write=true;}
-			dict.put(name, bn);
+			handle=bn[0];
 			if(define) {
-				gl23.glBindBuffer(gltype, bn[0]);
+				gl23.glBindBuffer(gltype, handle);
 				if(glver==4){
 					gl4.glBufferStorage(gltype, size, buffer,  (buffer==null)?(GL_MAP_WRITE_BIT | GL4.GL_MAP_PERSISTENT_BIT | GL4.GL_MAP_COHERENT_BIT):0);
 					gl4.glBindBuffer(gltype,  0);
@@ -522,10 +571,9 @@ public class JCGLObjects {
 					gl23.glBufferData(gltype, size, buffer, (buffer==null)?GL_DYNAMIC_DRAW:GL_STATIC_DRAW);
 				}
 				
-				if(!write)return null;
-				ByteBuffer outbuffer;
+				if(!write)return;
 				if(glver==4){
-					outbuffer= gl4.glMapNamedBufferRange(
+					this.buffer= gl4.glMapNamedBufferRange(
 							bn[0],
 							0,
 							size,
@@ -537,12 +585,10 @@ public class JCGLObjects {
 		        //        size,
 		        //        GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_RANGE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT); // flags
 				//}else {
-					outbuffer=initGL2ByteBuffer((int)size, buffer);
+					this.buffer=initGL2ByteBuffer((int)size, buffer);
 				}
-				bdict.put(name, outbuffer);
 				gl.glBindBuffer(gltype,  0);
-				return outbuffer;
-			}else return null;
+			}
 		}
 		
 		private ByteBuffer initGL2ByteBuffer(long size, Buffer buffer) {
@@ -557,36 +603,19 @@ public class JCGLObjects {
 			return outbuffer;
 		}
 		
-		public int get(int gltype, String name) {
-			Hashtable<String, int[]> dict=array;
-			if(gltype==GL_UNIFORM_BUFFER) dict=uniform;
-			else if(gltype==GL_ELEMENT_ARRAY_BUFFER)dict=element;
-			int[] hs= dict.get(name);
-			if(hs==null)return 0;
-			return hs[0];
+		public void loadIdentity() {
+			loadIdentity(0);
 		}
 		
-		public Buffer getDirectBuffer(int gltype, String name) {
-			Hashtable<String, ByteBuffer> bdict=abuffers;
-			if(gltype==GL_UNIFORM_BUFFER) bdict=ubuffers;
-			else if(gltype==GL_ELEMENT_ARRAY_BUFFER)bdict=ebuffers;
-			return bdict.get(name);
+		public void loadIdentity(int offset) {
+			loadMatrix(FloatUtil.makeIdentity(new float[16]), offset);
 		}
 		
-		public void loadIdentity(String name) {
-			loadIdentity(name, 0);
+		public void loadMatrix(float[] matrix) {
+			loadMatrix(matrix, 0);
 		}
 		
-		public void loadIdentity(String name, int offset) {
-			loadMatrix(name, FloatUtil.makeIdentity(new float[16]), offset);
-		}
-		
-		public void loadMatrix(String name, float[] matrix) {
-			loadMatrix(name, matrix, 0);
-		}
-		
-		public void loadMatrix(String name, float[] matrix, int offset) {
-			ByteBuffer buffer=ubuffers.get(name);
+		public void loadMatrix(float[] matrix, int offset) {
 			buffer.rewind();
 			for (int i = 0; i < 16; i++) {
 	            buffer.putFloat(offset + i * 4, matrix[i]);
@@ -594,96 +623,65 @@ public class JCGLObjects {
 	        buffer.rewind();
 		}
 		
-		public void bindBuffer(int gltype, String name) {
-			bindBuffer(gltype, name, 0);
+		public void bindBuffer() {
+			bindBuffer(0);
 		}
-		public void bindBuffer(int gltype, String name, int binding) {
+		public void bindBuffer(int binding) {
 			if(gltype==GL_UNIFORM_BUFFER) {
 				if(glver>2) {
-					if(glver==3 && ubuffers.containsKey(name)) {
-						gl.glBindBuffer(gltype, uniform.get(name)[0]);
-						gl.glBufferSubData(gltype, 0, ubuffers.get(name).capacity(), ubuffers.get(name));
+					if(glver==3 && buffer!=null) {
+						gl.glBindBuffer(gltype, handle);
+						gl.glBufferSubData(gltype, 0, buffer.capacity(), buffer);
 						gl.glBindBuffer(gltype, 0);
 					}
-					gl23.glBindBufferBase(gltype, binding, uniform.get(name)[0]);
+					gl23.glBindBufferBase(gltype, binding, handle);
 				}else {
 					int[] pr=new int[1];gl.glGetIntegerv(GL_CURRENT_PROGRAM, pr,0);
 					//gl3.glUniform1i(gl3.glGetUniformLocation(pr[0], "mytex"),0);
-					JCPrograms.Program program=programs.findProgram(pr[0]);
+					JCProgram program=findProgram(pr[0]);
 					if(name.contentEquals("global")) {
 						int loc=(program==null?gl2.glGetUniformLocation(pr[0], "proj"):program.getLocation("proj"));
-						gl2.glUniformMatrix4fv(loc, 2, false, ubuffers.get(name).asFloatBuffer());
+						gl2.glUniformMatrix4fv(loc, 2, false, buffer.asFloatBuffer());
 					}
 					if(name.contentEquals("model") || name.contentEquals("idm") || name.contentEquals("modelr")) {
 						int loc=(program==null?gl2.glGetUniformLocation(pr[0], "model"):program.getLocation("model"));
-						gl2.glUniformMatrix4fv(loc, 1, false, ubuffers.get(name).asFloatBuffer());
+						gl2.glUniformMatrix4fv(loc, 1, false, buffer.asFloatBuffer());
 					}
 					if(name.contentEquals("lut")) {
 						int loc=(program==null?gl2.glGetUniformLocation(pr[0], "luts"):program.getLocation("luts"));
-						gl2.glUniform4fv(loc, 6, ubuffers.get(name).asFloatBuffer());
+						gl2.glUniform4fv(loc, 6, buffer.asFloatBuffer());
 					}
 				}
 				return;
-			}
-
-			Hashtable<String, int[]> dict=array;
-			Hashtable<String, ByteBuffer> bdict=abuffers;
-			if(gltype==GL_ELEMENT_ARRAY_BUFFER) {dict=element; bdict=ebuffers;}
-			if(dict.containsKey(name)) {
-				//String type=(gltype==GL_ELEMENT_ARRAY_BUFFER?"ebo":"vbo");
-				gl.glBindBuffer(gltype, dict.get(name)[0]);
-				if(glver<4 && bdict.containsKey(name)) {
-					ByteBuffer buffer=bdict.get(name);
+			}else {
+				gl.glBindBuffer(gltype, handle);
+				if(glver<4 && buffer!=null) {
 					buffer.rewind();
 					gl.glBufferSubData(gltype, 0L, (long)buffer.limit(), buffer);
 				}
-			}else System.err.println("AJS Could not find buffer "+name);
-		}
-		
-		public void unBindBuffer(int gltype, int binding) {
-			if(gltype==GL_UNIFORM_BUFFER) {
-				if(glver==2)return;
-				gl23.glBindBufferBase(gltype, binding, 0);
-				return;
 			}
-			gl.glBindBuffer(gltype, 0);
 		}
 		
 		public void dispose() {
-			for(int i=0;i<3;i++) {
-				Hashtable<String, int[]> dict=array;
-				Hashtable<String, ByteBuffer> bdict=abuffers;
-				int gltype=GL_ARRAY_BUFFER;
-				if(i==1) {dict=uniform; bdict=ubuffers; gltype=GL_UNIFORM_BUFFER;}
-				else if(i==2) {dict=element; bdict=ebuffers; gltype=GL_ELEMENT_ARRAY_BUFFER;}
-				for(Enumeration<String> j=dict.keys(); j.hasMoreElements();) {
-					String name=j.nextElement();
-					int[] phs=dict.get(name);
-					if(bdict.get(name)!=null){
-						if(glver==4){gl4.glUnmapNamedBuffer(phs[0]);}
-						else if(glver==3) {
-							gl.glBindBuffer(gltype, phs[0]);
-							gl.glUnmapBuffer(gltype);
-							gl.glBindBuffer(gltype, 0);
-						}
-						bdict.remove(name);
-					}
-					gl.glDeleteBuffers(phs.length,phs,0);
-					dict.remove(name);
-				}
-			}
+			gl.glDeleteBuffers(1, new int[] {handle},0);
 		}
 	}
 
-	class JCVaos{
+
+	
+	public void newVao(String name, int size1, int gltype1, int size2, int gltype2) {
+		vaos.put(name, new JCVao(name, size1, gltype1, size2, gltype2));
+	}
+	
+	class JCVao{
 		
-		public Hashtable<String, int[]> handles =new Hashtable<String, int[]>();
-		public Hashtable<String, int[]> vsizes =new Hashtable<String, int[]>();
+		public String name;
+		public int handle;
+		public int[] vsizes;
 		
-		public JCVaos() {}
-		
-		public void newVao(String name, int size1, int gltype1, int size2, int gltype2) {
+		public JCVao(String name, int size1, int gltype1, int size2, int gltype2) {
 			
+			this.name=name;
 			int[] vhs=new int[1];
 			int sizeoftype1=getSizeofType(gltype1)*size1;
 			int sizeoftype2=getSizeofType(gltype2)*size2;
@@ -696,11 +694,11 @@ public class JCGLObjects {
 		        gl4.glVertexArrayAttribFormat(vao, 1, size2, gltype2, false, sizeoftype1);//texcoords
 		        gl4.glEnableVertexArrayAttrib(vao, 0);
 		        gl4.glEnableVertexArrayAttrib(vao, 1);
-				if(buffers.element.get(name)!=null) {
-			        gl4.glVertexArrayElementBuffer(vao, buffers.element.get(name)[0]);
+				if(buffers.containsKey(name+GL_ELEMENT_ARRAY_BUFFER)) {
+			        gl4.glVertexArrayElementBuffer(vao, getBufferHandle(GL_ELEMENT_ARRAY_BUFFER, name));
 				}
-				if(buffers.array.get(name)!=null) {
-					gl4.glVertexArrayVertexBuffer(vao, 0, buffers.array.get(name)[0], 0, sizeoftype1+sizeoftype2);
+				if(buffers.containsKey(name+GL_ARRAY_BUFFER)) {
+					gl4.glVertexArrayVertexBuffer(vao, 0, getBufferHandle(GL_ARRAY_BUFFER, name), 0, sizeoftype1+sizeoftype2);
 				}
 			}
 			else if(glver==3){
@@ -708,81 +706,65 @@ public class JCGLObjects {
 			}else {
 				//GL2
 			}
-			handles.put(name, vhs);
-			vsizes.put(name, new int[] {size1,gltype1,size2,gltype2,sizeoftype1,sizeoftype2});
-		}
-		
-		public int get(String name) {
-			int[] hs=handles.get(name);
-			if(hs==null)return 0;
-			return hs[0];
+			handle=vhs[0];
+			vsizes=new int[] {size1,gltype1,size2,gltype2,sizeoftype1,sizeoftype2};
 		}
 		
 		public void dispose() {
-			for(Enumeration<String> j=handles.keys(); j.hasMoreElements();) {
-				String name=j.nextElement();
-				int[] vhs=handles.get(name);
-				if(glver>2)gl23.glDeleteVertexArrays(vhs.length,vhs,0);
-				handles.remove(name);
-			}
+			if(glver>2)gl23.glDeleteVertexArrays(1,new int[] {handle},0);
 		}
 	}
 	
-	class JCPrograms{
-
-		public Hashtable<String, Program> programs =new Hashtable<String, Program>();
-
-        public JCPrograms() {}
-        
-        public void newProgram(String name, String root, String vertex, String fragment) {
-        	programs.put(name, new Program(root, vertex, fragment));
-        }
-        
-        public void addProgram(String name, int program, Hashtable<String, Integer> locs) {
-        	programs.put(name, new Program(program, locs));
-        }
-        
-        public void addLocation(String programName, String var) {
-        	programs.get(programName).addLocation(var);
-        }
-        
-        public int getLocation(String programName, String var) {
-        	return programs.get(programName).locations.get(var);
-        }
-        
-        public int getProgram(String pname) {
-        	return programs.get(pname).name;
-        }
-        
-        public void useProgram(String name) {
-        	gl23.glUseProgram(programs.get(name).name);
-        }
-        
-        public void stopProgram() {
-        	gl23.glUseProgram(0);
-        }
-        
-        public void dispose() {
-        	for(Enumeration<String> j=programs.keys(); j.hasMoreElements();) {
-				String name=j.nextElement();
-				programs.get(name).dispose();
-				programs.remove(name);
-			}
-        }
-        
-        public Program findProgram(int handle) {
-        	for(Program program : programs.values()) {
-        		if(handle==program.name)return program;
-        	}
-        	return null;
-        }
-        
-        class Program{
+    
+    public void newProgram(String name, String root, String vertex, String fragment) {
+    	programs.put(name, new JCProgram(root, vertex, fragment));
+    }
+    
+    public void addProgram(String name, int program, Hashtable<String, Integer> locs) {
+    	programs.put(name, new JCProgram(program, locs));
+    }
+    
+    public void addLocation(String programName, String var) {
+    	programs.get(programName).addLocation(var);
+    }
+    
+    public int getLocation(String programName, String var) {
+    	return programs.get(programName).locations.get(var);
+    }
+    
+    public int getProgram(String pname) {
+    	return programs.get(pname).handle;
+    }
+    
+    public void useProgram(String name) {
+    	gl23.glUseProgram(programs.get(name).handle);
+    }
+    
+    public void stopProgram() {
+    	gl23.glUseProgram(0);
+    }
+    
+    public void disposePrograms() {
+    	for(Enumeration<String> j=programs.keys(); j.hasMoreElements();) {
+			String name=j.nextElement();
+			programs.get(name).dispose();
+			programs.remove(name);
+		}
+    }
+    
+    public JCProgram findProgram(int handle) {
+    	for(JCProgram program : programs.values()) {
+    		if(handle==program.handle)return program;
+    	}
+    	return null;
+    }
+	
+	class JCProgram{
         	
-        	int name=0;
+        	int handle=0;
     		public Hashtable<String, Integer> locations =new Hashtable<String, Integer>();
         	
-        	public Program(String root, String vertex, String fragment) {
+        	public JCProgram(String root, String vertex, String fragment) {
         		
 	        	String add="120";
 	        	String radd="/GL2";
@@ -840,12 +822,12 @@ public class JCGLObjects {
 					}
 	            }
 	            
-	            name=shaderProgram.program();
+	            handle=shaderProgram.program();
 	            
 	            if(glver>2) {
-	        		gl23.glUniformBlockBinding(name, gl23.glGetUniformBlockIndex(name, "Transform0"), 1);
-	        		gl23.glUniformBlockBinding(name, gl23.glGetUniformBlockIndex(name, "Transform1"), 2);
-	        		if(fragment.equals("texture"))gl23.glUniformBlockBinding(name, gl23.glGetUniformBlockIndex(name, "lutblock"), 3);
+	        		gl23.glUniformBlockBinding(handle, gl23.glGetUniformBlockIndex(handle, "Transform0"), 1);
+	        		gl23.glUniformBlockBinding(handle, gl23.glGetUniformBlockIndex(handle, "Transform1"), 2);
+	        		if(fragment.equals("texture"))gl23.glUniformBlockBinding(handle, gl23.glGetUniformBlockIndex(handle, "lutblock"), 3);
 	            }else{
 	            	addLocation("proj");
 	            	addLocation("model");
@@ -854,13 +836,13 @@ public class JCGLObjects {
             
         	}
         	
-        	public Program(int pname, Hashtable<String, Integer> locs) {
-        		name=pname;
+        	public JCProgram(int pname, Hashtable<String, Integer> locs) {
+        		handle=pname;
         		locations=locs;
         	}
         	
         	public void addLocation(String var) {
-            	locations.put(var, gl23.glGetUniformLocation(name, var));
+            	locations.put(var, gl23.glGetUniformLocation(handle, var));
         	}
         	
         	public int getLocation(String var) {
@@ -868,12 +850,8 @@ public class JCGLObjects {
         	}
         	
         	public void dispose() {
-            	gl23.glDeleteProgram(name);
+            	gl23.glDeleteProgram(handle);
         	}
-        	
-        }
-		
-		
 	}
 	
 	private int getSizeofType(int gltype) {

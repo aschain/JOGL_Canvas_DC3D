@@ -48,7 +48,7 @@ public class RoiGLDrawUtility {
 		rglos.newBuffer(GL_ARRAY_BUFFER, "roiGL");
 		rglos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "roiGL");
 		rglos.newVao("roiGL", 3, GL_FLOAT, 4, GL_FLOAT);
-		rglos.programs.newProgram("color", "shaders", "color", "color");
+		rglos.newProgram("color", "shaders", "color", "color");
 		updateSrcRect();
 		setGL(drawable);
 	}
@@ -75,7 +75,7 @@ public class RoiGLDrawUtility {
 	}
 	
 	public void startDrawing() {
-		rglos.programs.useProgram("color");
+		rglos.useProgram("color");
 	}
 
 	/**

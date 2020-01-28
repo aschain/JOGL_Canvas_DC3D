@@ -22,7 +22,6 @@ public class StackBuffer {
 	private boolean[] updatedSlices;
 	private PixelType pixelType=PixelType.BYTE;
 	private int undersample=1;
-	private boolean wrappedBuffers=JCP.wrappedBuffers;
 	public boolean isFrameStack=false, okDirect=false;
 	public int sliceSize,bufferSize,bufferWidth,bufferHeight;
 	
@@ -126,7 +125,7 @@ public class StackBuffer {
 		int size=((bits==8)?((byte[])outPixels).length:(bits==16)?((short[])outPixels).length:(bits==32)?((float[])outPixels).length:((int[])outPixels).length);
 		if(pixelType==PixelType.BYTE) {
 			if(bits==8) {
-				if(wrappedBuffers)return ByteBuffer.wrap((byte[])outPixels);
+				if(okDirect&&JCP.wrappedBuffers)return ByteBuffer.wrap((byte[])outPixels);
 				else return GLBuffers.newDirectByteBuffer(size).put((byte[])outPixels);
 			}
 			else {
@@ -149,7 +148,7 @@ public class StackBuffer {
 			}
 		}else if(pixelType==PixelType.INT_RGBA8){
 			if(bits==24) {
-				if(wrappedBuffers)return IntBuffer.wrap((int[])outPixels);
+				if(okDirect&&JCP.wrappedBuffers)return IntBuffer.wrap((int[])outPixels);
 				else return GLBuffers.newDirectIntBuffer(size).put((int[])outPixels);
 			}
 			else {
@@ -157,7 +156,7 @@ public class StackBuffer {
 			}
 		}else if(pixelType==PixelType.SHORT) {
 			if(bits==16) {
-				if(wrappedBuffers)return ShortBuffer.wrap((short[])outPixels);
+				if(okDirect&&JCP.wrappedBuffers)return ShortBuffer.wrap((short[])outPixels);
 				else return GLBuffers.newDirectShortBuffer(size).put((short[])outPixels);
 			}
 			else {
@@ -202,7 +201,7 @@ public class StackBuffer {
 			IJ.error("Not using RGB10A2 anymore");
 		}else if(pixelType==PixelType.FLOAT) {
 			if(bits==32) {
-				if(wrappedBuffers)return FloatBuffer.wrap((float[])outPixels);
+				if(okDirect&&JCP.wrappedBuffers)return FloatBuffer.wrap((float[])outPixels);
 				else return GLBuffers.newDirectFloatBuffer(size).put((float[])outPixels);
 			} else IJ.error("Don't use less than 32 bit image with 32 bit pixels");
 			//buffer=GLBuffers.newDirectFloatBuffer(size);

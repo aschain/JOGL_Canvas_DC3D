@@ -19,7 +19,6 @@ import java.nio.ByteBuffer;
 public class StackBuffer {
 	
 	private ImagePlus imp;
-	public boolean[] updatedFrames;
 	private boolean[] updatedSlices;
 	private PixelType pixelType=PixelType.BYTE;
 	private int undersample=1;
@@ -55,7 +54,6 @@ public class StackBuffer {
 	
 	public void resetSlices() {
 		updatedSlices=new boolean[imp.getNFrames()*imp.getNSlices()];
-		updatedFrames=new boolean[isFrameStack?1:imp.getNFrames()];
 	}
 	
 	private int tex4div(int wh) {
@@ -70,10 +68,6 @@ public class StackBuffer {
 	public void updateSlice(int sl, int fr) {
 		if(isFrameStack)updatedSlices[fr]=true;
 		else updatedSlices[fr*imp.getNSlices()+sl]=true;
-	}
-	
-	public boolean isFrameUpdated(int fr) {
-		return updatedFrames[fr];
 	}
 		
 	/**

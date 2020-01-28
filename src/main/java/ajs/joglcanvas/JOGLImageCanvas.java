@@ -126,6 +126,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 
 	public JOGLImageCanvas(ImagePlus imp, boolean mirror) {
 		super(imp);
+		pixelType3d=getPixelType(imp);
 		isMirror=mirror;
 		COMPS=1;//imp.getBitDepth()==24?3:imp.getNChannels();
 		if(!mirror) {setOverlay(imp.getCanvas().getOverlay());}
@@ -156,7 +157,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		icc.setMinimumSize(new Dimension(10,10));
 		ImagePlus.addImageListener(this);
 		if(mirror)createMirror();
-		pixelType3d=getPixelType();
 	}
 	
 	private void setGL(GLAutoDrawable drawable) {
@@ -338,7 +338,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		int sl=imp.getZ()-1, fr=imp.getT()-1,chs=imp.getNChannels(),sls=imp.getNSlices(),frms=imp.getNFrames();
 		if(go3d&&sls==1)go3d=false;
 		sb.setPixelType(go3d?pixelType3d:getPixelType(), go3d?undersample:1);
-		//if(sb.isFrameStack) {sl=fr; fr=0; sls=frms; frms=1;}
 		float yrat=1f;//(float)srcRect.height/srcRect.width;
 		
 		int srcRectWidthMag = (int)(srcRect.width*magnification+0.5);
@@ -827,12 +826,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	}
 	
 	public void set3dPixelType(PixelType newtype) {
+		if(pixelType3d==newtype)return;
 		int bits=imp.getBitDepth();
 		if(bits==24)bits=8;
 		if(newtype==PixelType.FLOAT && bits<32) {IJ.error("Not enough image bits for float display pixel");return;}
 		if((newtype==PixelType.SHORT || newtype==PixelType.INT_RGB10A2) && (bits<16)) {IJ.error("Not enough image bits for high bit display pixel");return;}
-
-		//while(updatingBuffers>0)IJ.wait(50);
 		pixelType3d=newtype;
 		resetBuffers();
 	}
@@ -848,13 +846,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 		glos.bindUniformBuffer("global", 1);
 		glos.bindUniformBuffer(modelmatrix, 2);
-		//gl.glBindBufferBase(GL_UNIFORM_BUFFER, 1, glos.buffers.get(GL_UNIFORM_BUFFER, "global"));
-		//gl.glBindBufferBase(GL_UNIFORM_BUFFER, 2, glos.buffers.get(GL_UNIFORM_BUFFER, modelmatrix));
 		glos.drawTexVaoWithEBOVBO(name, index, eb, vb);
 		glos.unBindBuffer(GL_UNIFORM_BUFFER,1);
 		glos.unBindBuffer(GL_UNIFORM_BUFFER,2);
-		//gl.glBindBufferBase(GL_UNIFORM_BUFFER, 1, 0);
-		//gl.glBindBufferBase(GL_UNIFORM_BUFFER, 2, 0);
 		if(Prefs.interpolateScaledImages)gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	}
 	

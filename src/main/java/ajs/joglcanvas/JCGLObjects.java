@@ -387,6 +387,10 @@ public class JCGLObjects {
 		} 
 	}
 
+	/*
+	 * PBO functions
+	 */
+	
 	public void newPbo(String name, int size) {
 		if(pbos.containsKey(name)) {
 			pbos.get(name).newPbo(size);
@@ -484,6 +488,10 @@ public class JCGLObjects {
 			gl.glBindBuffer(GL_PIXEL_UNPACK_BUFFER,0);
 		}
 	}
+	
+	/*
+	 * Buffer functions
+	 */
 	
 	public ByteBuffer newBuffer(int gltype, String name, long size, Buffer buffer) {
 		JCBuffer buf=new JCBuffer(gltype,  name, size, buffer);
@@ -668,6 +676,9 @@ public class JCGLObjects {
 	}
 
 
+	/*
+	 * VAO functions
+	 */
 	
 	public void newVao(String name, int size1, int gltype1, int size2, int gltype2) {
 		vaos.put(name, new JCVao(name, size1, gltype1, size2, gltype2));
@@ -714,6 +725,10 @@ public class JCGLObjects {
 			if(glver>2)gl23.glDeleteVertexArrays(1,new int[] {handle},0);
 		}
 	}
+	
+	/*
+	 * Program Functions
+	 */
 	
     
     public void newProgram(String name, String root, String vertex, String fragment) {
@@ -854,6 +869,18 @@ public class JCGLObjects {
         	}
 	}
 	
+	/*
+	 * Other utility functions
+	 */
+	
+	/**
+	 * Gives the size (in bytes) of the data type
+	 * @param gltype
+	 * e.g. GL_UNSIGNED_BYTE or GL_FLOAT
+	 * @return Size in bytes.  
+	 * GL_FLOAT is 4 bytes, for example
+	 * 
+	 */
 	private int getSizeofType(int gltype) {
 		switch(gltype) {
 		case GL_UNSIGNED_BYTE : return Buffers.SIZEOF_BYTE;
@@ -865,6 +892,13 @@ public class JCGLObjects {
 		return 0;
 	}
 	
+	/**
+	 * Returns the GL int name of the data type
+	 * used in the buffer
+	 * @param buffer
+	 * Like a ByteBuffer, FloatBuffer
+	 * @return e.g. GL_UNSIGNED_BYTE, GL_FLOAT
+	 */
 	private int getGLType(Buffer buffer) {
 		if(buffer instanceof java.nio.ByteBuffer) return GL_UNSIGNED_BYTE;
 		if(buffer instanceof java.nio.ShortBuffer) return GL_UNSIGNED_SHORT;
@@ -875,7 +909,7 @@ public class JCGLObjects {
 	}
 	
 	private int getSizeofType(Buffer buffer) {
-		return getSizeofType(getGLType(buffer));
+		return Buffers.sizeOfBufferElem(buffer);
 	}
 	
 	static class PixelTypeInfo{

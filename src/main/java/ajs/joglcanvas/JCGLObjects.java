@@ -129,11 +129,8 @@ public class JCGLObjects {
 	}
 	
 	public void newTexture(String name, int size) {
-		if(textures.containsKey(name)) {
-			textures.get(name).dispose();
-			textures.remove(name);
-		}
-		textures.put(name, new JCTexture(size));
+		JCTexture oldtex=textures.put(name, new JCTexture(size));
+		if(oldtex!=null)oldtex.dispose();
 	}
 	
 	public boolean hasTexture(String name) {
@@ -495,7 +492,8 @@ public class JCGLObjects {
 	
 	public ByteBuffer newBuffer(int gltype, String name, long size, Buffer buffer) {
 		JCBuffer buf=new JCBuffer(gltype,  name, size, buffer);
-		buffers.put(name+gltype, buf);
+		JCBuffer oldbuf=buffers.put(name+gltype, buf);
+		if(oldbuf!=null)oldbuf.dispose();
 		return buf.buffer;
 	}
 	
@@ -508,11 +506,15 @@ public class JCGLObjects {
 	}
 	
 	public int getBufferHandle(int gltype, String name) {
-		return buffers.get(name+gltype).handle;
+		JCBuffer buf=buffers.get(name+gltype);
+		if(buf==null) return 0;
+		return buf.handle;
 	}
 	
 	public ByteBuffer getDirectBuffer(int gltype, String name) {
-		return buffers.get(name+gltype).buffer;
+		JCBuffer buf=buffers.get(name+gltype);
+		if(buf==null) return null;
+		return buf.buffer;
 	}
 	
 	public void newBuffer(int gltype, String name) {
@@ -681,7 +683,8 @@ public class JCGLObjects {
 	 */
 	
 	public void newVao(String name, int size1, int gltype1, int size2, int gltype2) {
-		vaos.put(name, new JCVao(name, size1, gltype1, size2, gltype2));
+		JCVao oldvao=vaos.put(name, new JCVao(name, size1, gltype1, size2, gltype2));
+		if(oldvao!=null)oldvao.dispose();
 	}
 	
 	class JCVao{
@@ -732,7 +735,8 @@ public class JCGLObjects {
 	
     
     public void newProgram(String name, String root, String vertex, String fragment) {
-    	programs.put(name, new JCProgram(root, vertex, fragment));
+    	JCProgram oldpro=programs.put(name, new JCProgram(root, vertex, fragment));
+    	if(oldpro!=null)oldpro.dispose();
     }
     
     public void addProgram(String name, int program, Hashtable<String, Integer> locs) {

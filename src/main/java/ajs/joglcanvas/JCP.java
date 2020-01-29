@@ -44,6 +44,7 @@ import com.jogamp.opengl.GLCapabilities;
 import com.jogamp.opengl.GLCapabilitiesImmutable;
 import com.jogamp.opengl.GLProfile;
 import com.jogamp.opengl.awt.GLCanvas;
+import com.jogamp.opengl.math.FloatUtil;
 import com.jogamp.opengl.util.gl2.GLUT;
 import com.jogamp.opengl.GLDrawableFactory;
 import com.jogamp.opengl.GLEventListener;
@@ -68,17 +69,26 @@ public class JCP implements PlugIn {
 	public static int undersample=(int)Prefs.get("ajs.joglcanvas.undersample", 1.0);
 	public static String renderFunction=Prefs.get("ajs.joglcanvas.renderFunction", "MAX");
 	public static boolean openglroi=Prefs.get("ajs.joglcanvas.openglroi", false);
+	public static boolean usePBOforSlices=Prefs.get("ajs.joglcanvas.usePBOforSlices", false);
 	public static Color leftAnaglyphColor=new Color((int) Prefs.get("ajs.joglcanvas.leftAnaglyphColor",Color.RED.getRGB()));
 	public static Color rightAnaglyphColor=new Color((int) Prefs.get("ajs.joglcanvas.rightAnaglyphColor",Color.CYAN.getRGB()));
 	public static boolean dubois=Prefs.get("ajs.joglcanvas.dubois", false);
-	public static int stereoSep=5;
+	public static int stereoSep=(int)Prefs.get("ajs.joglcanvas.stereoSep", 5.0);
 	public static String version="";
 	public static String defaultVersion="";
 	public static String glslVersion="",glslDefVersion="";
 	public static float[][] anaColors;
 	public static boolean go3d=Prefs.get("ajs.joglcanvas.go3d", false);;
 	public static boolean wrappedBuffers=Prefs.get("ajs.joglcanvas.wrappedBuffers", true);
-	
+	private static float[][] duboisColors = new float[][] {
+		 {0.456f, -0.04f, -0.015f,
+		 0.5f, -0.038f, -0.021f,
+		 0.176f, -0.016f, -0.005f},
+		 
+		{-0.043f,  0.378f, -0.072f,
+		-0.088f,  0.734f, -0.113f,
+		-0.002f,  0.018f,  1.226f}};
+		
 	/**
 	 * This method gets called by ImageJ / Fiji.
 	 *
@@ -426,7 +436,7 @@ public class JCP implements PlugIn {
 		boolean hasPref=!Prefs.get("ajs.joglcanvas.glProfileName", "").contentEquals("");
 		if(profiles.size()>1) {
 			gd.addChoice("GLProfile:", profiles.toArray(new String[profiles.size()]), glProfileName.contentEquals("")?defprof:glProfileName);
-			gd.addCheckbox("Always use this profile?", hasPref);
+			gd.addCheckbox("Always use the selected profile?", hasPref);
 			if(hasPref)gd.addCheckbox("Clear saved profile", false);
 		}
 		gd.addMessage("For High-bit Monitors:\nChoose the color bit depths from those available\nChoices are bits for R,G,B,A respectively");
@@ -441,10 +451,12 @@ public class JCP implements PlugIn {
 		gd.addCheckbox("3D on by default?", go3d);
 		gd.addChoice("Default 3d Render Type", new String[] {"MAX","ALPHA"}, renderFunction);
 		gd.addChoice("Default Undersampling for 3D", new String[] {"None","2","4","6"},undersample==1?"None":(""+undersample));
-		gd.addCheckbox("Draw ROI with OpenGL (in progress)", openglroi);
-		gd.addCheckbox("Can use imageJ arrays wrapped in a buffer for video memory", wrappedBuffers);
 		gd.addCheckbox("Stereoscopic settings", false);
 		gd.addCheckbox("Open 10-bit test image", false);
+		gd.addMessage("Advanced Settings:");
+		gd.addCheckbox("Draw ROI with OpenGL (in progress)", openglroi);
+		gd.addCheckbox("Store whole stack in PBO, even for 2D (more video memory but faster)", usePBOforSlices);
+		gd.addCheckbox("Use image arrays wrapped in a buffer for video memory", wrappedBuffers);
 		gd.showDialog();
 		if(gd.wasCanceled())return;
 		if(profiles.size()>1) {
@@ -480,12 +492,16 @@ public class JCP implements PlugIn {
 		String newus=gd.getNextChoice();
 		undersample=newus.equals("None")?1:Integer.parseInt(newus);
 		Prefs.set("ajs.joglcanvas.undersample", (double)undersample);
+		boolean doana=gd.getNextBoolean();
+		boolean dotest=gd.getNextBoolean();
 		openglroi=gd.getNextBoolean();
 		Prefs.set("ajs.joglcanvas.openglroi", openglroi);
+		usePBOforSlices=gd.getNextBoolean();
+		Prefs.set("ajs.joglcanvas.usePBOforSlices", usePBOforSlices);
 		wrappedBuffers=gd.getNextBoolean();
 		Prefs.set("ajs.joglcanvas.wrappedBuffers", wrappedBuffers);
-		if(gd.getNextBoolean()) anaglyphSettings();
-		if(gd.getNextBoolean()) openTestImage();
+		if(doana) anaglyphSettings();
+		if(dotest) openTestImage();
 
 	}
 	
@@ -535,10 +551,12 @@ public class JCP implements PlugIn {
 				gl2.glRotatef((float)dy, 1.0f, 0f, 0f);
 				gl2.glRotatef((float)dz, 0f, 0f, 1.0f);
 				
-				if(i==0)gl2.glColor3f((float)left.getRed()/255f, (float)left.getGreen()/255f, (float)left.getBlue()/255f);
-				else {
-					gl2.glColor3f((float)right.getRed()/255f, (float)right.getGreen()/255f, (float)right.getBlue()/255f);
-				}
+				Color color=((i==0)?left:right);
+				//if(dubois) {
+				//	float[] cs=multiplyMatrix(new float[] {1f, 1f,1f},duboisColors[i]);
+				//	color=new Color(cs[0]*255f,cs[1]*255f,cs[2]*255f);
+				//}
+				gl2.glColor3f((float)color.getRed()/255f, (float)color.getGreen()/255f, (float)color.getBlue()/255f);
 				
 				GLUT glut=new GLUT();
 				glut.glutWireTeapot(0.5);
@@ -694,22 +712,15 @@ public class JCP implements PlugIn {
 		if(dubois) {
 			//Source of below: bino, a 3d video player:  https://github.com/eile/bino/blob/master/src/video_output_render.fs.glsl
 			// Source of this matrix: http://www.site.uottawa.ca/~edubois/anaglyph/LeastSquaresHowToPhotoshop.pdf
-			anaColors = new float[][] {
+			/*anaColors = new float[][] {
 				 {0.437f, -0.062f, -0.048f,
 				 0.449f, -0.062f, -0.050f,
 				 0.164f, -0.024f, -0.017f},
 				 
 				{-0.011f,  0.377f, -0.026f,
 				-0.032f,  0.761f, -0.093f,
-				-0.007f,  0.009f,  1.234f}};
-			anaColors = new float[][] {
-				 {0.456f, -0.04f, -0.015f,
-				 0.5f, -0.038f, -0.021f,
-				 0.176f, -0.016f, -0.005f},
-				 
-				{-0.043f,  0.378f, -0.072f,
-				-0.088f,  0.734f, -0.113f,
-				-0.002f,  0.018f,  1.226f}};
+				-0.007f,  0.009f,  1.234f}};*/
+			anaColors = duboisColors;
 		}else {
 			float lr=(float)JCP.leftAnaglyphColor.getRed()/255f, lg=(float)JCP.leftAnaglyphColor.getGreen()/255f, lb=(float)JCP.leftAnaglyphColor.getBlue()/255f,
 				rr=(float)JCP.rightAnaglyphColor.getRed()/255f, gr=(float)JCP.rightAnaglyphColor.getGreen()/255f, br=(float)JCP.rightAnaglyphColor.getBlue()/255f;

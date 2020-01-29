@@ -59,6 +59,8 @@ import com.jogamp.opengl.GLAutoDrawable;
 import com.jogamp.opengl.GLCapabilities;
 import com.jogamp.opengl.util.texture.awt.AWTTextureIO;
 
+import ajs.joglcanvas.StackBuffer.MinMax;
+
 import com.jogamp.opengl.GLEventListener;
 import com.jogamp.opengl.GLException;
 import com.jogamp.opengl.awt.GLCanvas;
@@ -78,17 +80,15 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	protected double dpimag=1.0;
 	protected boolean myImageUpdated=true;
 	protected boolean needImageUpdate=false;
-	private int[] lastPosition=new int[3];
 	private boolean deletePBOs=false;
 	protected boolean isMirror=false;
 	private Frame mirror=null;
 	private boolean mirrorMagUnlock=false;
-	private Rectangle prevSrcRect=null;
+	private ImageState imageState;
 	private boolean[] ltr=null;
 
 	protected boolean go3d=JCP.go3d;
 	public String renderFunction=JCP.renderFunction;
-	public boolean usePBOforSlices=true;
 	protected int sx,sy;
 	protected float dx=0f,dy=0f,dz=0f;
 	
@@ -106,11 +106,12 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	enum StereoType{OFF, CARDBOARD, ANAGLYPH, QUADBUFFER};
 	private static String[] stereoTypeStrings=new String[] {"Stereo off", "Google Cardboard-SBS","Anaglyph (red-cyan)","OpenGL Quad Buffers"};
 	private static final float CB_MAXSIZE=4f;
-	private static final float CB_TRANSLATE=0.44f;
+	private static final float CB_TRANSLATE=0.5f;
 	private StereoType stereoType=StereoType.OFF;
 	private boolean stereoUpdated=true,threeDupdated=true;
 	private int[] stereoFramebuffers=new int[2];
 	private FloatBuffer avb;
+	private float[] initVerts;
 	private boolean mylock=false;
 
 	enum PixelType{BYTE, SHORT, FLOAT, INT_RGB10A2, INT_RGBA8};
@@ -130,8 +131,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		isMirror=mirror;
 		COMPS=1;//imp.getBitDepth()==24?3:imp.getNChannels();
 		if(!mirror) {setOverlay(imp.getCanvas().getOverlay());}
-		updateLastPosition();
-		prevSrcRect=new Rectangle(0, 0, 0, 0);
+		imageState=new ImageState(imp);
 		GLCapabilities glc=JCP.getGLCapabilities();
 		int bits=imp.getBitDepth();
 		if((bits<16 || bits==24)&& (glc.getRedBits()>8 || glc.getGreenBits()>8 || glc.getBlueBits()>8) ) {
@@ -183,13 +183,16 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		
 		ByteBuffer elementBuffer2d=GLBuffers.newDirectByteBuffer(new byte[] {0,1,2,2,3,0});
 		ByteBuffer vertb=GLBuffers.newDirectByteBuffer(4*6*Buffers.SIZEOF_FLOAT);
-		float[] initVerts=new float[] {
-				-1f, 	-1f, 	0,		0, 1, 0.5f,
-				 1f, 	-1f, 	0,		1, 1, 0.5f,
-				 1f, 	1f, 	0,		1, 0, 0.5f,
+		float 	tw=(2*imageWidth-tex4div(imageWidth))/(float)imageWidth,
+				th=(2*imageHeight-tex4div(imageHeight))/(float)imageHeight;
+		//For display of the square, there are 3 space verts and 3 texture verts
+		//for each of the 4 points of the square.
+		vertb.asFloatBuffer().put(new float[] {
+				-1f, 	-1f, 	0,		0, th, 0.5f,
+				 1f, 	-1f, 	0,		tw, th, 0.5f,
+				 1f, 	1f, 	0,		tw, 0, 0.5f,
 				-1f, 	1f, 	0,		0, 0, 0.5f
-		};
-		vertb.asFloatBuffer().put(initVerts);
+		});
 		
 		glos.newTexture("image2d", imp.getNChannels());
 		glos.newBuffer(GL_ARRAY_BUFFER, "image2d", vertb.capacity(), vertb);
@@ -235,21 +238,38 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private void init3dTex() {
 		Calibration cal=imp.getCalibration();
 		long zmaxsls=(long)((double)imp.getNSlices()*cal.pixelDepth/cal.pixelWidth);
-		int elementsPerSlice=6;
-		int floatsPerVertex=6;
 		long maxsize=Math.max((long)imp.getWidth(), Math.max((long)imp.getHeight(), zmaxsls));
-		short[] e=new short[(int)maxsize*elementsPerSlice];
-		for(int i=0; i<(maxsize);i++) {
-			e[i*6+0]=(short)(i*4+0); e[i*6+1]=(short)(i*4+1); e[i*6+2]=(short)(i*4+2);
-			e[i*6+3]=(short)(i*4+2); e[i*6+4]=(short)(i*4+3); e[i*6+5]=(short)(i*4+0);
-		}
-		ShortBuffer elementBuffer=GLBuffers.newDirectShortBuffer(e);
-		elementBuffer.rewind();
 
-		glos.newTexture("image3d", imp.getNChannels());
-		glos.newBuffer(GL_ARRAY_BUFFER, "image3d", maxsize*floatsPerVertex*4*Buffers.SIZEOF_FLOAT, null);
-		glos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "image3d", elementBuffer.capacity()*Buffers.SIZEOF_SHORT, elementBuffer);
-		glos.newVao("image3d", 3, GL_FLOAT, 3, GL_FLOAT);
+		ByteBuffer vertb=glos.getDirectBuffer(GL_ARRAY_BUFFER, "image3d");
+		int floatsPerVertex=6;
+		if(vertb==null || vertb.capacity()!=maxsize*floatsPerVertex*4*Buffers.SIZEOF_FLOAT) {
+			int elementsPerSlice=6;
+			short[] e=new short[(int)maxsize*elementsPerSlice];
+			for(int i=0; i<(maxsize);i++) {
+				e[i*6+0]=(short)(i*4+0); e[i*6+1]=(short)(i*4+1); e[i*6+2]=(short)(i*4+2);
+				e[i*6+3]=(short)(i*4+2); e[i*6+4]=(short)(i*4+3); e[i*6+5]=(short)(i*4+0);
+			}
+			ShortBuffer elementBuffer=GLBuffers.newDirectShortBuffer(e);
+			elementBuffer.rewind();
+	
+			glos.newTexture("image3d", imp.getNChannels());
+			glos.newBuffer(GL_ARRAY_BUFFER, "image3d", maxsize*floatsPerVertex*4*Buffers.SIZEOF_FLOAT, null);
+			glos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "image3d", elementBuffer.capacity()*Buffers.SIZEOF_SHORT, elementBuffer);
+			glos.newVao("image3d", 3, GL_FLOAT, 3, GL_FLOAT);
+		}
+		if(zmaxsls!=0) {
+			float zmax=(float)(zmaxsls)/(float)imageWidth;
+			float 	tw=(2*imageWidth-tex4div(imageWidth))/(float)imageWidth,
+					th=(2*imageHeight-tex4div(imageHeight))/(float)imageHeight;
+			//For display of the square, there are 3 space verts and 3 texture verts
+			//for each of the 4 points of the square.
+			initVerts=new float[] {
+					-1f, -1f, -zmax,   0, th, 1f,
+					 1f, -1f,  zmax,  tw, th, 0,
+					 1f,  1f,  zmax,  tw,  0, 0,
+					-1f,  1f, -zmax,   0,  0, 1f
+			};
+		}
 	}
 	
 	private void initAnaglyph() {
@@ -329,13 +349,14 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	@Override
 	public void display(GLAutoDrawable drawable) {
 		//IJ.log("\\Update2:Display took: "+(System.nanoTime()-starttime)/1000000L+"ms");
-		//starttime=System.nanoTime();
+		long starttime=System.nanoTime();
 		if(imp.isLocked())return;
+		//imp.lockSilently(); //causing z scrollbar to lose focus?
 		if(mylock)return;
 		mylock=true;
 		if(JCP.openglroi && rgldu==null) rgldu=new RoiGLDrawUtility(imp, drawable);
-		//imp.lockSilently(); //causing z scrollbar to lost focus or something
 		int sl=imp.getZ()-1, fr=imp.getT()-1,chs=imp.getNChannels(),sls=imp.getNSlices(),frms=imp.getNFrames();
+		Calibration cal=imp.getCalibration();
 		if(go3d&&sls==1)go3d=false;
 		sb.setPixelType(go3d?pixelType3d:getPixelType(), go3d?undersample:1);
 		float yrat=1f;//(float)srcRect.height/srcRect.width;
@@ -423,7 +444,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				
 		if(myImageUpdated) {
 			if(go3d) {
-				//sb.updateBuffers(fr+1,true);
 				if((lastPosition[0]==imp.getC()||imp.getCompositeMode()!=IJ.COMPOSITE)  && lastPosition[1]==(imp.getZ()) && lastPosition[2]==imp.getT()) {
 					sb.resetSlices();
 				}
@@ -440,7 +460,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				
 			}else {
 				int cfr=sb.isFrameStack?0:fr;
-				if(usePBOforSlices) {
+				if(JCP.usePBOforSlices) {
 					//IJ.log("sl:"+(sl+1)+" fr:"+(fr+1)+" lps:"+lastPosition[1]+" lpf:"+lastPosition[2]);
 					if((lastPosition[0]==imp.getC()||imp.getCompositeMode()!=IJ.COMPOSITE) && lastPosition[1]==(imp.getZ()) && lastPosition[2]==imp.getT()) {
 						sb.resetSlices();
@@ -448,13 +468,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						//not if lut was changed
 					}
 					if(!sb.isSliceUpdated(sl,fr)) {
-						//sb.updateImageBufferSlice(sl+1, fr+1);
 						try {
 							for(int i=0;i<chs;i++) {
 								int ccfr=cfr*chs+i;
-								//glos.textures.updateSubRgbaPBO("image",ccfr, sb.imageFBs[ccfr],sb.imageFBs[ccfr].position(), sb.imageFBs[ccfr].position(), sb.sliceSize, sb.bufferSize);
 								glos.getPbo("image").updateSubRgbaPBO(ccfr, sb.getSliceBuffer(i+1, sl+1, fr+1),0, sl*sb.sliceSize, sb.sliceSize, sb.bufferSize);
-								//sb.imageFBs[ccfr].rewind();
 								sb.updateSlice(sl, fr);
 							}
 						}catch(Exception e) {
@@ -462,7 +479,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 								GLException gle=(GLException)e;
 								IJ.log(gle.getMessage());
 								IJ.log("Out of memory, switching usePBOforSlices off");
-								usePBOforSlices=false;
+								JCP.usePBOforSlices=false;
 								sb.resetSlices();
 								glos.disposePbo("image");
 								glos.newPbo("image", frms);
@@ -474,7 +491,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						glos.loadTexFromPbo("image", ccfr, "image2d", i, sb.bufferWidth, sb.bufferHeight, 1, sb.isFrameStack?fr:sl, getPixelType(), COMPS, false, Prefs.interpolateScaledImages);
 					}
 				}else {
-					//still update stackbuffer?
 					for(int i=0;i<chs;i++) {
 						glos.getTexture("image2d").createRgbaTexture(i, sb.getSliceBuffer(i+1, sl+1, fr+1), sb.bufferWidth, sb.bufferHeight, 1, COMPS, Prefs.interpolateScaledImages);
 					}
@@ -490,22 +506,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				glos.loadTexFromPbo("image", ccfr, "image3d", i, sb.bufferWidth, sb.bufferHeight, sls, 0, pixelType3d, COMPS, false, Prefs.interpolateScaledImages);
 			}
 		}
-		
-
-		Calibration cal=imp.getCalibration();
-		float zmax=0f;
-		int zmaxsls=(int)((cal.pixelDepth*(double)sls)/(cal.pixelWidth));
-		if(go3d)zmax=(float)(zmaxsls)/(float)imageWidth;
-		
-		float 	tw=(2*imageWidth-tex4div(imageWidth))/(float)imageWidth,
-				th=(2*imageHeight-tex4div(imageHeight))/(float)imageHeight;
-		//Quad, 3 space verts, 3 texture verts per each of 4 points of a quad
-		float[] initVerts=new float[] {
-				-1f, -1f, -zmax,   0, th, go3d?1f:0,
-				 1f, -1f,  zmax,  tw, th, 0,
-				 1f,  1f,  zmax,  tw,  0, 0,
-				-1f,  1f, -zmax,   0,  0, go3d?1f:0
-		};
 		
 		float 	trX=-((float)(srcRect.x*2+srcRect.width)/imageWidth-1f),
 				trY=((float)(srcRect.y*2+srcRect.height)/imageHeight-1f),
@@ -532,6 +532,19 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		for(int stereoi=0;stereoi<views;stereoi++) {
 			glos.useProgram("image");
 			if(go3d) {
+				int zmaxsls=(int)((cal.pixelDepth*(double)sls)/(cal.pixelWidth));
+				float zmax=(float)(zmaxsls)/(float)imageWidth;
+				
+				float 	tw=(2*imageWidth-tex4div(imageWidth))/(float)imageWidth,
+						th=(2*imageHeight-tex4div(imageHeight))/(float)imageHeight;
+				//For display of the square, there are 3 space verts and 3 texture verts
+				//for each of the 4 points of the square.
+				float[] initVerts=new float[] {
+						-1f, -1f, -zmax,   0, th, 1f,
+						 1f, -1f,  zmax,  tw, th, 0,
+						 1f,  1f,  zmax,  tw,  0, 0,
+						-1f,  1f, -zmax,   0,  0, 1f
+				};
 				//Rectangle r=getViewportAspectRectangle(0,0,drawable.getSurfaceWidth(),drawable.getSurfaceHeight());
 				int width=(int)(srcRectWidthMag*dpimag+0.5);
 				int height=(int)(srcRectHeightMag*dpimag+0.5);
@@ -682,8 +695,14 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 							min=(float)(Math.round(luts[i].min)/topmax);
 							max=(float)(Math.round(luts[i].max)/topmax);
 						}else {
-							min=(float)luts[i].min;
-							max=(float)luts[i].max;
+							if(sb.minmaxs==null) { 
+								min=(float)luts[i].min;
+								max=(float)luts[i].max;
+							}else{
+								double or=sb.minmaxs[i].max-sb.minmaxs[i].min;
+								max=(float)((luts[i].max-sb.minmaxs[i].min)/or);
+								min=(float)((luts[i].min-sb.minmaxs[i].min)/or);
+							}
 						}
 						if(min==max) {if(min==0){max+=(1/topmax);}else{min-=(1/topmax);}}
 					}
@@ -782,10 +801,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		//IJ.log("\\Update1:Display took: "+(System.nanoTime()-starttime)/1000000L+"ms");
 		
 		if(imageUpdated) {imageUpdated=false;} //ImageCanvas imageupdated only for single ImagePlus
-		updateLastPosition();
-
-		prevSrcRect.x=srcRect.x; prevSrcRect.y=srcRect.y;
-		prevSrcRect.width=srcRect.width; prevSrcRect.height=srcRect.height;
+		imageState.updateState();
 		
 		if(myscreengrabber!=null) {
 			if(myscreengrabber.isReadyForUpdate()) {
@@ -795,6 +811,50 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}
 		//imp.unlock();
 		mylock=false;
+	}
+	
+	static class ImageState{
+		private ImagePlus imp;
+		public Rectangle prevSrcRect;
+		public MinMax[] minmaxs;
+		public Calibration prevCal;
+		public int[] lastPosition=new int[3];
+		private boolean c,z,t,cal,minmax,srcRect;
+		
+		public ImageState(ImagePlus imp) {
+			this.imp=imp;
+			resetState();
+		}
+		
+		public void updateState() {
+			Rectangle srcRect=imp.getCanvas().getSrcRect();
+			prevSrcRect=new Rectangle(srcRect.x,srcRect.y,srcRect.width,srcRect.height);
+			minmaxs=MinMax.getMinMaxs(imp.getLuts());
+			prevCal=(Calibration)imp.getCalibration().clone();
+			lastPosition[0]=imp.getC(); lastPosition[1]=imp.getZ(); lastPosition[2]=imp.getT();
+		}
+		
+		public void checkState() {
+			Rectangle oldsrcRect=imp.getCanvas().getSrcRect();
+			srcRect=prevSrcRect.equals(oldsrcRect);
+			MinMax[] newMinmaxs=MinMax.getMinMaxs(imp.getLuts());
+			minmax=false;
+			for(int i=0;i<minmaxs.length;i++) {
+				if(newMinmaxs[i].min!=minmaxs[i].min || newMinmaxs[i].max!=minmaxs[i].max)minmax=true;
+			}
+			Calibration newcal=imp.getCalibration();
+			cal=prevCal.equals(newcal);
+			c=lastPosition[0]==imp.getC();
+			z=lastPosition[1]==imp.getZ();
+			t=lastPosition[2]==imp.getT();
+		}
+		
+		public void resetState() {
+			prevSrcRect=new Rectangle(0, 0, 0, 0);
+			minmaxs=new MinMax[imp.getNChannels()];
+			prevCal=new Calibration();
+			lastPosition=new int[3];
+		}
 	}
 	
 	public BufferedImage grabScreen(GLAutoDrawable drawable) {
@@ -966,10 +1026,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	public void setMirrorMagUnlock(boolean set) {
 		mirrorMagUnlock=set;
 		updateMirror();
-	}
-	
-	private void updateLastPosition() {
-		lastPosition[0]=imp.getC(); lastPosition[1]=imp.getZ(); lastPosition[2]=imp.getT();
 	}
 	
 	public void revert() {
@@ -1278,8 +1334,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			//for(int i=0;i<pixelTypeStrings.length;i++) addCMI(menu,pixelTypeStrings[i],pixelType==PixelType.values()[i]);
 			//dcpopup.add(menu);
 
-			addMI(dcpopup, "Switch use PBO for Slices", "usePBOforSlices");
-			addMI(dcpopup, "Override GUI dpi", "guidpi");
+			//addMI(dcpopup, "Switch use PBO for Slices", "usePBOforSlices");
+			//addMI(dcpopup, "Override GUI dpi", "guidpi");
 			if(isMirror)addCMI(dcpopup, "Resizable Mirror", mirrorMagUnlock);
 			addMI(dcpopup, "JOGL Canvas Preferences", "prefs");
 			addMI(dcpopup, "Revert to Normal Window", "revert");
@@ -1287,7 +1343,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			Object ijpopup=JCP.getIJPopupMenu();
 			if(ijpopup instanceof PopupMenu) {
 				PopupMenu popup=(PopupMenu)ijpopup;
-				popup.setLabel("ImageJ");
+				popup.setLabel("ImageJ Popup Menu");
 				dcpopup.add(popup);
 			}
 		}
@@ -1327,12 +1383,12 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		else if(cmd.equals("Recorder")){
 			IJ.run("JOGL Canvas Recorder",imp.getTitle());
 		}else if(cmd.equals("usePBOforSlices")) {
-			if(usePBOforSlices) {
+			if(JCP.usePBOforSlices) {
 				IJ.log("PBOslices off");
-				usePBOforSlices=false;
+				JCP.usePBOforSlices=false;
 			}else {
 				IJ.log("PBOslices on");
-				usePBOforSlices=true;
+				JCP.usePBOforSlices=true;
 			}
 		}else if("guidpi".equals(cmd)){
 			dpimag=IJ.getNumber("Manual set GUI dpi", 2.0);
@@ -1552,6 +1608,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	 */
 	public float[] getEulerAngles() {
 		return new float[] {dx,dy,dz};
+	}
+	
+	public void setGuiDPI(double dpi) {
+		dpimag=dpi;
 	}
 	
 	/**

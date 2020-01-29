@@ -4,6 +4,7 @@ import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.process.ImageProcessor;
+import ij.process.LUT;
 
 import java.nio.Buffer;
 import java.nio.FloatBuffer;
@@ -24,6 +25,8 @@ public class StackBuffer {
 	private int undersample=1;
 	public boolean isFrameStack=false, okDirect=false;
 	public int sliceSize,bufferSize,bufferWidth,bufferHeight;
+	public double floatMin, floatMax;
+	public MinMax[] minmaxs;
 	
 	public StackBuffer(ImagePlus imp) {
 		this.imp=imp;
@@ -131,20 +134,24 @@ public class StackBuffer {
 			else {
 				if(bits==16 || bits==32) {
 					buffer=GLBuffers.newDirectByteBuffer(size);
+					if(bits==32) setMinMaxs();
 					for(int i=0;i<size;i++) {
 						if(bits==16)((ByteBuffer)buffer).put((byte)(((int)((((short[])outPixels)[i]&0xffff)/256.0))));
-						else /*if(bits==32)*/((ByteBuffer)buffer).put((byte)(((int)(((float[])outPixels)[i]/* *255f*/))));
-						//else {
-							//IJ.error("Don't convert RGB to bytes");
-							//int rgb=((int[])outPixels)[i];
-							//requires new imageFBs length to be frms*3
-							//((ByteBuffer)buffer[fr*chs+0]).put((byte)((rgb&0xff0000)>>16));
-							//((ByteBuffer)buffer[fr*chs+1]).put((byte)((rgb&0xff00)>>8));
-							//((ByteBuffer)buffer[fr*chs+2]).put((byte)(rgb&0xff));
-						//}
+						else { /*if(bits==32)*/
+							double px=((double)(((float[])outPixels)[i])-minmaxs[channel-1].min)/(minmaxs[channel-1].max-minmaxs[channel-1].min);
+							px=Math.min(Math.max(px, 0.0), 1.0);
+							((ByteBuffer)buffer).put((byte)(px*255.0));
+							//((ByteBuffer)buffer).put((byte)(((int)(((float[])outPixels)[i]/* *255f*/))));
+						}
 					}
-				}else IJ.error("Don't convert RGB to bytes");
-				//if(bits==24) {for(int i=0;i<3;i++)imageFBs[fr*chs+i].position(sl*sliceSize);}
+				}else{
+					IJ.error("Don't convert RGB to bytes, INT_RGBA8 is the same precision");
+					//buffer=GLBuffers.newDirectByteBuffer(size*3);
+					//int rgb=((int[])outPixels)[i];
+					//((ByteBuffer)buffer).put((byte)((rgb&0xff0000)>>16));
+					//((ByteBuffer)buffer).put((byte)((rgb&0xff00)>>8));
+					//((ByteBuffer)buffer).put((byte)(rgb&0xff));
+				}
 			}
 		}else if(pixelType==PixelType.INT_RGBA8){
 			if(bits==24) {
@@ -160,18 +167,17 @@ public class StackBuffer {
 				else return GLBuffers.newDirectShortBuffer(size).put((short[])outPixels);
 			}
 			else {
-				if(bits==8 || bits==24) {
-					IJ.error("Don't use short pixel type with 8 bit image");
-					return null;
-				}
-				buffer=GLBuffers.newDirectShortBuffer(size);
 				if(bits==32) {
-					//LUT[] luts=imp.getLuts();
+					buffer=GLBuffers.newDirectShortBuffer(size);
+					setMinMaxs();
 					for(int i=0;i<size;i++) {
-						//double px=(double)(((float[])outPixels)[i]);
-						//((ShortBuffer)buffer).put((short)((px-luts[channel-1].min)/(luts[channel-1].max-luts[channel-1].min)*65535.0));
-						((ShortBuffer)buffer).put((short)(((float[])outPixels)[i]));
+						double px=( ((float[])outPixels)[i]-minmaxs[channel-1].min)/(minmaxs[channel-1].max-minmaxs[channel-1].min);
+						px=Math.min(Math.max(px, 0.0), 1.0);
+						((ShortBuffer)buffer).put((short)(px*65535.0));
+						//((ShortBuffer)buffer).put((short)(((float[])outPixels)[i]));
 					}
+				}else {
+					IJ.error("Don't use short pixel type with 8 bit image");
 				}
 			}
 		}else if(pixelType==PixelType.INT_RGB10A2) {
@@ -201,6 +207,7 @@ public class StackBuffer {
 			IJ.error("Not using RGB10A2 anymore");
 		}else if(pixelType==PixelType.FLOAT) {
 			if(bits==32) {
+				minmaxs=null;
 				if(okDirect&&JCP.wrappedBuffers)return FloatBuffer.wrap((float[])outPixels);
 				else return GLBuffers.newDirectFloatBuffer(size).put((float[])outPixels);
 			} else IJ.error("Don't use less than 32 bit image with 32 bit pixels");
@@ -232,7 +239,7 @@ public class StackBuffer {
 		return tpixels;
 	}
 	
-	protected void addPixels(Object pixels, int width, Object newpixels, int nwidth, int nheight, int offset, int c, int bands) {
+	private void addPixels(Object pixels, int width, Object newpixels, int nwidth, int nheight, int offset, int c, int bands) {
 		boolean dobyte=(pixels instanceof byte[]);
 		boolean doshort=(pixels instanceof short[]);
 		boolean doint=(pixels instanceof int[]);
@@ -247,25 +254,23 @@ public class StackBuffer {
 			}
 		}
 	}
-	/*
-	static public MinMax[] getMinMaxArray(LUT[] luts) {
-		return getMinMaxArray(luts.length,luts);
-	}
-	
-	static public MinMax[] getMinMaxArray(int size, LUT[] luts) {
-		MinMax[] mm=new MinMax[size];
-		double min=0,max=0;
-		for(int i=0;i<size;i++) {
-			if(luts!=null && i<luts.length) {min=luts[i].min;max=luts[i].max;}
-			mm[i]=new MinMax(min,max);
-		}
-		return mm;
-	}
 	
 	public static class MinMax{
 		public double min=0,max=0;
 		public MinMax(double min, double max) {this.min=min;this.max=max;}
+		public static MinMax[] getMinMaxs(LUT[] luts) {
+			MinMax[] minmaxs=new MinMax[luts.length];
+			double min=0,max=0;
+			for(int i=0;i<luts.length;i++) {
+				if(luts!=null && i<luts.length) {min=luts[i].min;max=luts[i].max;}
+				minmaxs[i]=new MinMax(min,max);
+			}
+			return minmaxs;
+		}
 	}
-	*/
+
+	private void setMinMaxs() {
+		minmaxs=MinMax.getMinMaxs(imp.getLuts());
+	}
 	
 }

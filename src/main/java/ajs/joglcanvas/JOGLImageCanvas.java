@@ -354,6 +354,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		//imp.lockSilently(); //causing z scrollbar to lose focus?
 		if(mylock)return;
 		mylock=true;
+		imageState.check();
 		if(JCP.openglroi && rgldu==null) rgldu=new RoiGLDrawUtility(imp, drawable);
 		int sl=imp.getZ()-1, fr=imp.getT()-1,chs=imp.getNChannels(),sls=imp.getNSlices(),frms=imp.getNFrames();
 		Calibration cal=imp.getCalibration();
@@ -380,7 +381,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				glos.getTexture("image3d").initiate(pixelType3d, sb.bufferWidth, sb.bufferHeight, sls, 1);
 			}else {
 				glos.getUniformBuffer("model").loadIdentity();
-				prevSrcRect.width=0;
+				imageState.isChanged.srcRect=true;
 				resetGlobalMatricies();
 				glos.getTexture("image2d").initiate(getPixelType(), sb.bufferWidth, sb.bufferHeight, 1, 1);
 			}
@@ -444,7 +445,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				
 		if(myImageUpdated) {
 			if(go3d) {
-				if((lastPosition[0]==imp.getC()||imp.getCompositeMode()!=IJ.COMPOSITE)  && lastPosition[1]==(imp.getZ()) && lastPosition[2]==imp.getT()) {
+				if(!imageState.isChanged.slice) {
 					sb.resetSlices();
 				}
 				for(int i=0;i<chs;i++){ 
@@ -462,7 +463,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				int cfr=sb.isFrameStack?0:fr;
 				if(JCP.usePBOforSlices) {
 					//IJ.log("sl:"+(sl+1)+" fr:"+(fr+1)+" lps:"+lastPosition[1]+" lpf:"+lastPosition[2]);
-					if((lastPosition[0]==imp.getC()||imp.getCompositeMode()!=IJ.COMPOSITE) && lastPosition[1]==(imp.getZ()) && lastPosition[2]==imp.getT()) {
+					if(!imageState.isChanged.slice) {
 						sb.resetSlices();
 						//I don't think I need to update all slices in all scenarios here
 						//not if lut was changed
@@ -512,7 +513,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				scX=(float)imageWidth/srcRect.width,
 				scY=(float)imageHeight/srcRect.height;
 		float[] translate=null,scale=null,rotate=null;
-		if( (!prevSrcRect.equals(srcRect)) || go3d) {
+		if( (imageState.isChanged.srcRect) || go3d) {
 			translate=FloatUtil.makeTranslation(new float[16], false, trX, trY, 0f);
 			scale=FloatUtil.makeScale(new float[16], false, scX, scY, scX);
 			if(!go3d)
@@ -601,7 +602,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				if(top)reverse=Yza==-rotate[6];
 				glos.getUniformBuffer("model").loadMatrix(FloatUtil.multMatrix(scale, FloatUtil.multMatrix(rotate, translate, new float[16]), new float[16]));
 				
-				if(ltr==null || !(ltr[0]==left && ltr[1]==top && ltr[2]==reverse) || !srcRect.equals(prevSrcRect)) {
+				if(ltr==null || !(ltr[0]==left && ltr[1]==top && ltr[2]==reverse) || imageState.isChanged.srcRect) {
 					ByteBuffer vertb=glos.getDirectBuffer(GL_ARRAY_BUFFER, "image3d");
 					vertb.clear();
 					if(left) { //left or right
@@ -801,7 +802,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		//IJ.log("\\Update1:Display took: "+(System.nanoTime()-starttime)/1000000L+"ms");
 		
 		if(imageUpdated) {imageUpdated=false;} //ImageCanvas imageupdated only for single ImagePlus
-		imageState.updateState();
+		imageState.update();
 		
 		if(myscreengrabber!=null) {
 			if(myscreengrabber.isReadyForUpdate()) {
@@ -818,42 +819,49 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		public Rectangle prevSrcRect;
 		public MinMax[] minmaxs;
 		public Calibration prevCal;
-		public int[] lastPosition=new int[3];
-		private boolean c,z,t,cal,minmax,srcRect;
+		public int c,z,t;
+		public IsChanged isChanged;
 		
 		public ImageState(ImagePlus imp) {
 			this.imp=imp;
-			resetState();
+			reset();
 		}
 		
-		public void updateState() {
+		public void update() {
 			Rectangle srcRect=imp.getCanvas().getSrcRect();
 			prevSrcRect=new Rectangle(srcRect.x,srcRect.y,srcRect.width,srcRect.height);
 			minmaxs=MinMax.getMinMaxs(imp.getLuts());
 			prevCal=(Calibration)imp.getCalibration().clone();
-			lastPosition[0]=imp.getC(); lastPosition[1]=imp.getZ(); lastPosition[2]=imp.getT();
+			c=imp.getC(); z=imp.getZ(); t=imp.getT();
 		}
 		
-		public void checkState() {
-			Rectangle oldsrcRect=imp.getCanvas().getSrcRect();
-			srcRect=prevSrcRect.equals(oldsrcRect);
+		public void check() {
+			isChanged.srcRect=prevSrcRect.equals(imp.getCanvas().getSrcRect());
 			MinMax[] newMinmaxs=MinMax.getMinMaxs(imp.getLuts());
-			minmax=false;
+			isChanged.minmax=false;
 			for(int i=0;i<minmaxs.length;i++) {
-				if(newMinmaxs[i].min!=minmaxs[i].min || newMinmaxs[i].max!=minmaxs[i].max)minmax=true;
+				if(newMinmaxs[i].min!=minmaxs[i].min || newMinmaxs[i].max!=minmaxs[i].max)isChanged.minmax=true;
 			}
-			Calibration newcal=imp.getCalibration();
-			cal=prevCal.equals(newcal);
-			c=lastPosition[0]==imp.getC();
-			z=lastPosition[1]==imp.getZ();
-			t=lastPosition[2]==imp.getT();
+			isChanged.cal=prevCal.equals(imp.getCalibration());
+			isChanged.c=(c!=imp.getC());
+			isChanged.z=(z!=imp.getZ());
+			isChanged.t=(t!=imp.getT());
+			isChanged.slice=!((c==imp.getC()||imp.getCompositeMode()!=IJ.COMPOSITE) && z==imp.getSlice() && t==imp.getFrame());
 		}
 		
-		public void resetState() {
+		public void reset() {
 			prevSrcRect=new Rectangle(0, 0, 0, 0);
 			minmaxs=new MinMax[imp.getNChannels()];
 			prevCal=new Calibration();
-			lastPosition=new int[3];
+			c=0; z=0; t=0;
+			isChanged.reset();
+		}
+		
+		static class IsChanged{
+			public boolean c,z,t,cal,minmax,srcRect, slice;
+			public void reset() {
+				slice=srcRect=minmax=cal=c=z=t=false;
+			}
 		}
 	}
 	
@@ -1453,19 +1461,19 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}
 	}
 	
+	
 	/*
 	 * ImageListener functions
 	 */
-
 	public void imageOpened(ImagePlus imp) {}
 
 	public void imageClosed(ImagePlus imp) {}
 
 	public void imageUpdated(ImagePlus uimp) {
 		if(imp.equals(uimp)) {
-			if(!go3d)myImageUpdated=true;
+			if(!go3d && !imageState.isChanged.minmax)myImageUpdated=true;
 			else {
-				if((lastPosition[0]==imp.getC()||imp.getCompositeMode()!=IJ.COMPOSITE) && lastPosition[1]==imp.getSlice() && lastPosition[2]==imp.getFrame()) {
+				if(!imageState.isChanged.slice) {
 					showUpdateButton(true);
 				}
 			}

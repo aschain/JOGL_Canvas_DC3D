@@ -445,7 +445,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				
 		if(myImageUpdated) {
 			if(go3d) {
-				if(!imageState.isChanged.slice) {
+				if(!imageState.isChanged.slice && !imageState.isChanged.minmax) {
 					sb.resetSlices();
 				}
 				for(int i=0;i<chs;i++){ 
@@ -463,7 +463,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				int cfr=sb.isFrameStack?0:fr;
 				if(JCP.usePBOforSlices) {
 					//IJ.log("sl:"+(sl+1)+" fr:"+(fr+1)+" lps:"+lastPosition[1]+" lpf:"+lastPosition[2]);
-					if(!imageState.isChanged.slice) {
+					if(!imageState.isChanged.slice && !imageState.isChanged.minmax) {
 						sb.resetSlices();
 						//I don't think I need to update all slices in all scenarios here
 						//not if lut was changed
@@ -820,10 +820,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		public MinMax[] minmaxs;
 		public Calibration prevCal;
 		public int c,z,t;
-		public IsChanged isChanged;
+		public IsChanged isChanged=new IsChanged();
 		
 		public ImageState(ImagePlus imp) {
 			this.imp=imp;
+			update();
 			reset();
 		}
 		
@@ -851,9 +852,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		
 		public void reset() {
 			prevSrcRect=new Rectangle(0, 0, 0, 0);
-			minmaxs=new MinMax[imp.getNChannels()];
-			prevCal=new Calibration();
-			c=0; z=0; t=0;
 			isChanged.reset();
 		}
 		
@@ -1471,9 +1469,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 
 	public void imageUpdated(ImagePlus uimp) {
 		if(imp.equals(uimp)) {
-			if(!go3d && !imageState.isChanged.minmax)myImageUpdated=true;
+			imageState.check();
+			if(!go3d)myImageUpdated=true;
 			else {
-				if(!imageState.isChanged.slice) {
+				if(!imageState.isChanged.slice && ! imageState.isChanged.minmax) {
 					showUpdateButton(true);
 				}
 			}

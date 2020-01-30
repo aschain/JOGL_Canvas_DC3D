@@ -80,6 +80,7 @@ public class JCP implements PlugIn {
 	public static float[][] anaColors;
 	public static boolean go3d=Prefs.get("ajs.joglcanvas.go3d", false);;
 	public static boolean wrappedBuffers=Prefs.get("ajs.joglcanvas.wrappedBuffers", true);
+	public static boolean debug=false;
 	private static float[][] duboisColors = new float[][] {
 		 {0.456f, -0.04f, -0.015f,
 		 0.5f, -0.038f, -0.021f,
@@ -316,8 +317,7 @@ public class JCP implements PlugIn {
 		}
 		if(defaultBitString==null || defaultBitString.equals("default")) return null;
 		setGLCapabilities(glCapabilities, defaultBitString);
-		IJ.log("GL Settings:");
-		IJ.log(""+glCapabilities);
+		IJ.log("GL Settings:"+glCapabilities);
 		return glCapabilities;
 	}
 	
@@ -728,5 +728,7 @@ public class JCP implements PlugIn {
 								{rr,rr,rr,gr,gr,gr,br,br,br}};
 		}
 	}
+	
+	public static void setDebug(boolean b) {debug=b;}
 
 }

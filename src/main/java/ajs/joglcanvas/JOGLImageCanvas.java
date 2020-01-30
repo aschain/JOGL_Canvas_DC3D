@@ -76,10 +76,12 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private static final long serialVersionUID = 1L;
 	
 	final protected GLCanvas icc;
+	final private StackBuffer sb;
+	private JCGLObjects glos;
 	protected boolean disablePopupMenu;
 	protected double dpimag=1.0;
 	protected boolean myImageUpdated=true;
-	protected boolean needImageUpdate=false;
+	//protected boolean needImageUpdate=false;
 	private boolean deletePBOs=false;
 	protected boolean isMirror=false;
 	private Frame mirror=null;
@@ -95,23 +97,19 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private PopupMenu dcpopup=null;
 	private MenuItem mi3d=null;
 	protected boolean myHZI=false;
-	
-	private StackBuffer sb;
 
 	private GL2GL3 gl=null;
-	private JCGLObjects glos;
-	private FloatBuffer zoomIndVerts=null;
+	final private FloatBuffer zoomIndVerts=GLBuffers.newDirectFloatBuffer(4*3+4*4);
 	private int lim;
 	private int undersample=JCP.undersample;
 	enum StereoType{OFF, CARDBOARD, ANAGLYPH, QUADBUFFER};
-	private static String[] stereoTypeStrings=new String[] {"Stereo off", "Google Cardboard-SBS","Anaglyph (red-cyan)","OpenGL Quad Buffers"};
+	private final static String[] stereoTypeStrings=new String[] {"Stereo off", "Google Cardboard-SBS","Anaglyph (red-cyan)","OpenGL Quad Buffers"};
 	private static final float CB_MAXSIZE=4f;
 	private static final float CB_TRANSLATE=0.5f;
 	private StereoType stereoType=StereoType.OFF;
 	private boolean stereoUpdated=true,threeDupdated=true;
 	private int[] stereoFramebuffers=new int[2];
 	private FloatBuffer avb;
-	private float[] initVerts;
 	private boolean mylock=false;
 
 	enum PixelType{BYTE, SHORT, FLOAT, INT_RGB10A2, INT_RGBA8};
@@ -132,6 +130,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		COMPS=1;//imp.getBitDepth()==24?3:imp.getNChannels();
 		if(!mirror) {setOverlay(imp.getCanvas().getOverlay());}
 		imageState=new ImageState(imp);
+		imageState.prevSrcRect=new Rectangle(0,0,0,0);
 		GLCapabilities glc=JCP.getGLCapabilities();
 		int bits=imp.getBitDepth();
 		if((bits<16 || bits==24)&& (glc.getRedBits()>8 || glc.getGreenBits()>8 || glc.getBlueBits()>8) ) {
@@ -216,8 +215,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		glos.getUniformBuffer("modelr").loadIdentity();
 		//global written during reshape call
 		
-		zoomIndVerts=GLBuffers.newDirectFloatBuffer(4*3+4*4);
-		
 		//int[] pf=new int[1];
 		//for(int i=1;i<5;i++) {
 		//	JCGLObjects.PixelTypeInfo pti=JCGLObjects.getPixelTypeInfo(getPixelType(),i);
@@ -242,7 +239,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 
 		ByteBuffer vertb=glos.getDirectBuffer(GL_ARRAY_BUFFER, "image3d");
 		int floatsPerVertex=6;
-		if(vertb==null || vertb.capacity()!=maxsize*floatsPerVertex*4*Buffers.SIZEOF_FLOAT) {
+		long vertbSize=maxsize*floatsPerVertex*4*Buffers.SIZEOF_FLOAT;
+		if(vertb==null || vertb.capacity()!=(int)vertbSize) {
 			int elementsPerSlice=6;
 			short[] e=new short[(int)maxsize*elementsPerSlice];
 			for(int i=0; i<(maxsize);i++) {
@@ -256,19 +254,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			glos.newBuffer(GL_ARRAY_BUFFER, "image3d", maxsize*floatsPerVertex*4*Buffers.SIZEOF_FLOAT, null);
 			glos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "image3d", elementBuffer.capacity()*Buffers.SIZEOF_SHORT, elementBuffer);
 			glos.newVao("image3d", 3, GL_FLOAT, 3, GL_FLOAT);
-		}
-		if(zmaxsls!=0) {
-			float zmax=(float)(zmaxsls)/(float)imageWidth;
-			float 	tw=(2*imageWidth-tex4div(imageWidth))/(float)imageWidth,
-					th=(2*imageHeight-tex4div(imageHeight))/(float)imageHeight;
-			//For display of the square, there are 3 space verts and 3 texture verts
-			//for each of the 4 points of the square.
-			initVerts=new float[] {
-					-1f, -1f, -zmax,   0, th, 1f,
-					 1f, -1f,  zmax,  tw, th, 0,
-					 1f,  1f,  zmax,  tw,  0, 0,
-					-1f,  1f, -zmax,   0,  0, 1f
-			};
 		}
 	}
 	
@@ -284,6 +269,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		glos.addLocation("anaglyph", "ana");
 		glos.addLocation("anaglyph", "dubois");
 		
+		//Unlike the image2d vertex buffer, this one is not vertically
+		//flipped with respect to the texture coordinates.
 		avb=GLBuffers.newDirectFloatBuffer(new float[] {
 				-1,	-1,	0, 	0,0,0.5f,
 				1,	-1,	0, 	1,0,0.5f,
@@ -377,7 +364,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}
 		if(threeDupdated || deletePBOs) {
 			if(go3d) {
-				if(!glos.textures.containsKey("image3d")) init3dTex();
+				init3dTex();
 				glos.getTexture("image3d").initiate(pixelType3d, sb.bufferWidth, sb.bufferHeight, sls, 1);
 			}else {
 				glos.getUniformBuffer("model").loadIdentity();
@@ -442,12 +429,17 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			sb.resetSlices();
 			deletePBOs=false;
 		}
+		
+		//if(needImageUpdate) {
+		//	if(imageState.isChanged.slice || imageState.isChanged.minmax)needImageUpdate=false;
+		//	else showUpdateButton(true);
+		//}
 				
 		if(myImageUpdated) {
+			if(!imageState.isChanged.slice && !imageState.isChanged.minmax) {
+				sb.resetSlices();
+			}
 			if(go3d) {
-				if(!imageState.isChanged.slice && !imageState.isChanged.minmax) {
-					sb.resetSlices();
-				}
 				for(int i=0;i<chs;i++){ 
 					for(int ifr=0;ifr<frms;ifr++) {
 						for(int isl=0;isl<sls;isl++) {
@@ -462,12 +454,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			}else {
 				int cfr=sb.isFrameStack?0:fr;
 				if(JCP.usePBOforSlices) {
-					//IJ.log("sl:"+(sl+1)+" fr:"+(fr+1)+" lps:"+lastPosition[1]+" lpf:"+lastPosition[2]);
-					if(!imageState.isChanged.slice && !imageState.isChanged.minmax) {
-						sb.resetSlices();
-						//I don't think I need to update all slices in all scenarios here
-						//not if lut was changed
-					}
 					if(!sb.isSliceUpdated(sl,fr)) {
 						try {
 							for(int i=0;i<chs;i++) {
@@ -498,8 +484,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				}
 			}
 			myImageUpdated=false;
-			if(needImageUpdate) {showUpdateButton(false);}
-			needImageUpdate=false;
+			//showUpdateButton(false);
+			//if(needImageUpdate) {needImageUpdate=false;}
 		}
 		if(go3d) {
 			for(int i=0;i<chs;i++) {
@@ -533,19 +519,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		for(int stereoi=0;stereoi<views;stereoi++) {
 			glos.useProgram("image");
 			if(go3d) {
-				int zmaxsls=(int)((cal.pixelDepth*(double)sls)/(cal.pixelWidth));
-				float zmax=(float)(zmaxsls)/(float)imageWidth;
-				
-				float 	tw=(2*imageWidth-tex4div(imageWidth))/(float)imageWidth,
-						th=(2*imageHeight-tex4div(imageHeight))/(float)imageHeight;
-				//For display of the square, there are 3 space verts and 3 texture verts
-				//for each of the 4 points of the square.
-				float[] initVerts=new float[] {
-						-1f, -1f, -zmax,   0, th, 1f,
-						 1f, -1f,  zmax,  tw, th, 0,
-						 1f,  1f,  zmax,  tw,  0, 0,
-						-1f,  1f, -zmax,   0,  0, 1f
-				};
 				//Rectangle r=getViewportAspectRectangle(0,0,drawable.getSurfaceWidth(),drawable.getSurfaceHeight());
 				int width=(int)(srcRectWidthMag*dpimag+0.5);
 				int height=(int)(srcRectHeightMag*dpimag+0.5);
@@ -602,7 +575,19 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				if(top)reverse=Yza==-rotate[6];
 				glos.getUniformBuffer("model").loadMatrix(FloatUtil.multMatrix(scale, FloatUtil.multMatrix(rotate, translate, new float[16]), new float[16]));
 				
-				if(ltr==null || !(ltr[0]==left && ltr[1]==top && ltr[2]==reverse) || imageState.isChanged.srcRect) {
+				if(ltr==null || !(ltr[0]==left && ltr[1]==top && ltr[2]==reverse) /*|| imageState.isChanged.srcRect*/) {
+					int zmaxsls=(int)((cal.pixelDepth*(double)sls)/(cal.pixelWidth));
+					float zmax=(float)(zmaxsls)/(float)imageWidth;
+					float 	tw=(2*imageWidth-tex4div(imageWidth))/(float)imageWidth,
+							th=(2*imageHeight-tex4div(imageHeight))/(float)imageHeight;
+					//For display of the square, there are 3 space verts and 3 texture verts
+					//for each of the 4 points of the square.
+					float[] initVerts=new float[] {
+							-1f, -1f, -zmax,   0, th, 1f,
+							 1f, -1f,  zmax,  tw, th, 0,
+							 1f,  1f,  zmax,  tw,  0, 0,
+							-1f,  1f, -zmax,   0,  0, 1f
+					};
 					ByteBuffer vertb=glos.getDirectBuffer(GL_ARRAY_BUFFER, "image3d");
 					vertb.clear();
 					if(left) { //left or right
@@ -799,7 +784,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				glos.stopProgram();
 			}
 		} //stereoi
-		//IJ.log("\\Update1:Display took: "+(System.nanoTime()-starttime)/1000000L+"ms");
+		if(JCP.debug)IJ.log("\\Update0:Display took: "+(System.nanoTime()-starttime)+"ns");
 		
 		if(imageUpdated) {imageUpdated=false;} //ImageCanvas imageupdated only for single ImagePlus
 		imageState.update();
@@ -825,7 +810,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		public ImageState(ImagePlus imp) {
 			this.imp=imp;
 			update();
-			reset();
 		}
 		
 		public void update() {
@@ -834,6 +818,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			minmaxs=MinMax.getMinMaxs(imp.getLuts());
 			prevCal=(Calibration)imp.getCalibration().clone();
 			c=imp.getC(); z=imp.getZ(); t=imp.getT();
+			reset();
 		}
 		
 		public void check() {
@@ -851,7 +836,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}
 		
 		public void reset() {
-			prevSrcRect=new Rectangle(0, 0, 0, 0);
 			isChanged.reset();
 		}
 		
@@ -1035,7 +1019,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	}
 	
 	public void revert() {
-		showUpdateButton(false);
+		//showUpdateButton(false);
 		if(isMirror){
 			imp.setProperty("JOGLImageCanvas", null);
 			new StackWindow(imp,new ImageCanvas(imp));
@@ -1469,12 +1453,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 
 	public void imageUpdated(ImagePlus uimp) {
 		if(imp.equals(uimp)) {
-			imageState.check();
 			if(!go3d)myImageUpdated=true;
 			else {
-				if(!imageState.isChanged.slice && ! imageState.isChanged.minmax) {
-					showUpdateButton(true);
-				}
+				//needImageUpdate=true;
 			}
 		}
 	}
@@ -1631,10 +1612,18 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	 * @param show
 	 */
 	public void showUpdateButton(boolean show) {
-		if(imp==null || imp.getWindow()==null || !(imp.getWindow() instanceof StackWindow))return;
-		if(needImageUpdate && show)return;
-		needImageUpdate=show;
+		boolean nowin=(imp==null || imp.getWindow()==null || !(imp.getWindow() instanceof StackWindow));
+		if(updateButton!=null && (!show || nowin)) {
+			Container parent=updateButton.getParent();
+			if(parent!=null) {parent.remove(updateButton);}
+			updateButton=null;
+		}
+		if(nowin)return;
 		StackWindow stwin=(StackWindow) imp.getWindow();
+		if(show && updateButton!=null) {
+			if(updateButton.getParent()!=null && updateButton.getParent().getParent()==stwin
+					&& updateButton.isEnabled())return;
+		}
 		ScrollbarWithLabel scr=null;
 		Component[] comps=stwin.getComponents();
 		for(int i=0;i<comps.length;i++) {
@@ -1642,24 +1631,32 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				scr=(ScrollbarWithLabel)comps[i];
 			}
 		}
-		if(updateButton !=null) {
-			Container parent=updateButton.getParent();
-			if(parent==null) updateButton=null;
-			else parent.remove(updateButton);
-		}
-		if(scr!=null && show) {
-			updateButton= new Button("Update");
-			updateButton.addActionListener(new ActionListener() {
-				public void actionPerformed(ActionEvent e) {
-					updateButton.setLabel("Updating...");
-					updateButton.setEnabled(false);
-					updateButton.repaint();
-					myImageUpdated=true; repaint();
-					if(isMirror && mirror==null)showUpdateButton(false);
+		if(scr!=null) {
+			//Remove any orphaned updateButtons, like with a crashed JOGLImageCanvas
+			comps=scr.getComponents();
+			for(int i=0;i<comps.length;i++) {
+				if(comps[i] instanceof Button) {
+					String label=((Button)comps[i]).getLabel();
+					if(label.equals("Update")||label.equals("Updating...")) {
+						scr.remove(comps[i]);
+					}
 				}
-			});
-			updateButton.setFocusable(false);
-			scr.add(updateButton,BorderLayout.EAST);
+			}
+			
+			if(show) {
+				updateButton= new Button("Update");
+				updateButton.addActionListener(new ActionListener() {
+					public void actionPerformed(ActionEvent e) {
+						updateButton.setLabel("Updating...");
+						updateButton.setEnabled(false);
+						updateButton.repaint();
+						if(isMirror && mirror==null) {showUpdateButton(false);return;}
+						myImageUpdated=true; repaint();
+					}
+				});
+				updateButton.setFocusable(false);
+				scr.add(updateButton,BorderLayout.EAST);
+			}
 			stwin.pack();
 		}
 	}

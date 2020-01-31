@@ -12,8 +12,6 @@ import ij.gui.StackWindow;
 import ij.measure.Calibration;
 import ij.process.LUT;
 
-import java.awt.BorderLayout;
-import java.awt.Button;
 import java.awt.CheckboxMenuItem;
 import java.awt.Color;
 import java.awt.Component;
@@ -32,6 +30,8 @@ import java.awt.PopupMenu;
 import java.awt.Rectangle;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.AdjustmentEvent;
+import java.awt.event.AdjustmentListener;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
 import java.awt.event.KeyEvent;
@@ -92,7 +92,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	protected boolean go3d=JCP.go3d;
 	public String renderFunction=JCP.renderFunction;
 	protected int sx,sy;
-	protected float dx=0f,dy=0f,dz=0f;
+	protected float dx=0f,dy=0f,dz=0f, tz=0f;
 	
 	private PopupMenu dcpopup=null;
 	private MenuItem mi3d=null;
@@ -120,7 +120,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private BIScreenGrabber myscreengrabber=null;
 	private AWTGLReadBufferUtil ss=null;
 	private RoiGLDrawUtility rgldu=null;
-	private Button updateButton;
+	private boolean scbrAdjusting=false;
+	//private Button updateButton;
 	//private long starttime=0;
 
 	public JOGLImageCanvas(ImagePlus imp, boolean mirror) {
@@ -230,6 +231,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			setSize(s);
 			icc.getParent().setSize(s.width+ins.left+ins.right,s.height+ins.top+ins.bottom);
 		}
+		addAdjustmentListening();
 	}
 	
 	private void init3dTex() {
@@ -388,7 +390,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					Roi oroi=overlay.get(i);
 					oroi.setImage(imp);
 					int rc=oroi.getCPosition(), rz=oroi.getZPosition(),rt=oroi.getTPosition();
-					if((rc==0||rc==imp.getC()) && (rz==0||rz==(sl+1)) && (rt==0||rt==imp.getT())) {oroi.drawOverlay(g); doRoi=true;}
+					if((rc==0||rc==imp.getC()) && (rz==0||rz==(sl+1)) && (rt==0||rt==fr)) {oroi.drawOverlay(g); doRoi=true;}
 				}
 			}
 			if(doRoi)glos.getTexture("roiGraphic").createRgbaTexture(AWTTextureIO.newTextureData(gl.getGLProfile(), roiImage, false).getBuffer(), roiImage.getWidth(), roiImage.getHeight(), 1, 4, false);
@@ -434,9 +436,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		//	if(imageState.isChanged.slice || imageState.isChanged.minmax)needImageUpdate=false;
 		//	else showUpdateButton(true);
 		//}
-				
+		
+		//IJ.log("miu:"+myImageUpdated+" sb.r:"+(myImageUpdated&& !imageState.isChanged.czt && !imageState.isChanged.minmax && !scbrAdjusting)+" "+imageState);
 		if(myImageUpdated) {
-			if(!imageState.isChanged.slice && !imageState.isChanged.minmax) {
+			if(!imageState.isChanged.czt && !imageState.isChanged.minmax && !scbrAdjusting) {
 				sb.resetSlices();
 			}
 			if(go3d) {
@@ -500,7 +503,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				scY=(float)imageHeight/srcRect.height;
 		float[] translate=null,scale=null,rotate=null;
 		if( (imageState.isChanged.srcRect) || go3d) {
-			translate=FloatUtil.makeTranslation(new float[16], false, trX, trY, 0f);
+			translate=FloatUtil.makeTranslation(new float[16], false, trX, trY, go3d?tz:0f);
+			if(tz>1.0f)tz=-1.0f;
+			if(tz<-1.0f)tz=1.0f;
 			scale=FloatUtil.makeScale(new float[16], false, scX, scY, scX);
 			if(!go3d)
 				glos.getUniformBuffer("model").loadMatrix(FloatUtil.multMatrix(scale, translate));//note this modifies scale
@@ -560,6 +565,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				float dxst=(float)dx;
 				if(stereoi>0) {dxst-=(float)JCP.stereoSep; if(dxst<0)dxst+=360f;}
 				rotate=FloatUtil.makeRotationEuler(new float[16], 0, dy*FloatUtil.PI/180f, (float)dxst*FloatUtil.PI/180f, (float)dz*FloatUtil.PI/180f);
+				//if(tz!=0) {
+				//	rotate=FloatUtil.multMatrix(FloatUtil.makeTranslation(new float[16], false, 0, 0, tz), rotate);
+				//	if(tz>1.0f)tz=-1.0f;
+				//	if(tz<-1.0f)tz=1.0f;
+				//}
 				//IJ.log("\\Update0:X x"+Math.round(100.0*matrix[0])/100.0+" y"+Math.round(100.0*matrix[1])/100.0+" z"+Math.round(100.0*matrix[2])/100.0);
 				//IJ.log("\\Update1:Y x"+Math.round(100.0*matrix[4])/100.0+" y"+Math.round(100.0*matrix[5])/100.0+" z"+Math.round(100.0*matrix[6])/100.0);
 				//IJ.log("\\Update2:Z x"+Math.round(100.0*matrix[8])/100.0+" y"+Math.round(100.0*matrix[9])/100.0+" z"+Math.round(100.0*matrix[10])/100.0);
@@ -813,8 +823,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}
 		
 		public void update() {
-			Rectangle srcRect=imp.getCanvas().getSrcRect();
-			prevSrcRect=new Rectangle(srcRect.x,srcRect.y,srcRect.width,srcRect.height);
+			prevSrcRect=(Rectangle)imp.getCanvas().getSrcRect().clone();
 			minmaxs=MinMax.getMinMaxs(imp.getLuts());
 			prevCal=(Calibration)imp.getCalibration().clone();
 			c=imp.getC(); z=imp.getZ(); t=imp.getT();
@@ -822,17 +831,18 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}
 		
 		public void check() {
-			isChanged.srcRect=prevSrcRect.equals(imp.getCanvas().getSrcRect());
+			isChanged.srcRect=!prevSrcRect.equals(imp.getCanvas().getSrcRect());
 			MinMax[] newMinmaxs=MinMax.getMinMaxs(imp.getLuts());
 			isChanged.minmax=false;
 			for(int i=0;i<minmaxs.length;i++) {
 				if(newMinmaxs[i].min!=minmaxs[i].min || newMinmaxs[i].max!=minmaxs[i].max)isChanged.minmax=true;
 			}
-			isChanged.cal=prevCal.equals(imp.getCalibration());
+			isChanged.cal=!prevCal.equals(imp.getCalibration());
 			isChanged.c=(c!=imp.getC());
 			isChanged.z=(z!=imp.getZ());
 			isChanged.t=(t!=imp.getT());
-			isChanged.slice=!((c==imp.getC()||imp.getCompositeMode()!=IJ.COMPOSITE) && z==imp.getSlice() && t==imp.getFrame());
+			isChanged.czt=(isChanged.c || isChanged.z || isChanged.t);
+			isChanged.slice=!((c==imp.getC()||imp.getCompositeMode()==IJ.COMPOSITE) && z==imp.getSlice() && t==imp.getFrame());
 		}
 		
 		public void reset() {
@@ -840,10 +850,14 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}
 		
 		static class IsChanged{
-			public boolean c,z,t,cal,minmax,srcRect, slice;
+			public boolean c,z,t,czt,cal,minmax,srcRect, slice;
 			public void reset() {
-				slice=srcRect=minmax=cal=c=z=t=false;
+				slice=srcRect=minmax=cal=czt=c=z=t=false;
 			}
+		}
+		
+		public String toString() {
+			return ("isChanged: c:"+isChanged.c+" z:"+isChanged.z+" t:"+isChanged.t+" cal:"+isChanged.cal+" minmax:"+isChanged.minmax+" srcRect:"+isChanged.srcRect+" slice:"+isChanged.slice);
 		}
 	}
 	
@@ -1521,6 +1535,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	
 	@Override
 	public void mousePressed(MouseEvent e) {
+		//if(go3d && ((e.getModifiersEx() & (MouseEvent.BUTTON1_DOWN_MASK | MouseEvent.BUTTON3_DOWN_MASK))>0))resetAngles();
 		if(shouldKeep(e)) {
 			sx = e.getX();
 			sy = e.getY();
@@ -1537,14 +1552,16 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				scroll(e.getX(),e.getY());
 				imp.getCanvas().setSourceRect(srcRect);
 			}else if(go3d){
-				if(IJ.altKeyDown() || e.getButton()==MouseEvent.BUTTON2) {
-					dz+=(float)(e.getY()-sy)/(float)srcRect.height*90f;
-					sy=e.getY();
+				float xd=(float)(e.getX()-sx)/(float)srcRect.width;
+				float yd=(float)(e.getY()-sy)/(float)srcRect.height;
+				sx=e.getX(); sy=e.getY();
+				if(IJ.altKeyDown()||e.getButton()==MouseEvent.BUTTON2) {
+					dz+=yd*90f;
+				}else if(IJ.shiftKeyDown()) {
+					tz+=yd;
 				}else {
-					dx+=(float)(e.getX()-sx)/(float)srcRect.width*90f;
-					sx=e.getX();
-					dy+=(float)(e.getY()-sy)/(float)srcRect.height*90f;
-					sy=e.getY();
+					dx+=xd*90f;
+					dy+=yd*90f;
 				}
 				if(dz<0)dz+=360; if(dz>360)dz-=360;
 				if(dx<0)dx+=360; if(dx>360)dx-=360;
@@ -1558,14 +1575,14 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	@Override
 	public void mouseReleased(MouseEvent e) {
 		if(shouldKeep(e)) {
-			if((IJ.shiftKeyDown())) {
-				resetAngles();
-			}
+			//if((IJ.shiftKeyDown())) {
+			//	resetAngles();
+			//}
 		}else super.mouseReleased(e);
 	}
 	
 	public void resetAngles() {
-		dx=0f; dy=0f; dz=0f;
+		dx=0f; dy=0f; dz=0f; tz=0f;
 		icc.repaint();
 	}
 	
@@ -1602,6 +1619,23 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		dpimag=dpi;
 	}
 	
+	private void addAdjustmentListening() {
+		if(imp==null || imp.getWindow()==null || !(imp.getWindow() instanceof StackWindow)) {IJ.log("no imp window"); return;}
+		StackWindow stwin=(StackWindow) imp.getWindow();
+		Component[] comps=stwin.getComponents();
+		for(int i=0;i<comps.length;i++) {
+			if(comps[i] instanceof ScrollbarWithLabel) {
+				ScrollbarWithLabel scr=(ScrollbarWithLabel)comps[i];
+				scr.addAdjustmentListener(new AdjustmentListener() {
+					@Override
+					public void adjustmentValueChanged(AdjustmentEvent e) {
+						scbrAdjusting=e.getValueIsAdjusting();
+					}
+				});
+			}
+		}
+	}
+	
 	/**
 	 * Adds an update button the the window.
 	 * The 3D image takes some time to load into memory,
@@ -1611,7 +1645,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	 * u) to update the 3d image.
 	 * @param show
 	 */
-	public void showUpdateButton(boolean show) {
+	/*public void showUpdateButton(boolean show) {
 		boolean nowin=(imp==null || imp.getWindow()==null || !(imp.getWindow() instanceof StackWindow));
 		if(updateButton!=null && (!show || nowin)) {
 			Container parent=updateButton.getParent();
@@ -1621,14 +1655,19 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(nowin)return;
 		StackWindow stwin=(StackWindow) imp.getWindow();
 		if(show && updateButton!=null) {
-			if(updateButton.getParent()!=null && updateButton.getParent().getParent()==stwin
-					&& updateButton.isEnabled())return;
+			if(updateButton.getParent()!=null && updateButton.getParent().getParent()==stwin && updateButton.isEnabled())return;
 		}
 		ScrollbarWithLabel scr=null;
 		Component[] comps=stwin.getComponents();
 		for(int i=0;i<comps.length;i++) {
 			if(comps[i] instanceof ij.gui.ScrollbarWithLabel) {
 				scr=(ScrollbarWithLabel)comps[i];
+				scr.addAdjustmentListener(new AdjustmentListener() {
+					@Override
+					public void adjustmentValueChanged(AdjustmentEvent e) {
+						sbAdjusting=e.getValueIsAdjusting();
+					}
+				});
 			}
 		}
 		if(scr!=null) {
@@ -1660,6 +1699,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			stwin.pack();
 		}
 	}
+	*/
 	
 	/**
 	 * Perhaps this could be integrated with plugins like CLIJ

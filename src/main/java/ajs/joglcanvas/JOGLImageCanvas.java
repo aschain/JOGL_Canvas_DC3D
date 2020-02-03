@@ -390,7 +390,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					Roi oroi=overlay.get(i);
 					oroi.setImage(imp);
 					int rc=oroi.getCPosition(), rz=oroi.getZPosition(),rt=oroi.getTPosition();
-					if((rc==0||rc==imp.getC()) && (rz==0||rz==(sl+1)) && (rt==0||rt==fr)) {oroi.drawOverlay(g); doRoi=true;}
+					if((rc==0||rc==imp.getC()) && (rz==0||rz==imp.getZ()) && (rt==0||rt==imp.getT())) {oroi.drawOverlay(g); doRoi=true;}
 				}
 			}
 			if(doRoi)glos.getTexture("roiGraphic").createRgbaTexture(AWTTextureIO.newTextureData(gl.getGLProfile(), roiImage, false).getBuffer(), roiImage.getWidth(), roiImage.getHeight(), 1, 4, false);
@@ -1017,9 +1017,12 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	}
 	
 	private void updateMirror() {
-		srcRect=imp.getCanvas().getSrcRect();
-		magnification=imp.getCanvas().getMagnification();
-		Dimension s=imp.getCanvas().getSize();
+		if(imp==null) {revert();return;}
+		ImageCanvas ic=imp.getCanvas();
+		if(ic==null) {revert();return;}
+		srcRect=ic.getSrcRect();
+		magnification=ic.getMagnification();
+		Dimension s=ic.getSize();
 		Insets ins=icc.getParent().getInsets();
 		if(!mirrorMagUnlock && !icc.getSize().equals(s)) {
 			setSize(s);
@@ -1035,8 +1038,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	public void revert() {
 		//showUpdateButton(false);
 		if(isMirror){
-			imp.setProperty("JOGLImageCanvas", null);
-			new StackWindow(imp,new ImageCanvas(imp));
+			if(imp!=null) {
+				imp.setProperty("JOGLImageCanvas", null);
+				new StackWindow(imp,new ImageCanvas(imp));
+			}
 			mirror.dispose();
 			mirror=null;
 		}else {
@@ -1558,7 +1563,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				if(IJ.altKeyDown()||e.getButton()==MouseEvent.BUTTON2) {
 					dz+=yd*90f;
 				}else if(IJ.shiftKeyDown()) {
-					tz+=yd;
+					tz-=yd;
 				}else {
 					dx+=xd*90f;
 					dy+=yd*90f;

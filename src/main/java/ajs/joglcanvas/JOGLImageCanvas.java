@@ -94,6 +94,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	public String renderFunction=JCP.renderFunction;
 	protected int sx,sy;
 	protected float dx=0f,dy=0f,dz=0f, tz=0f;
+	private float[] gamma=null;
 	
 	private PopupMenu dcpopup=null;
 	private MenuItem mi3d=null;
@@ -611,7 +612,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					if(left) { //left or right
 						for(float p=cutPlanes.x;p<cutPlanes.w;p+=1.0f) {
 							float xt,xv, pn;
-							if(!reverse) pn=p;
+							if(reverse) pn=p;
 							else pn=cutPlanes.w-(p-cutPlanes.x);
 							xt=(pn+0.5f)/imageWidth*tw;
 							xv=xt*2f-1f;
@@ -623,7 +624,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						}
 						lim*=24;
 					} else if(top) { //top or bottom
-						IJ.log("cpx:"+cutPlanes.x+" cpw:"+cutPlanes.w+" rev:"+reverse);
 						for(float p=cutPlanes.y;p<cutPlanes.h;p+=1.0f) {
 							float yt,yv,pn;
 							if(!reverse) pn=p;
@@ -713,7 +713,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				lutMatrixPointer.putFloat(min);
 				lutMatrixPointer.putFloat(max);
 				lutMatrixPointer.putFloat(color);
-				lutMatrixPointer.putFloat(0f); //padding for vec3 std140
+				lutMatrixPointer.putFloat((gamma==null || gamma.length<=i)?0f:gamma[i]); //padding for vec3 std140
 			}
 			lutMatrixPointer.rewind();
 			
@@ -826,6 +826,12 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		cutPlanesChanged=true;
 		repaint();
 	}
+	
+	public void setGamma(float[] gamma) {
+		this.gamma=gamma;
+		repaint();
+	}
+	public float[] getGamma() {return gamma;}
 	
 	public FloatCube getCutPlanesCube() {
 		FloatCube c=cutPlanes;
@@ -1372,7 +1378,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 
 			addMI(threeDmenu,"Update 3d Image","update");
 			addMI(threeDmenu,"Reset 3d view","reset3d");
-			addMI(threeDmenu,"Show 3d Adjuster","adjust3d");
+			addMI(threeDmenu,"Adjust Cut Planes","adjust3d");
+			addMI(threeDmenu,"Adjust Gamma","gamma");
 			
 			menu=new Menu("Stereoscopic 3d");
 			for(int i=0;i<stereoTypeStrings.length;i++) {
@@ -1433,6 +1440,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		else if(cmd.equals("revert")){revert();}
 		else if(cmd.equals("reset3d")){resetAngles();}
 		else if(cmd.equals("adjust3d")){new JCCutPlanes(this);}
+		else if(cmd.equals("gamma")){new JCGamma(this);}
 		else if(cmd.equals("prefs")){JCP.preferences();}
 		else if(cmd.equals("Recorder")){
 			IJ.run("JOGL Canvas Recorder",imp.getTitle());

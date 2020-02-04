@@ -27,6 +27,7 @@ void main(){
 				return;
 			}else{
 				float col=max((texColor.r-lut.r),0.0)/(lut.g-lut.r);
+				if(lut.a>0.04)col=exp(lut.a*log(col));
 				color[2]=(rgb>3);
 				if(color[2])rgb=rgb-4;
 				color[1]=(rgb>1);

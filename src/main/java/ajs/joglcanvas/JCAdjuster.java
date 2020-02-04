@@ -15,6 +15,8 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.AdjustmentEvent;
 import java.awt.event.AdjustmentListener;
+import java.awt.event.FocusEvent;
+import java.awt.event.FocusListener;
 
 import ajs.joglcanvas.JOGLImageCanvas.FloatCube;
 import ij.IJ;
@@ -46,12 +48,20 @@ public abstract class JCAdjuster extends PlugInDialog implements AdjustmentListe
 		private char label;
 		private int exp;
 		
-		public NumberScrollPanel(int val, int min, int max, char label, int exp) {
-			super(null, val, 1, min, max, label);
+		public NumberScrollPanel(float val, int min, int max, char label, int exp) {
+			super(null, (int)(val*Math.pow(10, exp)), 1, min, max, label);
 			Component[] comps=getComponents();
 			for(Component comp:comps)if(comp instanceof Scrollbar)sb=(Scrollbar)comp;
-			textfield=new TextField(""+val,4);
+			textfield=new TextField(String.format("%."+exp+"f",val),4);
 			textfield.addActionListener(this);
+			textfield.addFocusListener(new FocusListener() {
+				@Override
+				public void focusGained(FocusEvent e) {
+					textfield.selectAll();
+				}
+				@Override
+				public void focusLost(FocusEvent e) {}
+			});
 			add(textfield, BorderLayout.EAST);
 			this.label=label;
 			this.exp=exp;
@@ -77,7 +87,7 @@ public abstract class JCAdjuster extends PlugInDialog implements AdjustmentListe
 			String text=textfield.getText();
 			int val;
 			try {
-				val=Integer.parseInt(text);
+				val=(int)(Float.parseFloat(text)*Math.pow(10, exp));
 				setValue(val);
 				adjustmentValueChanged(new AdjustmentEvent(sb, AdjustmentEvent.ADJUSTMENT_VALUE_CHANGED, AdjustmentEvent.TRACK, val, false));
 			}catch(Exception ex) {

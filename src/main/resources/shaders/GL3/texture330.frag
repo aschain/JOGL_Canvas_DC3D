@@ -6,7 +6,7 @@ precision highp int;
 layout(std140, column_major) uniform;
 
 uniform lutblock{
-	highp vec3 luts[6];
+	highp vec4 luts[6];
 };
 in vec3 texCoord;
 // Outgoing final color.
@@ -17,7 +17,7 @@ uniform highp sampler3D mytex[6];
 void main(){
 	outputColor=vec4(0,0,0,0);
 	for(int i=0;i<6;i++){
-		vec3 lut=luts[i];
+		vec4 lut=luts[i];
 		int rgb=int(lut.b);
 		if(rgb>0){
 			bool color[3];
@@ -34,6 +34,7 @@ void main(){
 				outputColor.b=texColor.a;
 			}else{
 				float col=max((texColor.r-lut.r),0.0)/(lut.g-lut.r);
+				if(lut.a>0.04)col=exp(lut.a*log(col));
 				color[2]=(rgb>3);
 				if(color[2])rgb=rgb-4;
 				color[1]=(rgb>1);

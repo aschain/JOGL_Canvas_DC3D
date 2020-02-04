@@ -47,9 +47,10 @@ public abstract class JCAdjuster extends PlugInDialog implements AdjustmentListe
 		private Scrollbar sb;
 		private char label;
 		private int exp;
+		private float div;
 		
-		public NumberScrollPanel(float val, int min, int max, char label, int exp) {
-			super(null, (int)(val*Math.pow(10, exp)), 1, min, max, label);
+		public NumberScrollPanel(float val, float min, float max, char label, int exp) {
+			super(null, (int)(val*Math.pow(10, exp)), 1, (int)(min*Math.pow(10, exp)), (int)(max*Math.pow(10, exp)), label);
 			Component[] comps=getComponents();
 			for(Component comp:comps)if(comp instanceof Scrollbar)sb=(Scrollbar)comp;
 			textfield=new TextField(String.format("%."+exp+"f",val),4);
@@ -65,10 +66,10 @@ public abstract class JCAdjuster extends PlugInDialog implements AdjustmentListe
 			add(textfield, BorderLayout.EAST);
 			this.label=label;
 			this.exp=exp;
+			div=(float)Math.pow(10, exp);
 		}
 		
 		public char getLabel() {return label;}
-		public int getExp() {return exp;}
 		
 		public Dimension getPreferredSize() {
 			Dimension dim = super.getPreferredSize();
@@ -76,10 +77,26 @@ public abstract class JCAdjuster extends PlugInDialog implements AdjustmentListe
 			return dim;
 		}
 		
+		public void setFloatValue(float val) {
+			super.setValue((int)(val*div));
+			textfield.setText(String.format("%."+exp+"f",val));
+		}
+		
+		@Override
+		public void setValue(int val) {
+			super.setValue(val);
+			textfield.setText(String.format("%."+exp+"f",(float)val/div));
+		}
+		
+		
+		public float getFloatValue() {
+			return (float)getValue()/div;
+		}
+		
 		@Override
 		public void adjustmentValueChanged(AdjustmentEvent e) {
 			super.adjustmentValueChanged(e);
-			textfield.setText(String.format("%."+exp+"f", (float)e.getValue()/(float)Math.pow(10, exp)));
+			textfield.setText(String.format("%."+exp+"f", (float)e.getValue()/div));
 		}
 
 		@Override
@@ -87,7 +104,7 @@ public abstract class JCAdjuster extends PlugInDialog implements AdjustmentListe
 			String text=textfield.getText();
 			int val;
 			try {
-				val=(int)(Float.parseFloat(text)*Math.pow(10, exp));
+				val=(int)(Float.parseFloat(text)*div);
 				setValue(val);
 				adjustmentValueChanged(new AdjustmentEvent(sb, AdjustmentEvent.ADJUSTMENT_VALUE_CHANGED, AdjustmentEvent.TRACK, val, false));
 			}catch(Exception ex) {

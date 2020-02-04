@@ -93,7 +93,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	protected boolean go3d=JCP.go3d;
 	public String renderFunction=JCP.renderFunction;
 	protected int sx,sy;
-	protected float dx=0f,dy=0f,dz=0f, tz=0f;
+	protected float dx=0f,dy=0f,dz=0f, tx=0f, ty=0f, tz=0f;
 	private float[] gamma=null;
 	
 	private PopupMenu dcpopup=null;
@@ -507,9 +507,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				scY=(float)imageHeight/srcRect.height;
 		float[] translate=null,scale=null,rotate=null;
 		if( (imageState.isChanged.srcRect) || go3d) {
-			translate=FloatUtil.makeTranslation(new float[16], false, trX, trY, go3d?tz:0f);
-			if(tz>1.0f)tz=-1.0f;
-			if(tz<-1.0f)tz=1.0f;
+			if(tx>2.0f)tx=2.0f; if(tx<-2.0f)tx=-2.0f;
+			if(ty>2.0f)ty=2.0f; if(ty<-2.0f)ty=-2.0f;
+			if(tz>2.0f)tz=2.0f; if(tz<-2.0f)tz=-2.0f;
+			translate=FloatUtil.makeTranslation(new float[16], false, trX+(go3d?tx:0f), trY+(go3d?ty:0f), go3d?tz:0f);
 			scale=FloatUtil.makeScale(new float[16], false, scX, scY, scX);
 			if(!go3d)
 				glos.getUniformBuffer("model").loadMatrix(FloatUtil.multMatrix(scale, translate));//note this modifies scale
@@ -1380,6 +1381,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			addMI(threeDmenu,"Reset 3d view","reset3d");
 			addMI(threeDmenu,"Adjust Cut Planes","adjust3d");
 			addMI(threeDmenu,"Adjust Gamma","gamma");
+			addMI(threeDmenu,"Adjust Rot-Trans","rottrans");
 			
 			menu=new Menu("Stereoscopic 3d");
 			for(int i=0;i<stereoTypeStrings.length;i++) {
@@ -1441,6 +1443,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		else if(cmd.equals("reset3d")){resetAngles();}
 		else if(cmd.equals("adjust3d")){new JCCutPlanes(this);}
 		else if(cmd.equals("gamma")){new JCGamma(this);}
+		else if(cmd.equals("rottrans")){new JCRotator(this);}
 		else if(cmd.equals("prefs")){JCP.preferences();}
 		else if(cmd.equals("Recorder")){
 			IJ.run("JOGL Canvas Recorder",imp.getTitle());
@@ -1640,7 +1643,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	}
 	
 	public void resetAngles() {
-		dx=0f; dy=0f; dz=0f; tz=0f;
+		dx=0f; dy=0f; dz=0f; tx=0f; ty=0f; tz=0f;
 		icc.repaint();
 	}
 	
@@ -1666,11 +1669,19 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	
 	/**
 	 * For testing or in case one needs the current angles
-	 * caused by dragging the 3d image.
-	 * @return float[]{dx, dy, dz}
+	 * in degrees caused by dragging the 3d image.
+	 * Adding translation in here, too (in -1f to 1f float).
+	 * @return float[]{dx, dy, dz, tx, ty, tz}
 	 */
 	public float[] getEulerAngles() {
-		return new float[] {dx,dy,dz};
+		return new float[] {dx,dy,dz,tx,ty,tz};
+	}
+	
+	public void setEulerAngles(float[] eas) {
+		if(eas==null || eas.length!=6) {resetAngles(); return;}
+		dx=eas[0]; dy=eas[1]; dz=eas[2];
+		tx=eas[3]; ty=eas[4]; tz=eas[5];
+		repaint();
 	}
 	
 	public void setGuiDPI(double dpi) {

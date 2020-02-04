@@ -31,7 +31,7 @@ public class JCGamma extends JCAdjuster {
 		nsps=new NumberScrollPanel[imp.getNChannels()];
 		for(int i=0;i<imp.getNChannels();i++) {
 			c.gridy++;
-			nsps[i]=new NumberScrollPanel(inits[i],5,500,cps[i],2);
+			nsps[i]=new NumberScrollPanel(inits[i],0,500,cps[i],2);
 			add(nsps[i], c);
 			nsps[i].addAdjustmentListener(this);
 			//nsp.setFocusable(false);

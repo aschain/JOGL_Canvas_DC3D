@@ -121,6 +121,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private AWTGLReadBufferUtil ss=null;
 	private RoiGLDrawUtility rgldu=null;
 	private boolean scbrAdjusting=false;
+	private FloatCube cutPlanes=new FloatCube(0,0,0,1f,1f,1f);
 	//private Button updateButton;
 	//private long starttime=0;
 
@@ -590,13 +591,14 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					float zmax=(float)(zmaxsls)/(float)imageWidth;
 					float 	tw=(2*imageWidth-tex4div(imageWidth))/(float)imageWidth,
 							th=(2*imageHeight-tex4div(imageHeight))/(float)imageHeight;
+					FloatCube gcp=cutPlanes.toGLcoords();
 					//For display of the square, there are 3 space verts and 3 texture verts
 					//for each of the 4 points of the square.
 					float[] initVerts=new float[] {
-							-1f, -1f, -zmax,   0, th, 1f,
-							 1f, -1f,  zmax,  tw, th, 0,
-							 1f,  1f,  zmax,  tw,  0, 0,
-							-1f,  1f, -zmax,   0,  0, 1f
+							gcp.x, gcp.y, zmax*gcp.z,   cutPlanes.x, th*cutPlanes.h, cutPlanes.d,
+							gcp.w, gcp.y, zmax*gcp.d,  tw*cutPlanes.w, th*cutPlanes.h, cutPlanes.z,
+							gcp.w, gcp.h, zmax*gcp.d,  tw*cutPlanes.w,  cutPlanes.y, cutPlanes.z,
+							gcp.x, gcp.h, zmax*gcp.z,   cutPlanes.x,  cutPlanes.y, cutPlanes.d
 					};
 					ByteBuffer vertb=glos.getDirectBuffer(GL_ARRAY_BUFFER, "image3d");
 					vertb.clear();
@@ -807,6 +809,34 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}
 		//imp.unlock();
 		mylock=false;
+	}
+
+	public void setCutPlanesCube(FloatCube c) {
+		cutPlanes.x=c.x;
+		cutPlanes.y=c.y;
+		cutPlanes.z=c.z;
+		cutPlanes.w=c.w;
+		cutPlanes.h=c.h;
+		cutPlanes.d=c.d;
+	}
+	
+	public FloatCube getCutPlanesCube() {
+		FloatCube c=cutPlanes;
+		return new FloatCube(c.x,c.y,c.z,c.w,c.h,c.d);
+	}
+	
+	class FloatCube{
+		public float x,y,z,w,h,d;
+		
+		public FloatCube(float x, float y, float z, float width, float height, float depth) {
+			this.x=x; this.y=y; this.z=z;
+			this.w=width; this.h=height; this.d=depth;
+		}
+		
+		public FloatCube toGLcoords() {
+			return new FloatCube(x*2f-1f, y*2f-1f, z*2f-1f, w*2f-1f, h*2f-1f, z*2f-1f);
+		}
+		
 	}
 	
 	static class ImageState{
@@ -1329,6 +1359,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 
 			addMI(threeDmenu,"Update 3d Image","update");
 			addMI(threeDmenu,"Reset 3d view","reset3d");
+			addMI(threeDmenu,"Show 3d Adjuster","adjust3d");
 			
 			menu=new Menu("Stereoscopic 3d");
 			for(int i=0;i<stereoTypeStrings.length;i++) {
@@ -1388,6 +1419,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}
 		else if(cmd.equals("revert")){revert();}
 		else if(cmd.equals("reset3d")){resetAngles();}
+		else if(cmd.equals("adjust3d")){new JCAdjuster(this);}
 		else if(cmd.equals("prefs")){JCP.preferences();}
 		else if(cmd.equals("Recorder")){
 			IJ.run("JOGL Canvas Recorder",imp.getTitle());

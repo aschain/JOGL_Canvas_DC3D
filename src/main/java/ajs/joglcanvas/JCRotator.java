@@ -10,13 +10,11 @@ import java.awt.Point;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.AdjustmentEvent;
-
-import ajs.joglcanvas.JOGLImageCanvas.FloatCube;
-import ij.ImageListener;
-import ij.ImagePlus;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseMotionListener;
 
 @SuppressWarnings("serial")
-public class JCRotator extends JCAdjuster implements ImageListener {
+public class JCRotator extends JCAdjuster implements MouseMotionListener {
 	
 	private final static char[] cps=new char[] {'X','Y','Z'};
 	NumberScrollPanel[] rnsps= new NumberScrollPanel[3];
@@ -65,7 +63,7 @@ public class JCRotator extends JCAdjuster implements ImageListener {
 		Point loc=win.getLocation();
 		setLocation(new Point(loc.x+win.getSize().width+10,loc.y+5));
 		show();
-		ImagePlus.addImageListener(this);
+		jic.icc.addMouseMotionListener(this);
 	}
 
 	@Override
@@ -84,18 +82,14 @@ public class JCRotator extends JCAdjuster implements ImageListener {
 	}
 
 	@Override
-	public void imageOpened(ImagePlus imp) {}
-	@Override
-	public void imageClosed(ImagePlus imp) {}
-	@Override
-	public void imageUpdated(ImagePlus imp) {
-		if(imp==this.imp) {
-			float[] inits=jic.getEulerAngles();
-			for(int i=0;i<rnsps.length;i++) {
-				rnsps[i].setFloatValue(inits[i]);
-				tnsps[i].setFloatValue(inits[i+3]);
-				repaint();
-			}
+	public void mouseDragged(MouseEvent e) {
+		float[] inits=jic.getEulerAngles();
+		for(int i=0;i<rnsps.length;i++) {
+			rnsps[i].setFloatValue(inits[i]);
+			tnsps[i].setFloatValue(inits[i+3]);
+			repaint();
 		}
 	}
+	@Override
+	public void mouseMoved(MouseEvent e) {}
 }

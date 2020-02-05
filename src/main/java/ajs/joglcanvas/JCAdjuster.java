@@ -2,13 +2,7 @@ package ajs.joglcanvas;
 
 import java.awt.BorderLayout;
 import java.awt.Component;
-import java.awt.Container;
 import java.awt.Dimension;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
-import java.awt.Insets;
-import java.awt.Label;
-import java.awt.Point;
 import java.awt.Scrollbar;
 import java.awt.TextField;
 import java.awt.event.ActionEvent;
@@ -18,8 +12,6 @@ import java.awt.event.AdjustmentListener;
 import java.awt.event.FocusEvent;
 import java.awt.event.FocusListener;
 
-import ajs.joglcanvas.JOGLImageCanvas.FloatCube;
-import ij.IJ;
 import ij.ImagePlus;
 import ij.gui.ScrollbarWithLabel;
 import ij.plugin.frame.PlugInDialog;

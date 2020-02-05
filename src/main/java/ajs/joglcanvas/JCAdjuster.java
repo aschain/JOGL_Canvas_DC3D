@@ -3,6 +3,7 @@ package ajs.joglcanvas;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Dimension;
+import java.awt.Event;
 import java.awt.Scrollbar;
 import java.awt.TextField;
 import java.awt.event.ActionEvent;
@@ -53,7 +54,7 @@ public abstract class JCAdjuster extends PlugInDialog implements AdjustmentListe
 					textfield.selectAll();
 				}
 				@Override
-				public void focusLost(FocusEvent e) {}
+				public void focusLost(FocusEvent e) {textAdjustment();}
 			});
 			add(textfield, BorderLayout.EAST);
 			this.label=label;
@@ -93,6 +94,10 @@ public abstract class JCAdjuster extends PlugInDialog implements AdjustmentListe
 
 		@Override
 		public void actionPerformed(ActionEvent e) {
+			textAdjustment();
+		}
+		
+		public void textAdjustment() {
 			String text=textfield.getText();
 			int val;
 			try {

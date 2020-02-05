@@ -457,6 +457,7 @@ public class JCP implements PlugIn {
 		gd.addCheckbox("Draw ROI with OpenGL (in progress)", openglroi);
 		gd.addCheckbox("Store whole stack in PBO, even for 2D (more video memory but faster)", usePBOforSlices);
 		gd.addCheckbox("Use image arrays wrapped in a buffer for video memory", wrappedBuffers);
+		gd.addCheckbox("Show some extra debug info", debug);
 		gd.showDialog();
 		if(gd.wasCanceled())return;
 		if(profiles.size()>1) {
@@ -500,6 +501,7 @@ public class JCP implements PlugIn {
 		Prefs.set("ajs.joglcanvas.usePBOforSlices", usePBOforSlices);
 		wrappedBuffers=gd.getNextBoolean();
 		Prefs.set("ajs.joglcanvas.wrappedBuffers", wrappedBuffers);
+		debug=gd.getNextBoolean();
 		if(doana) anaglyphSettings();
 		if(dotest) openTestImage();
 

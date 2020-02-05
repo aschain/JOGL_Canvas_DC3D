@@ -35,7 +35,7 @@ public class JCGamma extends JCAdjuster {
 			nsps[i]=new NumberScrollPanel(inits[i],0f,5.0f,cps[i],2);
 			add(nsps[i], c);
 			nsps[i].addAdjustmentListener(this);
-			//nsp.setFocusable(false);
+			nsps[i].setFocusable(false);
 		}
 		c.gridy++;
 		Button b=new Button("Reset");
@@ -56,7 +56,7 @@ public class JCGamma extends JCAdjuster {
 
 	@Override
 	public void adjustmentValueChanged(AdjustmentEvent e) {
-		if(jic.icc==null)dispose();
+		if(jic.icc==null || !jic.icc.isVisible())dispose();
 		Object source=e.getSource();
 		if(source instanceof NumberScrollPanel) {
 			float[] gamma=new float[nsps.length];

@@ -34,7 +34,7 @@ public class JCCutPlanes extends JCAdjuster {
 			NumberScrollPanel nsp=new NumberScrollPanel(inits[i],((i>2)?1:0),whd[(i>2)?(i-3):i]+(i>2?1:0),cps[i],0);
 			add(nsp, c);
 			nsp.addAdjustmentListener(this);
-			//nsp.setFocusable(false);
+			nsp.setFocusable(false);
 		}
 		pack();
 		Container win=jic.icc.getParent();
@@ -45,7 +45,7 @@ public class JCCutPlanes extends JCAdjuster {
 
 	@Override
 	public void adjustmentValueChanged(AdjustmentEvent e) {
-		if(jic.icc==null)dispose();
+		if(jic.icc==null || !jic.icc.isVisible())dispose();
 		Object source=e.getSource();
 		if(source instanceof NumberScrollPanel) {
 			NumberScrollPanel nsp=(NumberScrollPanel)source;

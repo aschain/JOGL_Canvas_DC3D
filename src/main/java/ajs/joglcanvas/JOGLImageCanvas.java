@@ -48,6 +48,8 @@ import java.awt.image.BufferedImage;
 import java.nio.Buffer;
 import java.nio.FloatBuffer;
 import java.nio.ShortBuffer;
+import java.util.ArrayList;
+
 import javax.swing.JPopupMenu;
 
 import java.nio.ByteBuffer;
@@ -124,6 +126,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private RoiGLDrawUtility rgldu=null;
 	private boolean scbrAdjusting=false;
 	private FloatCube cutPlanes;
+	private JCCutPlanes jccpDialog;
+	private JCGamma jcgDialog;
+	private JCRotator jcrDialog;
 	//private Button updateButton;
 	//private long starttime=0;
 
@@ -335,7 +340,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	public void dispose(GLAutoDrawable drawable) {
 		glos.setGL(drawable);
 		glos.dispose();
-		
+		if(jccpDialog!=null)jccpDialog.dispose();
+		if(jcgDialog!=null)jcgDialog.dispose();
+		if(jcrDialog!=null)jcrDialog.dispose();
 		imp.unlock();
 	}
 
@@ -802,7 +809,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				glos.stopProgram();
 			}
 		} //stereoi
-		if(JCP.debug)IJ.log("\\Update0:Display took: "+(System.nanoTime()-starttime)+"ns");
+		if(JCP.debug)IJ.log("\\Update0:Display took: "+(float)(System.nanoTime()-starttime)/1000000f+"ms");
 		
 		if(imageUpdated) {imageUpdated=false;} //ImageCanvas imageupdated only for single ImagePlus
 		imageState.update();
@@ -1064,6 +1071,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			}
 		});
 		imp.setProperty("JOGLImageCanvas", this);
+		mirror.toFront();
 	}
 	
 	private void updateMirror() {
@@ -1441,10 +1449,16 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}
 		else if(cmd.equals("revert")){revert();}
 		else if(cmd.equals("reset3d")){resetAngles();}
-		else if(cmd.equals("adjust3d")){new JCCutPlanes(this);}
-		else if(cmd.equals("gamma")){new JCGamma(this);}
-		else if(cmd.equals("rottrans")){new JCRotator(this);}
-		else if(cmd.equals("prefs")){JCP.preferences();}
+		else if(cmd.equals("adjust3d")){
+			if(jccpDialog==null || !jccpDialog.isVisible()) {jccpDialog=new JCCutPlanes(this); positionDialog(jccpDialog);}
+			else jccpDialog.requestFocus();
+		}else if(cmd.equals("gamma")){
+			if(jcgDialog==null || !jcgDialog.isVisible()) {jcgDialog=new JCGamma(this); positionDialog(jcgDialog);}
+			else jcgDialog.requestFocus();
+		}else if(cmd.equals("rottrans")){
+			if(jcrDialog==null || !jcrDialog.isVisible()) {jcrDialog=new JCRotator(this); positionDialog(jcrDialog);}
+			else jcrDialog.requestFocus();
+		}else if(cmd.equals("prefs")){JCP.preferences();}
 		else if(cmd.equals("Recorder")){
 			IJ.run("JOGL Canvas Recorder",imp.getTitle());
 		}else if(cmd.equals("usePBOforSlices")) {
@@ -1514,6 +1528,19 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					cmi.setState(cmi.getLabel().equals(check));
 				}
 				break;
+			}
+		}
+	}
+	
+	private void positionDialog(JCAdjuster jca) {
+		JCAdjuster[] jcas=new JCAdjuster[] {jccpDialog,jcgDialog,jcrDialog};
+		for(int i=0;i<jcas.length;i++) {
+			if(jca!=jcas[i] && jcas[i]!=null && jcas[i].isVisible() && jca.getLocation().equals(jcas[i].getLocation())) {
+				Point p=jcas[i].getLocation();
+				Dimension dim=jcas[i].getSize();
+				jca.setLocation(new Point(p.x,p.y+dim.height+5));
+				positionDialog(jca);
+				return;
 			}
 		}
 	}

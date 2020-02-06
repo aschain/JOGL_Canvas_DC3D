@@ -161,9 +161,19 @@ public class JCP implements PlugIn {
 				return;
 			}
 			if(doMirror) {
-				new JOGLImageCanvas(imp, true);
+				java.awt.EventQueue.invokeLater(new Runnable() {
+				    @Override
+				    public void run() {
+						new JOGLImageCanvas(imp, true);
+				    }
+				});
 			}else {
-				new JCStackWindow(imp);
+				java.awt.EventQueue.invokeLater(new Runnable() {
+				    @Override
+				    public void run() {
+						new JCStackWindow(imp);
+				    }
+				});
 			}
 		}
 	}

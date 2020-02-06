@@ -1071,7 +1071,12 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			}
 		});
 		imp.setProperty("JOGLImageCanvas", this);
-		mirror.toFront();
+		java.awt.EventQueue.invokeLater(new Runnable() {
+		    @Override
+		    public void run() {
+		        mirror.toFront();
+		    }
+		});
 	}
 	
 	private void updateMirror() {

@@ -809,7 +809,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				glos.stopProgram();
 			}
 		} //stereoi
-		if(JCP.debug)IJ.log("\\Update0:Display took: "+(float)(System.nanoTime()-starttime)/1000000f+"ms");
+		if(JCP.debug) {
+			IJ.log("\\Update0:Display took: "+(float)(System.nanoTime()-starttime)/1000000f+"ms");
+		}
 		
 		if(imageUpdated) {imageUpdated=false;} //ImageCanvas imageupdated only for single ImagePlus
 		imageState.update();

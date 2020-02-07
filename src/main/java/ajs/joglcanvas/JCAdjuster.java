@@ -86,6 +86,14 @@ public abstract class JCAdjuster extends PlugInDialog implements AdjustmentListe
 			return (float)getValue()/div;
 		}
 		
+		public float getFloatIncrement() {
+			return 1f/div;
+		}
+		
+		public boolean getValueIsAdjusting() {
+			return sb.getValueIsAdjusting();
+		}
+		
 		@Override
 		public void adjustmentValueChanged(AdjustmentEvent e) {
 			super.adjustmentValueChanged(e);

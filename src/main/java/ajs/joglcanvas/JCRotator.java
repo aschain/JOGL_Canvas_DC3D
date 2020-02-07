@@ -40,6 +40,17 @@ public class JCRotator extends JCAdjuster implements MouseMotionListener {
 			rnsps[i].setFocusable(false);
 		}
 		c.gridy++;
+		Button b=new Button("Reset");
+		b.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				if(jic.icc==null || !jic.icc.isVisible())dispose();
+				for(int i=0;i<rnsps.length;i++)rnsps[i].setFloatValue(0);
+				update();
+			}
+		});
+		add(b,c);
+		c.gridy++;
 		add(new Label("Translation"),c);
 		for(int i=0;i<3;i++) {
 			c.gridy++;
@@ -49,14 +60,13 @@ public class JCRotator extends JCAdjuster implements MouseMotionListener {
 			tnsps[i].setFocusable(false);
 		}
 		c.gridy++;
-		Button b=new Button("Reset");
+		b=new Button("Reset");
 		b.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				if(jic.icc==null || !jic.icc.isVisible())dispose();
-				for(int i=0;i<rnsps.length;i++)rnsps[i].setFloatValue(0);
 				for(int i=0;i<tnsps.length;i++)tnsps[i].setFloatValue(0);
-				jic.setEulerAngles(null);
+				update();
 			}
 		});
 		add(b,c);
@@ -67,18 +77,22 @@ public class JCRotator extends JCAdjuster implements MouseMotionListener {
 		show();
 		jic.icc.addMouseMotionListener(this);
 	}
+	
+	public void update() {
+		float[] eas=new float[6];
+		for(int i=0;i<rnsps.length;i++) {
+			eas[i]=rnsps[i].getFloatValue();
+			eas[i+3]=tnsps[i].getFloatValue();
+		}
+		jic.setEulerAngles(eas);
+	}
 
 	@Override
 	public void adjustmentValueChanged(AdjustmentEvent e) {
 		if(jic.icc==null || !jic.icc.isVisible())dispose();
 		Object source=e.getSource();
 		if(source instanceof NumberScrollPanel) {
-			float[] eas=new float[6];
-			for(int i=0;i<rnsps.length;i++) {
-				eas[i]=rnsps[i].getFloatValue();
-				eas[i+3]=tnsps[i].getFloatValue();
-			}
-			jic.setEulerAngles(eas);
+			update();
 		}
 
 	}

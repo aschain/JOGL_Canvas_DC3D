@@ -19,6 +19,7 @@ public class JCRotator extends JCAdjuster implements MouseMotionListener {
 	private final static char[] cps=new char[] {'X','Y','Z'};
 	NumberScrollPanel[] rnsps= new NumberScrollPanel[3];
 	NumberScrollPanel[] tnsps= new NumberScrollPanel[3];
+	private boolean isRunning=false;
 
 	public JCRotator(JOGLImageCanvas jica) {
 		super("Rotation and Translation", jica);
@@ -99,12 +100,25 @@ public class JCRotator extends JCAdjuster implements MouseMotionListener {
 
 	@Override
 	public void mouseDragged(MouseEvent e) {
-		float[] inits=jic.getEulerAngles();
-		for(int i=0;i<rnsps.length;i++) {
-			rnsps[i].setFloatValue(inits[i]);
-			tnsps[i].setFloatValue(inits[i+3]);
-			repaint();
-		}
+		if(isRunning)return;
+		//java.awt.EventQueue.invokeLater(new Runnable() {
+		new Thread() {
+			@Override
+			public void run() {
+				isRunning=true;
+				float[] inits=jic.getEulerAngles();
+				for(int i=0;i<rnsps.length;i++) {
+					rnsps[i].setFloatValue(inits[i]);
+					tnsps[i].setFloatValue(inits[i+3]);
+				}
+				try {
+					Thread.sleep(200);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+				isRunning=false;
+			}
+		}.start();
 	}
 	@Override
 	public void mouseMoved(MouseEvent e) {}

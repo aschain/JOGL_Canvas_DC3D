@@ -129,6 +129,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private JCCutPlanes jccpDialog;
 	private JCGamma jcgDialog;
 	private JCRotator jcrDialog;
+	private long dragtime;
 	//private Button updateButton;
 	//private long starttime=0;
 
@@ -349,10 +350,13 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	@Override
 	public void display(GLAutoDrawable drawable) {
 		//IJ.log("\\Update2:Display took: "+(System.nanoTime()-starttime)/1000000L+"ms");
-		long starttime=System.nanoTime();
-		if(imp.isLocked())return;
+		long displaytime=System.nanoTime();
+		if(JCP.debug) {
+			IJ.log("\\Update0:Display start took: "+String.format("%5.1f", (float)(System.nanoTime()-dragtime)/1000000f)+"ms");
+		}
+		if(imp.isLocked()) {if(JCP.debug)IJ.log("\\Update3:imp.lock "+System.currentTimeMillis());return;}
 		//imp.lockSilently(); //causing z scrollbar to lose focus?
-		if(mylock)return;
+		if(mylock) {if(JCP.debug)IJ.log("\\Update3:mylock "+System.currentTimeMillis());return;};
 		mylock=true;
 		imageState.check();
 		if(JCP.openglroi && rgldu==null) rgldu=new RoiGLDrawUtility(imp, drawable);
@@ -740,7 +744,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 
 			
 			if(roi!=null || overlay!=null) { 
-				if(go3d)glos.getUniformBuffer("modelr").loadMatrix(rotate);
+				if(go3d)glos.getUniformBuffer("modelr").loadMatrix(FloatUtil.multMatrix(rotate,FloatUtil.makeTranslation(new float[16], false, tx, ty, tz)));
 				//if(go3d)IJ.log(FloatUtil.matrixToString(null, "rot2: ", "%10.4f", rotate, 0, 4, 4, false).toString());
 				float z=0f;
 				float zf=(float)(cal.pixelDepth/cal.pixelWidth)/srcRect.width;
@@ -810,7 +814,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			}
 		} //stereoi
 		if(JCP.debug) {
-			IJ.log("\\Update0:Display took: "+(float)(System.nanoTime()-starttime)/1000000f+"ms");
+			IJ.log("\\Update1:Display took: "+String.format("%5.1f", (float)(System.nanoTime()-displaytime)/1000000f)+"ms");
 		}
 		
 		if(imageUpdated) {imageUpdated=false;} //ImageCanvas imageupdated only for single ImagePlus
@@ -1643,6 +1647,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	@Override
 	public void mouseDragged(MouseEvent e) {
 		if(shouldKeep(e)) {
+			if(JCP.debug) {IJ.log("\\Update2:   Drag took: "+String.format("%5.1f", (float)(System.nanoTime()-dragtime)/1000000f)+"ms"); dragtime=System.nanoTime();}
 			if(IJ.spaceBarDown()&&isMirror) {
 				scroll(e.getX(),e.getY());
 				imp.getCanvas().setSourceRect(srcRect);

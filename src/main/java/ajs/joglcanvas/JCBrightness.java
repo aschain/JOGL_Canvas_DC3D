@@ -23,14 +23,14 @@ import ij.process.LUT;
 import ij.process.ShortProcessor;
 
 @SuppressWarnings("serial")
-public class JCGamma extends JCAdjuster implements ImageListener {
+public class JCBrightness extends JCAdjuster implements ImageListener {
 	
-	NumberScrollPanel[] gnsps,mins,maxs;
-	double[] dmaxs, dmins, cmins, cmaxs;
-	boolean hasFocus=true;
+	private NumberScrollPanel[] gnsps,mins,maxs;
+	private double[] dmaxs, dmins, cmins, cmaxs;
+	private boolean isRunning=false;
 
-	public JCGamma(JOGLImageCanvas jica) {
-		super("Gamma", jica);
+	public JCBrightness(JOGLImageCanvas jica) {
+		super("JCBrightness", jica);
 		float[] inits=jic.getGamma();
 		int chs=imp.getNChannels();
 		dmaxs=new double[chs]; dmins=new double[chs];
@@ -131,12 +131,6 @@ public class JCGamma extends JCAdjuster implements ImageListener {
 		Point loc=win.getLocation();
 		setLocation(new Point(loc.x+win.getSize().width+10,loc.y+5));
 		ImagePlus.addImageListener(this);
-		addFocusListener(new FocusListener() {
-			@Override
-			public void focusGained(FocusEvent e) {hasFocus=true;}
-			@Override
-			public void focusLost(FocusEvent e) {hasFocus=false;}
-		});
 		show();
 	}
 	
@@ -191,7 +185,6 @@ public class JCGamma extends JCAdjuster implements ImageListener {
 					if(val<=mins[i].getFloatValue())mins[i].setFloatValue(val-mins[i].getFloatIncrement());
 				}
 			}
-
 			updateMinMaxs();
 		}
 
@@ -205,6 +198,21 @@ public class JCGamma extends JCAdjuster implements ImageListener {
 	}
 	@Override
 	public void imageUpdated(ImagePlus imp) {
-		if(!hasFocus)updateMinMaxScrollbars();
+		//IJ.log("\\Update0:JCB "+java.time.Clock.systemUTC().instant());
+		if(imp==this.imp && !isRunning) {
+			(new Thread() {
+				@Override
+				public void run() {
+					isRunning=true;
+					updateMinMaxScrollbars();
+					try {
+						Thread.sleep(500);
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}
+					isRunning=false;
+				}
+			}).start();
+		}
 	}
 }

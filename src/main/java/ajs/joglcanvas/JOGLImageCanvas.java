@@ -127,7 +127,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private boolean scbrAdjusting=false;
 	private FloatCube cutPlanes;
 	private JCCutPlanes jccpDialog;
-	private JCGamma jcgDialog;
+	private JCBrightness jcgDialog;
 	private JCRotator jcrDialog;
 	private long dragtime;
 	//private Button updateButton;
@@ -1399,7 +1399,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			addMI(threeDmenu,"Update 3d Image","update");
 			addMI(threeDmenu,"Reset 3d view","reset3d");
 			addMI(threeDmenu,"Adjust Cut Planes","adjust3d");
-			addMI(threeDmenu,"Adjust Gamma","gamma");
+			addMI(threeDmenu,"Adjust Contrast/Gamma","gamma");
 			addMI(threeDmenu,"Adjust Rot-Trans","rottrans");
 			
 			menu=new Menu("Stereoscopic 3d");
@@ -1464,7 +1464,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			if(jccpDialog==null || !jccpDialog.isVisible()) {jccpDialog=new JCCutPlanes(this); positionDialog(jccpDialog);}
 			else jccpDialog.requestFocus();
 		}else if(cmd.equals("gamma")){
-			if(jcgDialog==null || !jcgDialog.isVisible()) {jcgDialog=new JCGamma(this); positionDialog(jcgDialog);}
+			if(jcgDialog==null || !jcgDialog.isVisible()) {jcgDialog=new JCBrightness(this); positionDialog(jcgDialog);}
 			else jcgDialog.requestFocus();
 		}else if(cmd.equals("rottrans")){
 			if(jcrDialog==null || !jcrDialog.isVisible()) {jcrDialog=new JCRotator(this); positionDialog(jcrDialog);}

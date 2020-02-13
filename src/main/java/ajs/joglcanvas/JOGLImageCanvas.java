@@ -6,6 +6,7 @@ import ij.ImageListener;
 import ij.ImagePlus;
 import ij.Prefs;
 import ij.gui.ImageCanvas;
+import ij.gui.PointRoi;
 import ij.gui.Roi;
 import ij.gui.ScrollbarWithLabel;
 import ij.gui.StackWindow;
@@ -21,6 +22,8 @@ import java.awt.Dimension;
 import java.awt.Frame;
 import java.awt.Graphics;
 import java.awt.GraphicsConfiguration;
+import java.awt.GraphicsDevice;
+import java.awt.GraphicsEnvironment;
 import java.awt.Image;
 import java.awt.Insets;
 import java.awt.Menu;
@@ -359,7 +362,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(mylock) {if(JCP.debug)IJ.log("\\Update3:mylock "+System.currentTimeMillis());return;};
 		mylock=true;
 		imageState.check();
-		if(JCP.openglroi && rgldu==null) rgldu=new RoiGLDrawUtility(imp, drawable);
+		if(JCP.openglroi && rgldu==null) rgldu=new RoiGLDrawUtility(imp, drawable,glos.programs.get("roiGraphic"));
 		int sl=imp.getZ()-1, fr=imp.getT()-1,chs=imp.getNChannels(),sls=imp.getNSlices(),frms=imp.getNFrames();
 		Calibration cal=imp.getCalibration();
 		if(go3d&&sls==1)go3d=false;
@@ -396,6 +399,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		Roi roi=imp.getRoi();
 		ij.gui.Overlay overlay=imp.getCanvas().getOverlay();
 		boolean doRoi=false;
+		boolean isPoint=(roi instanceof PointRoi);
 		if(!JCP.openglroi && (roi!=null || (!go3d && overlay!=null))) {
 			BufferedImage roiImage=new BufferedImage(srcRectWidthMag, srcRectHeightMag, BufferedImage.TYPE_INT_ARGB);
 			Graphics g=roiImage.getGraphics();
@@ -411,7 +415,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			if(doRoi)glos.getTexture("roiGraphic").createRgbaTexture(AWTTextureIO.newTextureData(gl.getGLProfile(), roiImage, false).getBuffer(), roiImage.getWidth(), roiImage.getHeight(), 1, 4, false);
 		}
 		boolean[] doOv=null;
-		if(!JCP.openglroi && overlay!=null && go3d) {
+		boolean didpt=false;
+		if(!JCP.openglroi && (overlay!=null || isPoint) && go3d) {
 			doOv=new boolean[sls];
 			if(!glos.textures.containsKey("overlay") || glos.getTexture("overlay").getTextureLength()!=sls) {
 				glos.newTexture("overlay",sls);
@@ -422,23 +427,43 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			for(int osl=0;osl<sls;osl++) {
 				BufferedImage roiImage=null;
 				Graphics g=null;
-				for(int i=0;i<overlay.size();i++) {
-					Roi oroi=overlay.get(i);
-					int rc=oroi.getCPosition(), rz=oroi.getZPosition(),rt=oroi.getTPosition();
-					if((rc==0||rc==imp.getC()) && (rz==0||rz==(osl+1)) && (rt==0||rt==imp.getT())) {
-						if(g==null) {
-							roiImage=new BufferedImage(srcRectWidthMag, srcRectHeightMag, BufferedImage.TYPE_INT_ARGB);
-							g=roiImage.getGraphics();
+				if(overlay!=null) {
+					for(int i=0;i<overlay.size();i++) {
+						Roi oroi=overlay.get(i);
+						int rc=oroi.getCPosition(), rz=oroi.getZPosition(),rt=oroi.getTPosition();
+						if((rc==0||rc==imp.getC()) && (rz==0||rz==(osl+1)) && (rt==0||rt==imp.getT())) {
+							if(g==null) {
+								roiImage=new BufferedImage(srcRectWidthMag, srcRectHeightMag, BufferedImage.TYPE_INT_ARGB);
+								g=roiImage.getGraphics();
+							}
+							oroi.setImage(imp);
+							oroi.drawOverlay(g);
+							doOv[osl]=true;
 						}
-						oroi.setImage(imp);
-						oroi.drawOverlay(g);
-						doOv[osl]=true;
+					}
+				}
+				if(isPoint && osl!=sl) {
+					if(g==null) {
+						roiImage=new BufferedImage(srcRectWidthMag, srcRectHeightMag, BufferedImage.TYPE_INT_ARGB);
+						g=roiImage.getGraphics();
+					}
+					for(int i=0;i<roi.getPolygon().npoints;i++) {
+						int pos=((PointRoi)roi).getPointPosition(i);
+						//pos>(fr*sls*chs+osl*chs) && pos<(fr*sls*chs+(osl+1)*chs)
+						if(pos==imp.getStackIndex(imp.getC(), osl+1, fr+1)) {
+							//imp.setPositionWithoutUpdate(imp.getC(), osl+1, fr+1);
+							imp.setSliceWithoutUpdate(imp.getStackIndex(imp.getC(), osl+1, fr+1));
+							roi.draw(g);
+							doOv[osl]=true; didpt=true;
+							break;
+						}
 					}
 				}
 				if(doOv[osl]) {
 					glos.getTexture("overlay").createRgbaTexture(osl, AWTTextureIO.newTextureData(gl.getGLProfile(), roiImage, false).getBuffer(), roiImage.getWidth(), roiImage.getHeight(), 1, 4, false);
 				}
 			}
+			if(isPoint && didpt)imp.setSliceWithoutUpdate(imp.getStackIndex(imp.getC(), sl+1, fr+1));
 		}
 		
 		if(glos.getPboLength("image")!=(chs*frms) || deletePBOs) {
@@ -1549,7 +1574,16 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			if(jca!=jcas[i] && jcas[i]!=null && jcas[i].isVisible() && jca.getLocation().equals(jcas[i].getLocation())) {
 				Point p=jcas[i].getLocation();
 				Dimension dim=jcas[i].getSize();
-				jca.setLocation(new Point(p.x,p.y+dim.height+5));
+				Point loc=new Point(p.x,p.y+dim.height+5);
+				GraphicsEnvironment ge=GraphicsEnvironment.getLocalGraphicsEnvironment();
+				GraphicsDevice lstGDs[] = ge.getScreenDevices();
+				Rectangle bounds=new Rectangle(0,0,0,0);
+		        for (GraphicsDevice gd : lstGDs) {
+		            bounds.add(gd.getDefaultConfiguration().getBounds());
+		        }
+				jca.setLocation(loc);
+				Rectangle jbs=jca.getBounds();
+				if(!bounds.contains(jbs)){loc.x=Math.min(bounds.width-jbs.width,jbs.x);loc.y=Math.min(bounds.height-jbs.height, jbs.y);jca.setLocation(loc);}
 				positionDialog(jca);
 				return;
 			}

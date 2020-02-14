@@ -712,26 +712,31 @@ public class RoiGLDrawUtility {
 	//private static float[] getFloatColor(Color color) {
 	//	return new float[] {(float)color.getRed()/255f,(float)color.getGreen()/255f,(float)color.getBlue()/255f,(float)color.getAlpha()/255f};
 	//}
-	public float[] getVecSquare(float vx1, float vy1, float vz, float vx2, float vy2, float tx, float ty, float tz, float tw, float th) {
+	public float[] getVecSquare(float vx, float vy, float vz, float vw, float vh, float tx, float ty, float tz, float tw, float th) {
 		return new float[] {
-				vx1, vy1, vz, tx, ty, tz,
-				vx2, vy1, vz, tx+tw, ty, tz,
-				vx2, vy2, vz, tx+tw, ty+th, tz,
-				vx1, vy2, vz, tx, ty+th, tz
+				vx, vy, vz, tx, ty, tz,
+				vx+vw, vy, vz, tx+tw, ty, tz,
+				vx+vw, vy+vh, vz, tx+tw, ty+th, tz,
+				vx, vy+vh, vz, tx, ty+th, tz
 		};
 	}
 	
 	protected void drawTextRoi(TextRoi troi, float z) {
 		Rectangle bounds=troi.getBounds();
-		//BufferedImage roiImage=new BufferedImage((int)(bounds.width*mag+0.5), (int)(bounds.height*mag+0.5), BufferedImage.TYPE_INT_ARGB);
-		BufferedImage roiImage=new BufferedImage(bounds.width, bounds.height, BufferedImage.TYPE_INT_ARGB);
-		Graphics g=roiImage.getGraphics();
 		troi.setLocation(0, 0);
-		troi.draw(g);
+		drawZeroTextRoi(troi, glX(bounds.x), glY(bounds.y), z);
 		troi.setLocation(bounds.x, bounds.y);
+	}
+	
+	protected void drawZeroTextRoi(TextRoi troi, float x, float y, float z) {
+		Rectangle bounds=troi.getBounds();
+		BufferedImage roiImage=new BufferedImage((int)(bounds.width*mag+0.5), (int)(bounds.height*mag+0.5), BufferedImage.TYPE_INT_ARGB);
+		//BufferedImage roiImage=new BufferedImage(bounds.width, bounds.height, BufferedImage.TYPE_INT_ARGB);
+		Graphics g=roiImage.getGraphics();
+		troi.draw(g);
 		rglos.getTexture("text").createRgbaTexture(AWTTextureIO.newTextureData(gl.getGLProfile(), roiImage, false).getBuffer(), roiImage.getWidth(), roiImage.getHeight(), 1, 4, false);
-		
-		FloatBuffer vb=GLBuffers.newDirectFloatBuffer(getVecSquare(glX(bounds.x), glY(bounds.y), z, glX(bounds.x+bounds.width), glY(bounds.y+bounds.height), 0f, 1f, 0.5f, 1f, -1f));
+		float wi=bounds.width/w*2f, hei=bounds.height/h*2f;
+		FloatBuffer vb=GLBuffers.newDirectFloatBuffer(getVecSquare(x, y, z, wi, hei, 0f, 1f, 0.5f, 1f, -1f));
 		rglos.useProgram("text");
 		ShortBuffer eb=GLBuffers.newDirectShortBuffer(new short[] {0,1,2,2,3,0});
 		//gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -760,18 +765,18 @@ public class RoiGLDrawUtility {
 		}
 	}
 	*/
-	/** z is in opengl float position, x and y in imagej coords
+	/** x,y,z is in opengl float positions
 	 * 
 	 * @param gl
 	 * @param text Text to display
 	 * @param just Justification (0 is left, 1 is center, 2 is right)
 	 * @param color Text color 
 	 */
-	protected void drawString(String text, Font font, Color color, int x, int y, float z) {
+	protected void drawString(String text, Font font, Color color, float x, float y, float z) {
 		if(font==null) font=new Font("SansSerif", Font.PLAIN, 9);
-		TextRoi troi=new TextRoi(x, y, text, font);
+		TextRoi troi=new TextRoi(0, 0, text, font);
 		troi.setStrokeColor(color);
-		drawTextRoi(troi,z);
+		drawZeroTextRoi(troi,x,y,z);
 	}
 	/*
 	 protected void drawString(String text, Font font, Color color, float x, float y, float z) {

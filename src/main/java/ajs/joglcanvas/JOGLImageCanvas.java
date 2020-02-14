@@ -362,7 +362,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(mylock) {if(JCP.debug)IJ.log("\\Update3:mylock "+System.currentTimeMillis());return;};
 		mylock=true;
 		imageState.check();
-		if(JCP.openglroi && rgldu==null) rgldu=new RoiGLDrawUtility(imp, drawable,glos.programs.get("roiGraphic"));
+		if(JCP.openglroi && rgldu==null) rgldu=new RoiGLDrawUtility(imp, drawable,glos.programs.get("roi"));
 		int sl=imp.getZ()-1, fr=imp.getT()-1,chs=imp.getNChannels(),sls=imp.getNSlices(),frms=imp.getNFrames();
 		Calibration cal=imp.getCalibration();
 		if(go3d&&sls==1)go3d=false;

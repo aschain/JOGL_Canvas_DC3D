@@ -362,8 +362,6 @@ public class JCGLObjects {
 	
 			PixelTypeInfo pinfo=new PixelTypeInfo(buffer, COMPS);
 
-			gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-			//gl3.glEnable(GL_TEXTURE_3D);
 			gl.glBindTexture(GL_TEXTURE_3D, glTextureHandle);
 			if(!genmipmap) {
 				gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_BASE_LEVEL, 0);
@@ -380,7 +378,6 @@ public class JCGLObjects {
 			
 			if(genmipmap)gl.glGenerateMipmap(GL_TEXTURE_3D);
 			gl.glBindTexture(GL_TEXTURE_3D, 0);
-			//gl.glDisable(GL_TEXTURE_3D);
 		} 
 	}
 

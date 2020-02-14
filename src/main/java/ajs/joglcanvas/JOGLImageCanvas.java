@@ -650,7 +650,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						for(float p=cutPlanes.x;p<cutPlanes.w;p+=1.0f) {
 							float xt,xv, pn;
 							if(reverse) pn=p;
-							else pn=cutPlanes.w-(p-cutPlanes.x);
+							else pn=cutPlanes.w-(p-cutPlanes.x+1.0f);
 							xt=(pn+0.5f)/imageWidth*tw;
 							xv=xt*2f-1f;
 							for(int i=0;i<4;i++) {
@@ -664,7 +664,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						for(float p=cutPlanes.y;p<cutPlanes.h;p+=1.0f) {
 							float yt,yv,pn;
 							if(!reverse) pn=p;
-							else pn=cutPlanes.h-(p-cutPlanes.y);
+							else pn=cutPlanes.h-(p-cutPlanes.y+1.0f);
 							yt=(pn+0.5f)/imageHeight*th;
 							yv=yt*2f-1f;
 							yt=th-yt;

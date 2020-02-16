@@ -51,7 +51,6 @@ import java.awt.image.BufferedImage;
 import java.nio.Buffer;
 import java.nio.FloatBuffer;
 import java.nio.ShortBuffer;
-import java.util.ArrayList;
 
 import javax.swing.JPopupMenu;
 
@@ -606,11 +605,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				float dxst=(float)dx;
 				if(stereoi>0) {dxst-=(float)JCP.stereoSep; if(dxst<0)dxst+=360f;}
 				rotate=FloatUtil.makeRotationEuler(new float[16], 0, dy*FloatUtil.PI/180f, (float)dxst*FloatUtil.PI/180f, (float)dz*FloatUtil.PI/180f);
-				//if(tz!=0) {
-				//	rotate=FloatUtil.multMatrix(FloatUtil.makeTranslation(new float[16], false, 0, 0, tz), rotate);
-				//	if(tz>1.0f)tz=-1.0f;
-				//	if(tz<-1.0f)tz=1.0f;
-				//}
 				//IJ.log("\\Update0:X x"+Math.round(100.0*matrix[0])/100.0+" y"+Math.round(100.0*matrix[1])/100.0+" z"+Math.round(100.0*matrix[2])/100.0);
 				//IJ.log("\\Update1:Y x"+Math.round(100.0*matrix[4])/100.0+" y"+Math.round(100.0*matrix[5])/100.0+" z"+Math.round(100.0*matrix[6])/100.0);
 				//IJ.log("\\Update2:Z x"+Math.round(100.0*matrix[8])/100.0+" y"+Math.round(100.0*matrix[9])/100.0+" z"+Math.round(100.0*matrix[10])/100.0);
@@ -872,7 +866,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	}
 	public float[] getGamma() {return gamma;}
 	
-	public FloatCube getCutPlanesCube() {
+	public FloatCube getCutPlanesFloatCube() {
 		FloatCube c=cutPlanes;
 		return new FloatCube(c.x,c.y,c.z,c.w,c.h,c.d);
 	}

@@ -1,9 +1,5 @@
 package ajs.joglcanvas;
 
-import static com.jogamp.opengl.GL.GL_ARRAY_BUFFER;
-import static com.jogamp.opengl.GL.GL_BLEND;
-import static com.jogamp.opengl.GL.GL_ELEMENT_ARRAY_BUFFER;
-import static com.jogamp.opengl.GL.GL_FLOAT;
 import static com.jogamp.opengl.GL3.*;
 
 import java.awt.Color;
@@ -13,8 +9,6 @@ import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
 import java.nio.FloatBuffer;
 import java.nio.ShortBuffer;
-import java.awt.FontMetrics;
-//import java.io.IOException;
 
 import com.jogamp.opengl.GL2GL3;
 import com.jogamp.opengl.GLAutoDrawable;
@@ -31,7 +25,7 @@ import com.jogamp.opengl.util.texture.awt.AWTTextureIO;
 //import com.jogamp.graph.geom.SVertex;
 
 import ajs.joglcanvas.JCGLObjects.JCProgram;
-import ij.IJ;
+import ajs.joglcanvas.JOGLImageCanvas.FloatCube;
 import ij.ImagePlus;
 import ij.gui.Arrow;
 import ij.gui.OvalRoi;
@@ -51,6 +45,7 @@ public class RoiGLDrawUtility {
 	float yrat=1f;
 	float w=-1f,h,offx,offy,dw, dh;
 	double mag;
+	boolean go3d;
 
 	public RoiGLDrawUtility(ImagePlus imp, GLAutoDrawable drawable) {
 		this.imp=imp;
@@ -108,10 +103,15 @@ public class RoiGLDrawUtility {
 	 */
 	public void drawRoiGL(GLAutoDrawable drawable, Roi roi, boolean isRoi, Color anacolor, boolean go3d) {
 		if(roi==null)return;
+		this.go3d=go3d;
 		int sls=imp.getNSlices(), ch=imp.getC(), sl=imp.getZ(), fr=imp.getT();
 		int rch=roi.getCPosition(), rsl=roi.getZPosition(), rfr=roi.getTPosition();
 		if(!(rfr==0 || rfr==fr))return;
 		if(!go3d && !((rch==0 || ch==rch) && (rsl==0 || rsl==sl)))return;
+		if(go3d) {
+			FloatCube fc=JCP.getJOGLImageCanvas(imp).getCutPlanesFloatCube();
+			if(rsl!=0 && (rsl<fc.z ||rsl>=fc.d))return;
+		}
 		setGL(drawable);
 		updateSrcRect();
 		boolean drawHandles=isRoi;
@@ -139,13 +139,16 @@ public class RoiGLDrawUtility {
 			float[] pzs=new float[n];
 			int chs=imp.getNChannels();
 			for(int i=0;i<n;i++) {
-				pzs[i]=-1f;
+				pzs[i]=-2f;
 				int pos=proi.getPointPosition(i);
 				if(!go3d && (imp.getCurrentSlice()==pos || pos==0))pzs[i]=0f;
 				if(go3d && (pos>((fr-1)*sls*chs) && pos<(fr*sls*chs))) {
-					if(pos==0)pos=imp.getCurrentSlice();
-					int[] hpos=imp.convertIndexToPosition(pos);
-					pzs[i]=((float)sls-2f*(float)hpos[1])*zf;
+					FloatCube fc=JCP.getJOGLImageCanvas(imp).getCutPlanesFloatCube();
+					if(pos>((fr-1)*sls*chs+fc.x*chs) && pos<((fr-1)*sls*chs+fc.d*chs)) {
+						if(pos==0)pos=imp.getCurrentSlice();
+						int[] hpos=imp.convertIndexToPosition(pos);
+						pzs[i]=((float)sls-2f*(float)hpos[1])*zf;
+					}
 				}
 			}
 			drawPoints((PointRoi)roi, pzs, anacolor);
@@ -305,7 +308,7 @@ public class RoiGLDrawUtility {
 	/** draws points. x,y,z are all opengl float positions*/
 	private void drawPoints(PointRoi roi, float[] z, Color anacolor) {
 		for(int n=0;n<z.length;n++) {
-			drawPoint(roi, z[n], n, anacolor);
+			if(z[n]>-2f)drawPoint(roi, z[n], n, anacolor);
 		}
 	}
 	
@@ -711,7 +714,7 @@ public class RoiGLDrawUtility {
 	//	return new float[] {(float)color.getRed()/255f,(float)color.getGreen()/255f,(float)color.getBlue()/255f,(float)color.getAlpha()/255f};
 	//}
 	
-	public float[] getVecSquare(float vx, float vy, float vz, float vw, float vh, float tx, float ty, float tz, float tw, float th) {
+	public static float[] getVecSquare(float vx, float vy, float vz, float vw, float vh, float tx, float ty, float tz, float tw, float th) {
 		return new float[] {
 				vx, vy-vh, vz, tx, ty, tz,
 				vx+vw, vy-vh, vz, tx+tw, ty, tz,
@@ -746,7 +749,7 @@ public class RoiGLDrawUtility {
 		g.dispose();
 		FloatBuffer vb=GLBuffers.newDirectFloatBuffer(getVecSquare(x, y, z, (float)bounds.width/w/(float)mag*2f, (float)bounds.height/h/(float)mag*2f, 0f, 1f, 0.5f, 1f, -1f));
 		ShortBuffer eb=GLBuffers.newDirectShortBuffer(new short[] {0,1,2,2,3,0});
-		//gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 		rglos.useProgram("text");
 		gl.glEnable(GL_BLEND);
 		rglos.drawTexVaoWithEBOVBO("text", 0, eb, vb);

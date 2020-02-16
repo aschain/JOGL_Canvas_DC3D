@@ -23,7 +23,7 @@ public class JCCutPlanes extends JCAdjuster {
 
 	public JCCutPlanes(JOGLImageCanvas jic) {
 		super("Cut Planes", jic);
-		c=jic.getCutPlanesCube();
+		c=jic.getCutPlanesFloatCube();
 		int[] whd=new int[] {imp.getWidth(),imp.getHeight(),imp.getNSlices()};
 		int[] inits= new int[] {(int)c.x,(int)c.y,(int)c.z,(int)c.w,(int)c.h,(int)c.d};
 		setLayout(new GridBagLayout());

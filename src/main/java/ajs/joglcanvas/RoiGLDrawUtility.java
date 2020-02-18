@@ -111,6 +111,9 @@ public class RoiGLDrawUtility {
 		if(go3d) {
 			FloatCube fc=JCP.getJOGLImageCanvas(imp).getCutPlanesFloatCube();
 			if(rsl!=0 && (rsl<fc.z ||rsl>=fc.d))return;
+			Rectangle b=roi.getBounds();
+			if((b.x+b.width)<fc.x || (b.x>fc.w))return;
+			if((b.y+b.height)<fc.y || (b.y>fc.h))return;
 		}
 		setGL(drawable);
 		updateSrcRect();

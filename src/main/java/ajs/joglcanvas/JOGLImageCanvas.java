@@ -615,9 +615,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				float maxZvec=Math.max(Xza, Math.max(Yza, Zza));
 				left=(maxZvec==Xza);
 				top=(maxZvec==Yza);
-				reverse=(Zza==-rotate[10]);
+				reverse=(Zza==rotate[10]);
 				if(left)reverse=Xza==rotate[2];
-				if(top)reverse=Yza==-rotate[6];
+				if(top)reverse=Yza==rotate[6];
 				glos.getUniformBuffer("model").loadMatrix(FloatUtil.multMatrix(scale, FloatUtil.multMatrix(rotate, translate, new float[16]), new float[16]));
 				
 				if(ltr==null || !(ltr[0]==left && ltr[1]==top && ltr[2]==reverse) || cutPlanesChanged/*|| imageState.isChanged.srcRect*/) {
@@ -627,15 +627,15 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					float zmax=(float)(zmaxsls)/(float)imageWidth;
 					float 	tw=(2*imageWidth-tex4div(imageWidth))/(float)imageWidth,
 							th=(2*imageHeight-tex4div(imageHeight))/(float)imageHeight;
-					FloatCube tcp=cutPlanes.toTexCoords(tw, th);
-					FloatCube gcp=cutPlanes.toGLcoords(zmax);
+					FloatCube tcp=cutPlanes.toTexCoords();
+					FloatCube gcp=cutPlanes.toGLcoords();
 					//For display of the square, there are 3 space verts and 3 texture verts
 					//for each of the 4 points of the square.
 					float[] initVerts=new float[] {
-							gcp.x, gcp.y, gcp.d,   tcp.x, tcp.y, tcp.d,
-							gcp.w, gcp.y, gcp.z,   tcp.w, tcp.y, tcp.z,
-							gcp.w, gcp.h, gcp.z,   tcp.w, tcp.h, tcp.z,
-							gcp.x, gcp.h, gcp.d,   tcp.x, tcp.h, tcp.d
+							gcp.x, -gcp.h, gcp.d*zmax,   tcp.x,    tcp.h*th, tcp.d,
+							gcp.w, -gcp.h, gcp.z*zmax,   tcp.w*tw, tcp.h*th, tcp.z,
+							gcp.w, -gcp.y, gcp.z*zmax,   tcp.w*tw, tcp.y,    tcp.z,
+							gcp.x, -gcp.y, gcp.d*zmax,   tcp.x,    tcp.y,    tcp.d
 					};
 					ByteBuffer vertb=glos.getDirectBuffer(GL_ARRAY_BUFFER, "image3d");
 					vertb.clear();
@@ -660,13 +660,12 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 							if(!reverse) pn=p;
 							else pn=cutPlanes.h-(p-cutPlanes.y+1.0f);
 							yt=(pn+0.5f)/imageHeight*th;
-							yv=yt*2f-1f;
-							yt=th-yt;
+							yv=1f-yt*2f;
 							for(int i=0;i<4;i++) {
 								float zv=initVerts[i*6+2];
 								float zt=initVerts[i*6+5];
-								if(i==1) {zv=gcp.d; zt=tcp.d;}
-								else if(i==3) {zv=gcp.z; zt=tcp.z;}
+								if(i==1) {zv=gcp.d*zmax; zt=tcp.d;}
+								else if(i==3) {zv=gcp.z*zmax; zt=tcp.z;}
 								vertb.putFloat(initVerts[i*6]); vertb.putFloat(yv); vertb.putFloat(zv);
 								vertb.putFloat(initVerts[i*6+3]); vertb.putFloat(yt); vertb.putFloat(zt);
 							}
@@ -676,7 +675,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					}else { //front or back
 						for(float csl=(int)(cutPlanes.z*zrat);csl<(int)(cutPlanes.d*zrat);csl+=1.0f) {
 							float z=csl;
-							if(!reverse) z=(cutPlanes.d*(float)zrat)-(csl-(int)(cutPlanes.z*(float)zrat));//z=((float)zmaxsls-csl-1f);
+							if(reverse) z=(cutPlanes.d*(float)zrat)-(csl-(int)(cutPlanes.z*(float)zrat));//z=((float)zmaxsls-csl-1f);
 							for(int i=0;i<4;i++) {
 								vertb.putFloat(initVerts[i*6]); vertb.putFloat(initVerts[i*6+1]); vertb.putFloat(((float)zmaxsls-2f*z)/imageWidth); 
 								vertb.putFloat(initVerts[i*6+3]); vertb.putFloat(initVerts[i*6+4]); vertb.putFloat((z+0.5f)/zmaxsls); 
@@ -879,14 +878,14 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			this.w=width; this.h=height; this.d=depth;
 		}
 		
-		public FloatCube toGLcoords(float zmax) {
-			return new FloatCube(x/(float)imp.getWidth()*2f-1f, y/(float)imp.getHeight()*2f-1f, -(z/(float)imp.getNSlices()*2f-1f)*zmax, 
-					w/(float)imp.getWidth()*2f-1f, h/(float)imp.getHeight()*2f-1f, -(d/(float)imp.getNSlices()*2f-1f)*zmax);
+		public FloatCube toGLcoords() {
+			return new FloatCube(x/(float)imp.getWidth()*2f-1f, y/(float)imp.getHeight()*2f-1f, -(z/(float)imp.getNSlices()*2f-1f), 
+					w/(float)imp.getWidth()*2f-1f, h/(float)imp.getHeight()*2f-1f, -(d/(float)imp.getNSlices()*2f-1f));
 		}
 		
-		public FloatCube toTexCoords(float tw, float th) {
-			return new FloatCube(x/(float)imp.getWidth(),1f-y/(float)imp.getHeight(),z/(float)imp.getNSlices(),
-					w*tw/(float)imp.getWidth(), th-h/(float)imp.getHeight()*th, d/(float)imp.getNSlices());
+		public FloatCube toTexCoords() {
+			return new FloatCube(x/(float)imp.getWidth(),y/(float)imp.getHeight(),z/(float)imp.getNSlices(),
+					w/(float)imp.getWidth(), h/(float)imp.getHeight(), d/(float)imp.getNSlices());
 		}
 		
 	}

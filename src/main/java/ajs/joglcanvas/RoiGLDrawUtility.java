@@ -25,7 +25,7 @@ import com.jogamp.opengl.util.texture.awt.AWTTextureIO;
 //import com.jogamp.graph.geom.SVertex;
 
 import ajs.joglcanvas.JCGLObjects.JCProgram;
-import ajs.joglcanvas.JOGLImageCanvas.FloatCube;
+import ajs.joglcanvas.JOGLImageCanvas.CutPlanesCube;
 import ij.ImagePlus;
 import ij.gui.Arrow;
 import ij.gui.OvalRoi;
@@ -112,12 +112,12 @@ public class RoiGLDrawUtility {
 		if(!go3d && !((rch==0 || ch==rch) && (rsl==0 || rsl==sl)))return;
 		int tp=roi.getType();
 		if(go3d) {
-			FloatCube fc=JCP.getJOGLImageCanvas(imp).getCutPlanesFloatCube();
-			if(rsl!=0 && (rsl<fc.z ||rsl>=fc.d))return;
+			CutPlanesCube fc=JCP.getJOGLImageCanvas(imp).getCutPlanesCube();
+			if(rsl!=0 && fc.applyToRoi && (rsl<fc.z() ||rsl>=fc.d()))return;
 			Rectangle b=roi.getBounds();
-			if(tp!=Roi.POINT) {
-				if((b.x+b.width)<fc.x || (b.x>fc.w))return;
-				if((b.y+b.height)<fc.y || (b.y>fc.h))return;
+			if(tp!=Roi.POINT && fc.applyToRoi) {
+				if((b.x+b.width)<fc.x() || (b.x>fc.w()))return;
+				if((b.y+b.height)<fc.y() || (b.y>fc.h()))return;
 			}
 		}
 		setGL(drawable);
@@ -148,10 +148,10 @@ public class RoiGLDrawUtility {
 				if(!go3d && (imp.getCurrentSlice()==pos || pos==0))
 					drawPoint(proi, fp.xpoints[i], fp.ypoints[i], 0f,i);
 				if(go3d && (pos>((fr-1)*sls*chs) && pos<(fr*sls*chs))) {
-					FloatCube fc=JCP.getJOGLImageCanvas(imp).getCutPlanesFloatCube();
-					if(pos>((fr-1)*sls*chs+fc.z*chs) && pos<((fr-1)*sls*chs+fc.d*chs)
-							&& ((fp.xpoints[i])>fc.x && (fp.xpoints[i]<fc.w))
-							&& ((fp.ypoints[i])>fc.y && (fp.ypoints[i]<fc.h))) {
+					CutPlanesCube fc=JCP.getJOGLImageCanvas(imp).getCutPlanesCube();
+					if(pos>((fr-1)*sls*chs+fc.z()*chs) && pos<((fr-1)*sls*chs+fc.d()*chs)
+							&& (!fc.applyToRoi || (((fp.xpoints[i])>fc.x() && (fp.xpoints[i]<fc.w()))
+							&& ((fp.ypoints[i])>fc.y() && (fp.ypoints[i]<fc.h()))))) {
 						if(pos==0)pos=imp.getCurrentSlice();
 						int[] hpos=imp.convertIndexToPosition(pos);
 						float pz=((float)sls-2f*(float)hpos[1])*zf;
@@ -540,11 +540,11 @@ public class RoiGLDrawUtility {
 	}
 	
 	private int sx(float x) {
-		return (int)((x-offx)*mag);
+		return (int)((x-offx)*mag+0.5);
 	}
 	
 	private int sy(float y) {
-		return (int)((y-offy)*mag);
+		return (int)((y-offy)*mag+0.5);
 	}
 	
 	/**

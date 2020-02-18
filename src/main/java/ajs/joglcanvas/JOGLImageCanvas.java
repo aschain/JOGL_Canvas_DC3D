@@ -85,7 +85,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	protected boolean disablePopupMenu;
 	protected double dpimag=1.0;
 	protected boolean myImageUpdated=true;
-	private boolean cutPlanesChanged=false;
 	//protected boolean needImageUpdate=false;
 	private boolean deletePBOs=false;
 	protected boolean isMirror=false;
@@ -127,7 +126,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private AWTGLReadBufferUtil ss=null;
 	private RoiGLDrawUtility rgldu=null;
 	private boolean scbrAdjusting=false;
-	private FloatCube cutPlanes;
+	private CutPlanesCube cutPlanes;
 	private JCCutPlanes jccpDialog;
 	private JCBrightness jcgDialog;
 	private JCRotator jcrDialog;
@@ -143,7 +142,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(!mirror) {setOverlay(imp.getCanvas().getOverlay());}
 		imageState=new ImageState(imp);
 		imageState.prevSrcRect=new Rectangle(0,0,0,0);
-		cutPlanes=new FloatCube(0,0,0,imp.getWidth(), imp.getHeight(), imp.getNSlices());
+		cutPlanes=new CutPlanesCube(0,0,0,imp.getWidth(), imp.getHeight(), imp.getNSlices(), true);
 		GLCapabilities glc=JCP.getGLCapabilities();
 		int bits=imp.getBitDepth();
 		if((bits<16 || bits==24)&& (glc.getRedBits()>8 || glc.getGreenBits()>8 || glc.getBlueBits()>8) ) {
@@ -620,31 +619,24 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				if(top)reverse=Yza==rotate[6];
 				glos.getUniformBuffer("model").loadMatrix(FloatUtil.multMatrix(scale, FloatUtil.multMatrix(rotate, translate, new float[16]), new float[16]));
 				
-				if(ltr==null || !(ltr[0]==left && ltr[1]==top && ltr[2]==reverse) || cutPlanesChanged/*|| imageState.isChanged.srcRect*/) {
-					cutPlanesChanged=false;
+				if(ltr==null || !(ltr[0]==left && ltr[1]==top && ltr[2]==reverse) || cutPlanes.changed/*|| imageState.isChanged.srcRect*/) {
+					cutPlanes.changed=false;
 					double zrat=cal.pixelDepth/cal.pixelWidth;
 					int zmaxsls=(int)(zrat*(double)sls);
 					float zmax=(float)(zmaxsls)/(float)imageWidth;
 					float 	tw=(2*imageWidth-tex4div(imageWidth))/(float)imageWidth,
 							th=(2*imageHeight-tex4div(imageHeight))/(float)imageHeight;
-					FloatCube tcp=cutPlanes.toTexCoords();
-					FloatCube gcp=cutPlanes.toGLcoords();
+					final float[] initVerts=cutPlanes.getInitCoords(zmax, tw, th);
 					//For display of the square, there are 3 space verts and 3 texture verts
 					//for each of the 4 points of the square.
-					float[] initVerts=new float[] {
-							gcp.x, -gcp.h, gcp.d*zmax,   tcp.x,    tcp.h*th, tcp.d,
-							gcp.w, -gcp.h, gcp.z*zmax,   tcp.w*tw, tcp.h*th, tcp.z,
-							gcp.w, -gcp.y, gcp.z*zmax,   tcp.w*tw, tcp.y,    tcp.z,
-							gcp.x, -gcp.y, gcp.d*zmax,   tcp.x,    tcp.y,    tcp.d
-					};
 					ByteBuffer vertb=glos.getDirectBuffer(GL_ARRAY_BUFFER, "image3d");
 					vertb.clear();
 					lim=0;
 					if(left) { //left or right
-						for(float p=cutPlanes.x;p<cutPlanes.w;p+=1.0f) {
+						for(float p=cutPlanes.x();p<cutPlanes.w();p+=1.0f) {
 							float xt,xv, pn;
 							if(reverse) pn=p;
-							else pn=cutPlanes.w-(p-cutPlanes.x+1.0f);
+							else pn=cutPlanes.w()-(p-cutPlanes.x()+1.0f);
 							xt=(pn+0.5f)/imageWidth*tw;
 							xv=xt*2f-1f;
 							for(int i=0;i<4;i++) {
@@ -655,17 +647,17 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						}
 						lim*=24;
 					} else if(top) { //top or bottom
-						for(float p=cutPlanes.y;p<cutPlanes.h;p+=1.0f) {
+						for(float p=cutPlanes.y();p<cutPlanes.h();p+=1.0f) {
 							float yt,yv,pn;
 							if(!reverse) pn=p;
-							else pn=cutPlanes.h-(p-cutPlanes.y+1.0f);
+							else pn=cutPlanes.h()-(p-cutPlanes.y()+1.0f);
 							yt=(pn+0.5f)/imageHeight*th;
 							yv=1f-yt*2f;
 							for(int i=0;i<4;i++) {
 								float zv=initVerts[i*6+2];
 								float zt=initVerts[i*6+5];
-								if(i==1) {zv=gcp.d*zmax; zt=tcp.d;}
-								else if(i==3) {zv=gcp.z*zmax; zt=tcp.z;}
+								if(i==1) {zv=initVerts[2]; zt=initVerts[5];}
+								else if(i==3) {zv=initVerts[8]; zt=initVerts[11];}
 								vertb.putFloat(initVerts[i*6]); vertb.putFloat(yv); vertb.putFloat(zv);
 								vertb.putFloat(initVerts[i*6+3]); vertb.putFloat(yt); vertb.putFloat(zt);
 							}
@@ -673,9 +665,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						}
 						lim*=24;
 					}else { //front or back
-						for(float csl=(int)(cutPlanes.z*zrat);csl<(int)(cutPlanes.d*zrat);csl+=1.0f) {
+						for(float csl=(int)(cutPlanes.z()*zrat);csl<(int)(cutPlanes.d()*zrat);csl+=1.0f) {
 							float z=csl;
-							if(reverse) z=(cutPlanes.d*(float)zrat)-(csl-(int)(cutPlanes.z*(float)zrat));//z=((float)zmaxsls-csl-1f);
+							if(reverse) z=(cutPlanes.d()*(float)zrat)-(csl-(int)(cutPlanes.z()*(float)zrat));//z=((float)zmaxsls-csl-1f);
 							for(int i=0;i<4;i++) {
 								vertb.putFloat(initVerts[i*6]); vertb.putFloat(initVerts[i*6+1]); vertb.putFloat(((float)zmaxsls-2f*z)/imageWidth); 
 								vertb.putFloat(initVerts[i*6+3]); vertb.putFloat(initVerts[i*6+4]); vertb.putFloat((z+0.5f)/zmaxsls); 
@@ -847,47 +839,97 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		//imp.unlock();
 		mylock=false;
 	}
-
-	public void setCutPlanesCube(FloatCube c) {
-		cutPlanes.x=c.x;
-		cutPlanes.y=c.y;
-		cutPlanes.z=c.z;
-		cutPlanes.w=c.w;
-		cutPlanes.h=c.h;
-		cutPlanes.d=c.d;
-		cutPlanesChanged=true;
-		repaint();
-	}
 	
 	public void setGamma(float[] gamma) {
 		this.gamma=gamma;
 		repaint();
 	}
 	public float[] getGamma() {return gamma;}
-	
-	public FloatCube getCutPlanesFloatCube() {
-		FloatCube c=cutPlanes;
-		return new FloatCube(c.x,c.y,c.z,c.w,c.h,c.d);
+
+	public void updateCutPlanesCube(int[] c) {
+		if(c==null || c.length<6)return;
+		int i=0;
+		if(cutPlanes.x==c[i++] &&
+		cutPlanes.y==c[i++] &&
+		cutPlanes.z==c[i++] &&
+		cutPlanes.w==c[i++] &&
+		cutPlanes.h==c[i++] &&
+		cutPlanes.d==c[i++])return;
+		cutPlanes.updateCube(c);
+		repaint();
 	}
 	
-	class FloatCube{
-		public float x,y,z,w,h,d;
+	public void setCutPlanesApplyToRoi(boolean update) {cutPlanes.applyToRoi=update; repaint();}
+	
+	public CutPlanesCube getCutPlanesCube() {
+		CutPlanesCube c=cutPlanes;
+		return new CutPlanesCube(c.x(),c.y(),c.z(),c.w(),c.h(),c.d(), c.applyToRoi);
+	}
+	
+	class CutPlanesCube{
+		private int x,y,z,w,h,d;
+		public boolean applyToRoi=true;
+		public boolean changed=true;
+		private float[] initCoords=null, screenCoords=null;
 		
-		public FloatCube(float x, float y, float z, float width, float height, float depth) {
+		public CutPlanesCube(int x, int y, int z, int width, int height, int depth, boolean applyToRoi) {
 			this.x=x; this.y=y; this.z=z;
 			this.w=width; this.h=height; this.d=depth;
+			this.applyToRoi=applyToRoi;
+		}
+
+		public int x() {return x;}
+		public int y() {return y;}
+		public int z() {return z;}
+		public int w() {return w;}
+		public int h() {return h;}
+		public int d() {return d;}
+		
+		public void updateCube(int[] xyzwhd) {
+			if(xyzwhd==null || xyzwhd.length<6)return;
+			IJ.log("x"+x);
+			x=xyzwhd[0]; IJ.log("x"+x); y=xyzwhd[1]; z=xyzwhd[2];
+			w=xyzwhd[3]; h=xyzwhd[4]; d=xyzwhd[5];
+			changed=true;
+			initCoords=null;
+			screenCoords=null;
 		}
 		
-		public FloatCube toGLcoords() {
-			return new FloatCube(x/(float)imp.getWidth()*2f-1f, y/(float)imp.getHeight()*2f-1f, -(z/(float)imp.getNSlices()*2f-1f), 
-					w/(float)imp.getWidth()*2f-1f, h/(float)imp.getHeight()*2f-1f, -(d/(float)imp.getNSlices()*2f-1f));
+		public float[] getInitCoords(float zmax, float dtw, float dth) {
+			if(initCoords!=null) {return initCoords;}
+			IJ.log("x:"+x);
+			float vx=(float)x/imp.getWidth()*2f-1f, vy=(float)y/imp.getHeight()*2f-1f, vz=-((float)z/imp.getNSlices()*2f-1f),
+				  vw=(float)w/imp.getWidth()*2f-1f, vh=(float)h/imp.getHeight()*2f-1f, vd=-((float)d/imp.getNSlices()*2f-1f);
+			float tx=(float)x/imp.getWidth(), ty=(float)y/imp.getHeight(), tz=(float)z/imp.getNSlices(),
+				  tw=(float)w/imp.getWidth(), th=(float)h/imp.getHeight(), td=(float)d/imp.getNSlices();
+			initCoords=new float[] {
+					vx, -vh, vd*zmax,   tx,     th*dth, td,
+					vw, -vh, vz*zmax,   tw*dtw, th*dth, tz,
+					vw, -vy, vz*zmax,   tw*dtw, ty,     tz,
+					vx, -vy, vd*zmax,   tx,     ty,     td
+			};
+			return initCoords;
 		}
 		
-		public FloatCube toTexCoords() {
-			return new FloatCube(x/(float)imp.getWidth(),y/(float)imp.getHeight(),z/(float)imp.getNSlices(),
-					w/(float)imp.getWidth(), h/(float)imp.getHeight(), d/(float)imp.getNSlices());
+		public float[] getScreenCoords() {
+			if(screenCoords!=null)return screenCoords;
+			float mag=(float)magnification;
+			float srw=(float)srcRect.width, srh=(float)srcRect.height;
+			float offx=(float)srcRect.x, offy=(float)srcRect.y;
+			float dw=(int)(mag*srw+0.5), dh=(int)(mag*srh+0.5);
+			float glx=((x-offx)/srw+0.5f/dw)*2f-1f, gly=(((srh-(y-offy))/srh-0.5f/dh)*2f-1f);
+			if(glx<-1f)glx=-1f; if(glx>1f)glx=1f; if(gly<-1f)gly=-1f; if(gly>1f)gly=1f;
+			float glw=((w-offx)/srw+0.5f/dw)*2f-1f, glh=(((srh-(h-offy))/srh-0.5f/dh)*2f-1f);
+			if(glw<-1f)glw=-1f; if(glw>1f)glw=1f; if(glh<-1f)glh=-1f; if(glh>1f)glh=1f;
+			float tx=(glx+1f)/2f, ty=(gly+1f)/2f, tw=(glw+1f)/2f, th=(glh+1f)/2f;
+			screenCoords=new float[] {
+					glx, gly, 0f, tx, ty, 0.5f,
+					glw, gly, 0f, tw, ty, 0.5f,
+					glw, glh, 0f, tw, th, 0.5f,
+					glx, glh, 0f, tx, th, 0.5f,
+			};
+			return screenCoords;
 		}
-		
 	}
 	
 	static class ImageState{
@@ -998,12 +1040,23 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	}
 	
 	private void drawGraphics(GL2GL3 gl, float z, String name, int index, String modelmatrix) {
-		FloatBuffer vb=GLBuffers.newDirectFloatBuffer(new float[] {
-				-1,	-1,	z, 	0,1,0.5f,
-				1,	-1,	z, 	1,1,0.5f,
-				1,	1,	z, 	1,0,0.5f,
-				-1,	1,	z,	0,0,0.5f
-		});
+		FloatBuffer vb;
+		if(cutPlanes.applyToRoi) {
+			final float[] iv=cutPlanes.getScreenCoords();
+			vb=GLBuffers.newDirectFloatBuffer(new float[] {
+					iv[0],	iv[1],	z, 	iv[3], iv[4], 0.5f,
+					iv[6],	iv[7],	z, 	iv[9], iv[10], 0.5f,
+					iv[12],	iv[13],	z, 	iv[15], iv[16], 0.5f,
+					iv[18],	iv[19],	z,	iv[21], iv[22], 0.5f
+			});
+		}else {
+			vb=GLBuffers.newDirectFloatBuffer(new float[] {
+					-1,	-1,	z, 	0,1,0.5f,
+					1,	-1,	z, 	1,1,0.5f,
+					1,	1,	z, 	1,0,0.5f,
+					-1,	1,	z,	0,0,0.5f
+			});
+		}
 		glos.useProgram("roi");
 		drawGraphics(gl, name, index, modelmatrix, vb);
 		glos.stopProgram();

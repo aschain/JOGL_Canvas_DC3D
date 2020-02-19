@@ -26,6 +26,7 @@ import com.jogamp.opengl.util.texture.awt.AWTTextureIO;
 
 import ajs.joglcanvas.JCGLObjects.JCProgram;
 import ajs.joglcanvas.JOGLImageCanvas.CutPlanesCube;
+import ij.IJ;
 import ij.ImagePlus;
 import ij.gui.Arrow;
 import ij.gui.OvalRoi;
@@ -142,18 +143,19 @@ public class RoiGLDrawUtility {
 		if(tp==Roi.POINT) {
 			PointRoi proi=(PointRoi)roi;
 			int n=fp.npoints;
-			int chs=imp.getNChannels();
 			for(int i=0;i<n;i++) {
 				int pos=proi.getPointPosition(i);
+				int[] hpos=imp.convertIndexToPosition(pos);
+				int rz=hpos[1], rf=hpos[2];
 				if(!go3d && (imp.getCurrentSlice()==pos || pos==0))
 					drawPoint(proi, fp.xpoints[i], fp.ypoints[i], 0f,i);
-				if(go3d && (pos>((fr-1)*sls*chs) && pos<(fr*sls*chs))) {
+				if(go3d && rf==imp.getT()) {
 					CutPlanesCube fc=JCP.getJOGLImageCanvas(imp).getCutPlanesCube();
-					if(pos>((fr-1)*sls*chs+fc.z()*chs) && pos<((fr-1)*sls*chs+fc.d()*chs)
-							&& (!fc.applyToRoi || (((fp.xpoints[i])>fc.x() && (fp.xpoints[i]<fc.w()))
-							&& ((fp.ypoints[i])>fc.y() && (fp.ypoints[i]<fc.h()))))) {
+					if( !fc.applyToRoi || ( rz>fc.z() && rz<=fc.d() 
+							&& fp.xpoints[i]>fc.x() && fp.xpoints[i]<=fc.w()
+							&& fp.ypoints[i]>fc.y() && fp.ypoints[i]<=fc.h())
+							) {
 						if(pos==0)pos=imp.getCurrentSlice();
-						int[] hpos=imp.convertIndexToPosition(pos);
 						float pz=((float)sls-2f*(float)hpos[1])*zf;
 						drawPoint(proi, fp.xpoints[i], fp.ypoints[i], pz, i);
 					}
@@ -178,7 +180,7 @@ public class RoiGLDrawUtility {
 		int todraw=GL_LINE_STRIP;
 		if(tp==Roi.RECTANGLE || tp==Roi.TRACED_ROI || tp==Roi.OVAL || (!(roi.getState()==Roi.CONSTRUCTING) && (tp==Roi.POLYGON || tp==Roi.FREEROI)) )todraw=GL_LINE_LOOP;
 		if(tp==Roi.FREEROI && (roi instanceof ij.gui.EllipseRoi || roi.getClass().getName()=="ij.gui.RotatedRectRoi"))todraw=GL_LINE_LOOP;
-		//if(tp==Roi.POINT)todraw=GL_POINTS;
+
 		gl.glLineWidth(1f);
 		Color roicolor=anacolor==null?Roi.getColor():anacolor;
 		
@@ -188,7 +190,6 @@ public class RoiGLDrawUtility {
 		float[] xpoints=fp.xpoints;
 		float[] ypoints=fp.ypoints;
 
-		
 		//if it is a line with width
 		if(strokeWidth>1 && (tp==Roi.LINE || tp==Roi.FREELINE || tp==Roi.POLYLINE) && !(roi instanceof Arrow) && fp.npoints>=2) {
 			Color c=new Color(roicolor.getRed(), roicolor.getGreen(), roicolor.getBlue(), 77);
@@ -319,9 +320,6 @@ public class RoiGLDrawUtility {
 	
 	/** draws a point. x,y,z are all opengl float positions*/
 	private void drawPoint(PointRoi roi, float x, float y, float z, int n) {
-		//FloatPolygon fp=roi.getFloatPolygon();
-		//float x=fp.xpoints[n];
-		//float y=fp.ypoints[n];
 		boolean ms=gl.glIsEnabled(GL_MULTISAMPLE);
 		gl.glEnable(GL_MULTISAMPLE);
 		n++;
@@ -379,11 +377,8 @@ public class RoiGLDrawUtility {
 		if (roi.getShowLabels() && nPoints>1) {
 			int offset = 2;
 			if (nCounters==1) {
-				//if (!colorSet)
-					//setColor(gl,color);
-				drawString(""+n, Color.YELLOW, sglx(sx(x)+offset), sgly(sy(y)+(offset)), z);//y offset +fontSize;
+				drawString(""+n, Color.YELLOW, sglx(sx(x)+offset), sgly(sy(y)+(offset)), z); //y offset +fontSize;
 			} else if (counters!=null) {
-				//setColor(gl, getPointColor(counters[n-1]));
 				drawString(""+counters[n-1], getPointColor(counters[n-1]), sglx(sx(x)+offset), sgly(sy(y)+(offset)), z);//y offset +fontSize
 			}
 		}

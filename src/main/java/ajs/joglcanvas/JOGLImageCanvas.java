@@ -398,7 +398,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		ij.gui.Overlay overlay=imp.getCanvas().getOverlay();
 		boolean doRoi=false;
 		boolean isPoint=(roi instanceof PointRoi);
-		if(!JCP.openglroi && (roi!=null || (!go3d && overlay!=null))) {
+		if(!JCP.openglroi && (roi!=null || (!go3d && overlay!=null)) && !isPoint) {
 			BufferedImage roiImage=new BufferedImage(srcRectWidthMag, srcRectHeightMag, BufferedImage.TYPE_INT_ARGB);
 			Graphics g=roiImage.getGraphics();
 			if(roi!=null) {roi.draw(g); doRoi=true;}
@@ -440,7 +440,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						}
 					}
 				}
-				if(isPoint && osl!=sl) {
+				if(isPoint) {
 					if(g==null) {
 						roiImage=new BufferedImage(srcRectWidthMag, srcRectHeightMag, BufferedImage.TYPE_INT_ARGB);
 						g=roiImage.getGraphics();
@@ -766,7 +766,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					if(doRoi)drawGraphics(gl, z, "roiGraphic", 0, (go3d?"modelr":"idm"));
 					if(doOv!=null) {
 						for(int osl=0;osl<sls;osl++) {
-							if(doOv[osl]) {
+							if(doOv[osl] && (!cutPlanes.applyToRoi || (osl>=cutPlanes.z() && osl<cutPlanes.d())) ) {
 								drawGraphics(gl, ((float)sls-2f*(float)osl)*zf, "overlay", osl, (go3d?"modelr":"idm"));
 							}
 						}
@@ -887,8 +887,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		
 		public void updateCube(int[] xyzwhd) {
 			if(xyzwhd==null || xyzwhd.length<6)return;
-			IJ.log("x"+x);
-			x=xyzwhd[0]; IJ.log("x"+x); y=xyzwhd[1]; z=xyzwhd[2];
+			x=xyzwhd[0]; y=xyzwhd[1]; z=xyzwhd[2];
 			w=xyzwhd[3]; h=xyzwhd[4]; d=xyzwhd[5];
 			changed=true;
 			initCoords=null;
@@ -897,7 +896,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		
 		public float[] getInitCoords(float zmax, float dtw, float dth) {
 			if(initCoords!=null) {return initCoords;}
-			IJ.log("x:"+x);
 			float vx=(float)x/imp.getWidth()*2f-1f, vy=(float)y/imp.getHeight()*2f-1f, vz=-((float)z/imp.getNSlices()*2f-1f),
 				  vw=(float)w/imp.getWidth()*2f-1f, vh=(float)h/imp.getHeight()*2f-1f, vd=-((float)d/imp.getNSlices()*2f-1f);
 			float tx=(float)x/imp.getWidth(), ty=(float)y/imp.getHeight(), tz=(float)z/imp.getNSlices(),
@@ -1044,17 +1042,17 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(cutPlanes.applyToRoi) {
 			final float[] iv=cutPlanes.getScreenCoords();
 			vb=GLBuffers.newDirectFloatBuffer(new float[] {
-					iv[0],	iv[1],	z, 	iv[3], iv[4], 0.5f,
-					iv[6],	iv[7],	z, 	iv[9], iv[10], 0.5f,
-					iv[12],	iv[13],	z, 	iv[15], iv[16], 0.5f,
-					iv[18],	iv[19],	z,	iv[21], iv[22], 0.5f
+					iv[0],	iv[1],	z, 	iv[3],  1f-iv[4],  0.5f,
+					iv[6],	iv[7],	z, 	iv[9],  1f-iv[10], 0.5f,
+					iv[12],	iv[13],	z, 	iv[15], 1f-iv[16], 0.5f,
+					iv[18],	iv[19],	z,	iv[21], 1f-iv[22], 0.5f
 			});
 		}else {
 			vb=GLBuffers.newDirectFloatBuffer(new float[] {
-					-1,	-1,	z, 	0,1,0.5f,
-					1,	-1,	z, 	1,1,0.5f,
-					1,	1,	z, 	1,0,0.5f,
-					-1,	1,	z,	0,0,0.5f
+					-1,	-1,	z, 	0, 1, 0.5f,
+					 1,	-1,	z, 	1, 1, 0.5f,
+					 1,	 1,	z, 	1, 0, 0.5f,
+					-1,	 1,	z,	0, 0, 0.5f
 			});
 		}
 		glos.useProgram("roi");

@@ -26,7 +26,6 @@ import com.jogamp.opengl.util.texture.awt.AWTTextureIO;
 
 import ajs.joglcanvas.JCGLObjects.JCProgram;
 import ajs.joglcanvas.JOGLImageCanvas.CutPlanesCube;
-import ij.IJ;
 import ij.ImagePlus;
 import ij.gui.Arrow;
 import ij.gui.OvalRoi;
@@ -146,10 +145,10 @@ public class RoiGLDrawUtility {
 			for(int i=0;i<n;i++) {
 				int pos=proi.getPointPosition(i);
 				int[] hpos=imp.convertIndexToPosition(pos);
-				int rz=hpos[1], rf=hpos[2];
+				int rc=hpos[0], rz=hpos[1], rf=hpos[2];
 				if(!go3d && (imp.getCurrentSlice()==pos || pos==0))
 					drawPoint(proi, fp.xpoints[i], fp.ypoints[i], 0f,i);
-				if(go3d && rf==imp.getT()) {
+				if(go3d && rf==imp.getT() && rc==imp.getC()) {
 					CutPlanesCube fc=JCP.getJOGLImageCanvas(imp).getCutPlanesCube();
 					if( !fc.applyToRoi || ( rz>fc.z() && rz<=fc.d() 
 							&& fp.xpoints[i]>fc.x() && fp.xpoints[i]<=fc.w()

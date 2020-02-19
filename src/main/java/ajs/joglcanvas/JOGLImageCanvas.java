@@ -397,71 +397,80 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		Roi roi=imp.getRoi();
 		ij.gui.Overlay overlay=imp.getCanvas().getOverlay();
 		boolean doRoi=false;
-		boolean isPoint=(roi instanceof PointRoi);
-		if(!JCP.openglroi && (roi!=null || (!go3d && overlay!=null)) && !isPoint) {
-			BufferedImage roiImage=new BufferedImage(srcRectWidthMag, srcRectHeightMag, BufferedImage.TYPE_INT_ARGB);
-			Graphics g=roiImage.getGraphics();
-			if(roi!=null) {roi.draw(g); doRoi=true;}
-			if(overlay!=null) {
-				for(int i=0;i<overlay.size();i++) {
-					Roi oroi=overlay.get(i);
-					oroi.setImage(imp);
-					int rc=oroi.getCPosition(), rz=oroi.getZPosition(),rt=oroi.getTPosition();
-					if((rc==0||rc==imp.getC()) && (rz==0||rz==imp.getZ()) && (rt==0||rt==imp.getT())) {oroi.drawOverlay(g); doRoi=true;}
-				}
-			}
-			if(doRoi)glos.getTexture("roiGraphic").createRgbaTexture(AWTTextureIO.newTextureData(gl.getGLProfile(), roiImage, false).getBuffer(), roiImage.getWidth(), roiImage.getHeight(), 1, 4, false);
-		}
 		boolean[] doOv=null;
-		boolean didpt=false;
-		if(!JCP.openglroi && (overlay!=null || isPoint) && go3d) {
-			doOv=new boolean[sls];
-			if(!glos.textures.containsKey("overlay") || glos.getTexture("overlay").getTextureLength()!=sls) {
-				glos.newTexture("overlay",sls);
-				glos.newBuffer(GL_ARRAY_BUFFER, "overlay");
-				glos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "overlay");
-				glos.newVao("overlay", 3, GL_FLOAT, 3, GL_FLOAT);
-			}
-			for(int osl=0;osl<sls;osl++) {
-				BufferedImage roiImage=null;
-				Graphics g=null;
+		if(!JCP.openglroi) {
+			//&& (roi!=null || (!go3d && overlay!=null)) && (!isPoint || (isPoint && !go3d))) {
+			if(!go3d) {
+				BufferedImage roiImage=new BufferedImage(srcRectWidthMag, srcRectHeightMag, BufferedImage.TYPE_INT_ARGB);
+				Graphics g=roiImage.getGraphics();
+				if(roi!=null) {roi.draw(g); doRoi=true;}
 				if(overlay!=null) {
 					for(int i=0;i<overlay.size();i++) {
 						Roi oroi=overlay.get(i);
+						oroi.setImage(imp);
 						int rc=oroi.getCPosition(), rz=oroi.getZPosition(),rt=oroi.getTPosition();
-						if((rc==0||rc==imp.getC()) && (rz==0||rz==(osl+1)) && (rt==0||rt==imp.getT())) {
-							if(g==null) {
-								roiImage=new BufferedImage(srcRectWidthMag, srcRectHeightMag, BufferedImage.TYPE_INT_ARGB);
-								g=roiImage.getGraphics();
+						if((rc==0||rc==imp.getC()) && (rz==0||rz==imp.getZ()) && (rt==0||rt==imp.getT())) {oroi.drawOverlay(g); doRoi=true;}
+					}
+				}
+				if(doRoi)glos.getTexture("roiGraphic").createRgbaTexture(AWTTextureIO.newTextureData(gl.getGLProfile(), roiImage, false).getBuffer(), roiImage.getWidth(), roiImage.getHeight(), 1, 4, false);
+			}else{   // if(!JCP.openglroi && (overlay!=null || isPoint) && go3d) 
+				doOv=new boolean[sls];
+				if(!glos.textures.containsKey("overlay") || glos.getTexture("overlay").getTextureLength()!=sls) {
+					glos.newTexture("overlay",sls);
+					glos.newBuffer(GL_ARRAY_BUFFER, "overlay");
+					glos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "overlay");
+					glos.newVao("overlay", 3, GL_FLOAT, 3, GL_FLOAT);
+				}
+				boolean isPoint=(roi instanceof PointRoi);
+				boolean didpt=false;
+				for(int osl=0;osl<sls;osl++) {
+					BufferedImage roiImage=null;
+					Graphics g=null;
+					if(roi!=null && !isPoint && sl==osl) {
+						if(g==null) {
+							roiImage=new BufferedImage(srcRectWidthMag, srcRectHeightMag, BufferedImage.TYPE_INT_ARGB);
+							g=roiImage.getGraphics();
+						}
+						roi.draw(g); doOv[osl]=true;
+					}
+					if(overlay!=null) {
+						for(int i=0;i<overlay.size();i++) {
+							Roi oroi=overlay.get(i);
+							int rc=oroi.getCPosition(), rz=oroi.getZPosition(),rt=oroi.getTPosition();
+							if((rc==0||rc==imp.getC()) && (rz==0||rz==(osl+1)) && (rt==0||rt==imp.getT())) {
+								if(g==null) {
+									roiImage=new BufferedImage(srcRectWidthMag, srcRectHeightMag, BufferedImage.TYPE_INT_ARGB);
+									g=roiImage.getGraphics();
+								}
+								oroi.setImage(imp);
+								oroi.drawOverlay(g);
+								doOv[osl]=true;
 							}
-							oroi.setImage(imp);
-							oroi.drawOverlay(g);
-							doOv[osl]=true;
 						}
 					}
-				}
-				if(isPoint) {
-					if(g==null) {
-						roiImage=new BufferedImage(srcRectWidthMag, srcRectHeightMag, BufferedImage.TYPE_INT_ARGB);
-						g=roiImage.getGraphics();
-					}
-					for(int i=0;i<roi.getPolygon().npoints;i++) {
-						int pos=((PointRoi)roi).getPointPosition(i);
-						//pos>(fr*sls*chs+osl*chs) && pos<(fr*sls*chs+(osl+1)*chs)
-						if(pos==imp.getStackIndex(imp.getC(), osl+1, fr+1)) {
-							//imp.setPositionWithoutUpdate(imp.getC(), osl+1, fr+1);
-							imp.setSliceWithoutUpdate(imp.getStackIndex(imp.getC(), osl+1, fr+1));
-							roi.draw(g);
-							doOv[osl]=true; didpt=true;
-							break;
+					if(isPoint) {
+						if(g==null) {
+							roiImage=new BufferedImage(srcRectWidthMag, srcRectHeightMag, BufferedImage.TYPE_INT_ARGB);
+							g=roiImage.getGraphics();
+						}
+						for(int i=0;i<roi.getPolygon().npoints;i++) {
+							int pos=((PointRoi)roi).getPointPosition(i);
+							//pos>(fr*sls*chs+osl*chs) && pos<(fr*sls*chs+(osl+1)*chs)
+							if(pos==imp.getStackIndex(imp.getC(), osl+1, fr+1)) {
+								//imp.setPositionWithoutUpdate(imp.getC(), osl+1, fr+1);
+								imp.setSliceWithoutUpdate(imp.getStackIndex(imp.getC(), osl+1, fr+1));
+								roi.draw(g);
+								doOv[osl]=true; didpt=true;
+								break;
+							}
 						}
 					}
+					if(doOv[osl]) {
+						glos.getTexture("overlay").createRgbaTexture(osl, AWTTextureIO.newTextureData(gl.getGLProfile(), roiImage, false).getBuffer(), roiImage.getWidth(), roiImage.getHeight(), 1, 4, false);
+					}
 				}
-				if(doOv[osl]) {
-					glos.getTexture("overlay").createRgbaTexture(osl, AWTTextureIO.newTextureData(gl.getGLProfile(), roiImage, false).getBuffer(), roiImage.getWidth(), roiImage.getHeight(), 1, 4, false);
-				}
+				if(isPoint && didpt)imp.setSliceWithoutUpdate(imp.getStackIndex(imp.getC(), sl+1, fr+1));
 			}
-			if(isPoint && didpt)imp.setSliceWithoutUpdate(imp.getStackIndex(imp.getC(), sl+1, fr+1));
 		}
 		
 		if(glos.getPboLength("image")!=(chs*frms) || deletePBOs) {
@@ -1039,7 +1048,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	
 	private void drawGraphics(GL2GL3 gl, float z, String name, int index, String modelmatrix) {
 		FloatBuffer vb;
-		if(cutPlanes.applyToRoi) {
+		if(go3d && cutPlanes.applyToRoi) {
 			final float[] iv=cutPlanes.getScreenCoords();
 			vb=GLBuffers.newDirectFloatBuffer(new float[] {
 					iv[0],	iv[1],	z, 	iv[3],  1f-iv[4],  0.5f,

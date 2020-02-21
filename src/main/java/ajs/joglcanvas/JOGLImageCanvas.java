@@ -96,7 +96,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	protected boolean go3d=JCP.go3d;
 	public String renderFunction=JCP.renderFunction;
 	protected int sx,sy;
-	protected float dx=0f,dy=0f,dz=0f, tx=0f, ty=0f, tz=0f;
+	protected float dx=0f,dy=0f,dz=0f, tx=0f, ty=0f, tz=0f, supermag=0f;
 	private float[] gamma=null;
 	
 	private PopupMenu dcpopup=null;
@@ -544,10 +544,14 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			}
 		}
 		
+		if(go3d) {
+			if((supermag+magnification)<=0)supermag=0f-(float)magnification;
+			if((supermag+magnification)>24)supermag=24f-(float)magnification;
+		}
 		float 	trX=-((float)(srcRect.x*2+srcRect.width)/imageWidth-1f),
 				trY=((float)(srcRect.y*2+srcRect.height)/imageHeight-1f),
-				scX=(float)imageWidth/srcRect.width,
-				scY=(float)imageHeight/srcRect.height;
+				scX=(float)imageWidth/srcRect.width+(go3d?supermag:0f),
+				scY=(float)imageHeight/srcRect.height+(go3d?supermag:0f);
 		float[] translate=null,scale=null,rotate=null;
 		if( (imageState.isChanged.srcRect) || go3d) {
 			if(tx>2.0f)tx=2.0f; if(tx<-2.0f)tx=-2.0f;
@@ -763,7 +767,15 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 
 			
 			if(roi!=null || overlay!=null) { 
-				if(go3d)glos.getUniformBuffer("modelr").loadMatrix(FloatUtil.multMatrix(rotate,FloatUtil.makeTranslation(new float[16], false, tx, ty, tz)));
+				if(go3d) {
+					float tmag=(float)imageWidth/(float)srcRect.width;
+					FloatUtil.multMatrix(rotate,FloatUtil.makeTranslation(new float[16], false, tx*tmag, ty*tmag, tz*tmag));
+					if(supermag!=0f) {
+						float tsm=(tmag+supermag)/tmag;
+						rotate=FloatUtil.multMatrix(FloatUtil.makeScale(new float[16], false, tsm, tsm, tsm), rotate);
+					}
+					glos.getUniformBuffer("modelr").loadMatrix(rotate);
+				}
 				//if(go3d)IJ.log(FloatUtil.matrixToString(null, "rot2: ", "%10.4f", rotate, 0, 4, 4, false).toString());
 				float z=0f;
 				float zf=(float)(cal.pixelDepth/cal.pixelWidth)/srcRect.width;
@@ -907,12 +919,12 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			if(initCoords!=null) {return initCoords;}
 			float vx=(float)x/imp.getWidth()*2f-1f, vy=(float)y/imp.getHeight()*2f-1f, vz=-((float)z/imp.getNSlices()*2f-1f),
 				  vw=(float)w/imp.getWidth()*2f-1f, vh=(float)h/imp.getHeight()*2f-1f, vd=-((float)d/imp.getNSlices()*2f-1f);
-			float tx=(float)x/imp.getWidth(), ty=(float)y/imp.getHeight(), tz=(float)z/imp.getNSlices(),
+			float tx=(float)x/imp.getWidth(), ty=(float)y/imp.getHeight(), ttz=(float)z/imp.getNSlices(),
 				  tw=(float)w/imp.getWidth(), th=(float)h/imp.getHeight(), td=(float)d/imp.getNSlices();
 			initCoords=new float[] {
 					vx, -vh, vd*zmax,   tx,     th*dth, td,
-					vw, -vh, vz*zmax,   tw*dtw, th*dth, tz,
-					vw, -vy, vz*zmax,   tw*dtw, ty,     tz,
+					vw, -vh, vz*zmax,   tw*dtw, th*dth, ttz,
+					vw, -vy, vz*zmax,   tw*dtw, ty,     ttz,
 					vx, -vy, vd*zmax,   tx,     ty,     td
 			};
 			return initCoords;
@@ -1251,7 +1263,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		glos.bindUniformBuffer("global", 1);
 		glos.bindUniformBuffer("idm", 2);
 		rgldu.drawGLfb(drawable, zoomIndVerts, GL_LINE_LOOP);
-		zoomIndVerts.rewind();
+		//zoomIndVerts.rewind();
 		zoomIndVerts.put(x1+x2).put(y1-y2).put(0f).put(color);
 		zoomIndVerts.put(x1+x2+w2).put(y1-y2).put(0f).put(color);
 		zoomIndVerts.put(x1+x2+w2).put(y1-y2-h2).put(0f).put(color);
@@ -1731,6 +1743,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}else super.mousePressed(e);
 	}
 	
+	public void setSuperMag(float m) { supermag=m;}
+	public float getSuperMag() {return supermag;}
+	
 	@Override
 	public void mouseDragged(MouseEvent e) {
 		if(shouldKeep(e)) {
@@ -1743,9 +1758,16 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				float yd=(float)(e.getY()-sy)/(float)srcRect.height;
 				sx=e.getX(); sy=e.getY();
 				if(IJ.altKeyDown()||e.getButton()==MouseEvent.BUTTON2) {
-					dz+=yd*90f;
+					if(IJ.shiftKeyDown()) {
+						tz-=yd;
+					}else dz+=yd*90f;
 				}else if(IJ.shiftKeyDown()) {
-					tz-=yd;
+					if(IJ.controlKeyDown()) {
+						supermag-=yd*magnification;
+					}else {
+						tx+=xd;
+						ty-=yd;
+					}
 				}else {
 					dx+=xd*90f;
 					dy+=yd*90f;

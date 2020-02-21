@@ -19,6 +19,7 @@ public class JCRotator extends JCAdjuster implements MouseMotionListener {
 	private final static char[] cps=new char[] {'X','Y','Z'};
 	NumberScrollPanel[] rnsps= new NumberScrollPanel[3];
 	NumberScrollPanel[] tnsps= new NumberScrollPanel[3];
+	NumberScrollPanel zscp;
 	private boolean isRunning=false;
 
 	public JCRotator(JOGLImageCanvas jica) {
@@ -71,6 +72,26 @@ public class JCRotator extends JCAdjuster implements MouseMotionListener {
 			}
 		});
 		add(b,c);
+		c.gridy++;
+		add(new Label("Additional Zoom"),c);
+		for(int i=0;i<1;i++) {
+			c.gridy++;
+			zscp=new NumberScrollPanel(jic.getSuperMag(),-2.0f,2.0f,'M',2);
+			add(zscp, c);
+			zscp.addAdjustmentListener(this);
+			zscp.setFocusable(false);
+		}
+		c.gridy++;
+		b=new Button("Reset");
+		b.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				if(jic.icc==null || !jic.icc.isVisible())dispose();
+				zscp.setFloatValue(0);
+				update();
+			}
+		});
+		add(b,c);
 		pack();
 		Container win=jic.icc.getParent();
 		Point loc=win.getLocation();
@@ -85,6 +106,7 @@ public class JCRotator extends JCAdjuster implements MouseMotionListener {
 			eas[i]=rnsps[i].getFloatValue();
 			eas[i+3]=tnsps[i].getFloatValue();
 		}
+		jic.setSuperMag(zscp.getFloatValue());
 		jic.setEulerAngles(eas);
 	}
 
@@ -110,6 +132,7 @@ public class JCRotator extends JCAdjuster implements MouseMotionListener {
 				for(int i=0;i<rnsps.length;i++) {
 					rnsps[i].setFloatValue(inits[i]);
 					tnsps[i].setFloatValue(inits[i+3]);
+					zscp.setFloatValue(jic.getSuperMag());
 				}
 				try {
 					Thread.sleep(200);

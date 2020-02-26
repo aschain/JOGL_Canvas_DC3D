@@ -66,9 +66,7 @@ public class JCCutPlanes extends JCAdjuster {
 		});
 		add(cb,c);
 		pack();
-		Container win=jic.icc.getParent();
-		Point loc=win.getLocation();
-		setLocation(new Point(loc.x+win.getSize().width+10,loc.y+5));
+		setToDefaultLocation();
 		show();
 	}
 	

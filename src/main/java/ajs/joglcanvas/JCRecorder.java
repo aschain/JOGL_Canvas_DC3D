@@ -40,7 +40,7 @@ public class JCRecorder implements PlugIn, BIScreenGrabber {
 		if(imp==null) {IJ.noImage();return;}
 		dcic=JCP.getJOGLImageCanvas(imp);
 		if(dcic==null){IJ.showMessage("Image is not DeepColor");return;}
-		dcic.icc.getParent().requestFocus();
+		dcic.getParent().requestFocus();
 		recbox=new JCRecorderBox(this);
 	}
 	

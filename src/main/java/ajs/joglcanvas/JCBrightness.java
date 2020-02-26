@@ -127,9 +127,7 @@ public class JCBrightness extends JCAdjuster implements ImageListener {
 		});
 		add(b,c);
 		pack();
-		Container win=jic.icc.getParent();
-		Point loc=win.getLocation();
-		setLocation(new Point(loc.x+win.getSize().width+10,loc.y+5));
+		setToDefaultLocation();
 		ImagePlus.addImageListener(this);
 		show();
 	}
@@ -172,7 +170,7 @@ public class JCBrightness extends JCAdjuster implements ImageListener {
 
 	@Override
 	public void adjustmentValueChanged(AdjustmentEvent e) {
-		if(jic.icc==null || !jic.icc.isVisible())dispose();
+		if(jic.icc==null)dispose();
 		Object source=e.getSource();
 		if(source instanceof NumberScrollPanel) {
 			for(int i=0;i<gnsps.length;i++) if(source==gnsps[i]) {updateGamma(); return;}

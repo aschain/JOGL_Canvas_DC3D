@@ -1,12 +1,10 @@
 package ajs.joglcanvas;
 
 import java.awt.Button;
-import java.awt.Container;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.Label;
-import java.awt.Point;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.AdjustmentEvent;
@@ -46,7 +44,7 @@ public class JCRotator extends JCAdjuster implements MouseMotionListener {
 		b.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				if(jic.icc==null || !jic.icc.isVisible())dispose();
+				disposeIfNull();
 				for(int i=0;i<rnsps.length;i++)rnsps[i].setFloatValue(0);
 				update();
 			}
@@ -66,7 +64,7 @@ public class JCRotator extends JCAdjuster implements MouseMotionListener {
 		b.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				if(jic.icc==null || !jic.icc.isVisible())dispose();
+				disposeIfNull();
 				for(int i=0;i<tnsps.length;i++)tnsps[i].setFloatValue(0);
 				update();
 			}
@@ -86,18 +84,16 @@ public class JCRotator extends JCAdjuster implements MouseMotionListener {
 		b.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				if(jic.icc==null || !jic.icc.isVisible())dispose();
+				disposeIfNull();
 				zscp.setFloatValue(0);
 				update();
 			}
 		});
 		add(b,c);
 		pack();
-		Container win=jic.icc.getParent();
-		Point loc=win.getLocation();
-		setLocation(new Point(loc.x+win.getSize().width+10,loc.y+5));
+		setToDefaultLocation();
 		show();
-		jic.icc.addMouseMotionListener(this);
+		jic.othercanvas.addMouseMotionListener(this);
 	}
 	
 	public void update() {
@@ -112,7 +108,7 @@ public class JCRotator extends JCAdjuster implements MouseMotionListener {
 
 	@Override
 	public void adjustmentValueChanged(AdjustmentEvent e) {
-		if(jic.icc==null || !jic.icc.isVisible())dispose();
+		disposeIfNull();
 		Object source=e.getSource();
 		if(source instanceof NumberScrollPanel) {
 			update();

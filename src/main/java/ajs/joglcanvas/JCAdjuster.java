@@ -2,8 +2,11 @@ package ajs.joglcanvas;
 
 import java.awt.BorderLayout;
 import java.awt.Component;
+import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.Event;
+import java.awt.Point;
+import java.awt.Rectangle;
 import java.awt.Scrollbar;
 import java.awt.TextField;
 import java.awt.event.ActionEvent;
@@ -26,6 +29,21 @@ public abstract class JCAdjuster extends PlugInDialog implements AdjustmentListe
 		super(title);
 		this.imp=jic.getImage();
 		this.jic=jic;
+	}
+	
+	protected void setToDefaultLocation() {
+		Rectangle b;
+		if(jic.isMirror) {
+			 b=jic.mirror.getBounds();
+			//setLocation(new Point(b.getX()+b.getWidth()+10,b.getY()+5));
+		}else {
+			b=jic.glcanvas.getParent().getBounds();
+		}
+		setLocation(new Point((int)(b.getX()+b.getWidth()+10),(int)(b.getY()+5)));
+	}
+	
+	protected void disposeIfNull() {
+		if(jic.icc==null || (jic.isMirror && !jic.mirror.isVisible()) || (!jic.isMirror && !jic.glcanvas.isVisible()))dispose();
 	}
 
 	@Override

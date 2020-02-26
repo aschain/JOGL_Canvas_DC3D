@@ -66,9 +66,7 @@ public class JCCutPlanes extends JCAdjuster {
 		});
 		add(cb,c);
 		pack();
-		//Container win=jic.icc.getParent();
-		Point loc=jic.getLocation();
-		setLocation(new Point(loc.x+win.getSize().width+10,loc.y+5));
+		setToDefaultLocation();
 		show();
 	}
 	
@@ -85,7 +83,7 @@ public class JCCutPlanes extends JCAdjuster {
 
 	@Override
 	public void adjustmentValueChanged(AdjustmentEvent e) {
-		if(jic.icc==null || !jic.icc.isRealized())dispose();
+		disposeIfNull();
 		Object source=e.getSource();
 		if(source instanceof NumberScrollPanel) {
 			NumberScrollPanel nsp=(NumberScrollPanel)source;

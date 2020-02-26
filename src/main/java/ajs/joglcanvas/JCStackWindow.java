@@ -22,7 +22,7 @@ public class JCStackWindow extends StackWindow {
         Component[] wincs=c.getComponents();
         
         for(int i=0;i<wincs.length;i++) {
-        		if(wincs[i] instanceof JOGLImageCanvas) {c.remove(i); c.add(dcic.icc, i);}
+        		if(wincs[i] instanceof JOGLImageCanvas) {c.remove(i); c.add(dcic.othercanvas, i);}
         }
 		repaint();
 	}

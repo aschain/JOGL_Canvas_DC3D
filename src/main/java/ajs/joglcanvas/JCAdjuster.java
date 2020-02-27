@@ -2,8 +2,10 @@ package ajs.joglcanvas;
 
 import java.awt.BorderLayout;
 import java.awt.Component;
+import java.awt.Container;
 import java.awt.Dimension;
-import java.awt.Event;
+import java.awt.Point;
+import java.awt.Rectangle;
 import java.awt.Scrollbar;
 import java.awt.TextField;
 import java.awt.event.ActionEvent;
@@ -26,6 +28,12 @@ public abstract class JCAdjuster extends PlugInDialog implements AdjustmentListe
 		super(title);
 		this.imp=jic.getImage();
 		this.jic=jic;
+	}
+	
+	protected void setToDefaultLocation() {
+		Container win=jic.getParent();
+		Rectangle b=win.getBounds();
+		setLocation(new Point(b.x+b.width+10,b.y+5));
 	}
 
 	@Override

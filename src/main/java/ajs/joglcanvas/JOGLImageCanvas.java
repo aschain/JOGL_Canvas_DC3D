@@ -160,7 +160,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		//IJ.log("GetRequestedSurfaceScale:"+res[0]+" "+res[1]);
 		icc.addMouseListener(this);
 		icc.addMouseMotionListener(this);
-		icc.addKeyListener(ij);
+		icc.addKeyListener(this);
 		icc.setFocusTraversalKeysEnabled(false);
 		//icc.setSize(imageWidth, imageHeight);
 		icc.setPreferredSize(new Dimension(imageWidth,imageHeight));
@@ -1106,18 +1106,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		threeDupdated=true;
 		myImageUpdated=true;
 		go3d=newboo;
-		if(go3d) {
-			//IJ.setTool("hand");
-			icc.addKeyListener(this);
-			if(isMirror) {
-				//icc.removeMouseListener(imp.getCanvas());
-				//icc.removeMouseMotionListener(imp.getCanvas());
-				//icc.addMouseListener(this);
-				//icc.addMouseMotionListener(this);
-			}
-		}else {
-			icc.removeKeyListener(this);
-		}
 		repaint();
 	}
 	
@@ -1185,7 +1173,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		Insets ins=icc.getParent().getInsets();
 		if(!mirrorMagUnlock && !icc.getSize().equals(s)) {
 			setSize(s);
-			icc.getParent().setSize(s.width+ins.left+ins.right,s.height+ins.top+ins.bottom);
+			mirror.pack();
+			//icc.getParent().setSize(s.width+ins.left+ins.right,s.height+ins.top+ins.bottom);
 		}
 	}
 	
@@ -1417,7 +1406,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	}
 	
 	public void add(JPopupMenu popup) {
-		if(icc!=null)icc.getParent().add(popup);
+		if(icc!=null)getParent().add(popup);
 	}
 	
 	/** Adapted from ImageCanvas, but shows JOGLCanvas popupmenu*/
@@ -1694,24 +1683,29 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	public void keyReleased(KeyEvent arg0) {}
 	@Override
 	public void keyTyped(KeyEvent arg0) {
-		if(arg0.getKeyChar()=='u') {
-			myImageUpdated=true;
-			repaint();
-		}else {
-			if(arg0.getKeyChar()=='='||arg0.getKeyChar()=='-') {
-				Point loc = getCursorLoc();
-				if (!cursorOverImage()) {
-					loc.x = srcRect.x + srcRect.width/2;
-					loc.y = srcRect.y + srcRect.height/2;
+		if(go3d) {
+			char key=arg0.getKeyChar();
+			int code=arg0.getKeyCode();
+			if(key=='u') {
+				myImageUpdated=true;
+				repaint();
+			}else {
+				if(key=='='||key=='-') {
+					Point loc = getCursorLoc();
+					if (!cursorOverImage()) {
+						loc.x = srcRect.x + srcRect.width/2;
+						loc.y = srcRect.y + srcRect.height/2;
+					}
+					int x = screenX(loc.x);
+					int y = screenY(loc.y);
+					ImageCanvas ic=isMirror?imp.getCanvas():this;
+					if(key=='=')ic.zoomIn(x,y);
+					else ic.zoomOut(x,y);
 				}
-				int x = screenX(loc.x);
-				int y = screenY(loc.y);
-				ImageCanvas ic=isMirror?imp.getCanvas():this;
-				if(arg0.getKeyChar()=='=')ic.zoomIn(x,y);
-				else ic.zoomOut(x,y);
+				if(isMirror) {updateMirror(); repaint();}
 			}
-			if(isMirror) {updateMirror(); repaint();}
 		}
+		ij.keyTyped(arg0);
 	}
 	
 	/**

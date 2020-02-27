@@ -93,6 +93,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private JCGLObjects glos;
 	protected boolean disablePopupMenu;
 	protected double dpimag=1.0;
+	protected double surfacedpimag=1.0;
 	protected boolean myImageUpdated=true;
 	//protected boolean needImageUpdate=false;
 	private boolean deletePBOs=false;
@@ -169,9 +170,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		createPopupMenu();
 		sb=new StackBuffer(imp);
 		float[] res=new float[] {1.0f,1.0f};
-		//float[] oldres=glw.getRequestedSurfaceScale(res);
+		float[] oldres=glw.getCurrentSurfaceScale(res);
 		glw.setSurfaceScale(res);
-		//IJ.log("GetRequestedSurfaceScale:"+oldres[0]+" "+oldres[1]);
+		IJ.log("Previous SurfaceScale:"+oldres[0]+" "+oldres[1]);
+		oldres=glw.getCurrentSurfaceScale(res);
+		IJ.log("New SurfaceScale:"+oldres[0]+" "+oldres[1]);
 		final JOGLImageCanvas jic=this;
 		(new Thread(){
 			@Override
@@ -202,14 +205,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		GraphicsConfiguration gc=imp.getWindow().getGraphicsConfiguration();
 		AffineTransform t=gc.getDefaultTransform();
 		dpimag=t.getScaleX();
-		if(dpimag==1.0) {
-			dpimag=(double)drawable.getSurfaceWidth()/(double)((int)(srcRect.width*magnification+0.5));
-			if(dpimag!=1.0)IJ.log("Surface Width Adjustment DPI");
-		}
-		//if(IJ.isMacOSX())dpimag=1.0;
-		//icc.setSize(dstWidth, dstHeight);
-		if(dpimag>1.0)IJ.log("Dpimag: "+dpimag);
-		//if(IJ.isMacOSX())icc.setLocation(4,47);
+		if(dpimag!=1.0)IJ.log("GC DPImag: "+dpimag);
+		surfacedpimag=(double)drawable.getSurfaceWidth()/(double)((int)(srcRect.width*magnification+0.5));
+		if(surfacedpimag!=1.0)IJ.log("GLW surface DPImag: "+surfacedpimag);
 		setGL(drawable);
 		gl.glClearColor(0f, 0f, 0f, 0f);
 		gl.glDisable(GL_DEPTH_TEST);
@@ -325,12 +323,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	
 	private Rectangle getViewportAspectRectangle(int x, int y, int width, int height) {
 		//int x=(int)(x*dpimag+0.5), y=(int)(y*dpimag+0.5);
-		if(!IJ.isMacOSX()){
-			width=(int)(width*dpimag+0.5);
-			height=(int)(height*dpimag+0.5);
-		}
-		int srmw=(int)((int)(srcRect.width*magnification+0.5)*dpimag+0.5);
-		int srmh=(int)((int)(srcRect.height*magnification+0.5)*dpimag+0.5);
+		Double totdpimag=dpimag*surfacedpimag;
+		width=(int)(width*dpimag+0.5);
+		height=(int)(height*dpimag+0.5);
+		int srmw=(int)((int)(srcRect.width*magnification+0.5)*totdpimag+0.5);
+		int srmh=(int)((int)(srcRect.height*magnification+0.5)*totdpimag+0.5);
 		int w=srmw,h=srmh;
 
 		if(mirrorMagUnlock) {
@@ -595,8 +592,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			glos.useProgram("image");
 			if(go3d) {
 				//Rectangle r=getViewportAspectRectangle(0,0,drawable.getSurfaceWidth(),drawable.getSurfaceHeight());
-				int width=(int)(srcRectWidthMag*dpimag+0.5);
-				int height=(int)(srcRectHeightMag*dpimag+0.5);
+				Double totdpimag=dpimag*surfacedpimag;
+				int width=(int)(srcRectWidthMag*totdpimag+0.5);
+				int height=(int)(srcRectHeightMag*totdpimag+0.5);
 				if(stereoType==StereoType.QUADBUFFER) {
 					if(stereoi==1)
 						gl.glDrawBuffer(GL_RIGHT);
@@ -1327,10 +1325,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	@Override
 	public void setSize(int width, int height) {
 		if(icc!=null) {
-			//Dimension s=new Dimension((int)(width*dpimag+0.5), (int)(height*dpimag+0.5));
+			Dimension s=new Dimension((int)(width*dpimag+0.5), (int)(height*dpimag+0.5));
 			//Dimension s=new Dimension(width,height);
-			//icc.setSize(s);
-			//icc.setPreferredSize(s);
+			icc.setSize(s);
+			icc.setPreferredSize(s);
 			//icc.setLocation(0, 0);
 			//glw.setSize(width, height);
 			if(isMirror) {
@@ -1341,7 +1339,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					}
 				});
 				
-			}else glw.setSize(width, height);
+			}//else glw.setSize(width, height);
 		}
 		else super.setSize(width, height);
 		dstWidth = width;
@@ -1493,11 +1491,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				//int a=0;
 				//for(int i=0;i<imageFBs.length;i++)if(imageFBs!=null)a++;
 				//if(a<imageFBs.length)mi3d.setLabel(lbl+" PBOs:"+a+"/"+imageFBs.length);
-				if(dpimag>1.0) {
-					if(!IJ.isMacOSX())dcpopup.show(icc, (int)(x*dpimag), (int)(y*dpimag));
-					else dcpopup.show(icc, (int)(x/dpimag), (int)(y/dpimag));
-				}
-				else dcpopup.show(icc, x, y);
+				dcpopup.show(icc, (int)(x*dpimag/surfacedpimag), (int)(y*dpimag/surfacedpimag));
 				mi3d.setLabel(lbl);
 			}
 		}

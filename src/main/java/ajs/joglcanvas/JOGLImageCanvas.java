@@ -26,6 +26,7 @@ import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
 import java.awt.Image;
 import java.awt.Insets;
+import java.awt.List;
 import java.awt.Menu;
 import java.awt.MenuItem;
 import java.awt.Point;
@@ -162,15 +163,15 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		display.addReference();
 		Screen screen=NewtFactory.createScreen(display, 0);
 		screen.addReference();
-		for(Screen scr : Screen.getAllScreens())IJ.log("Sc:"+scr);
-		glw=GLWindow.create(screen, glc);
+		//for(Screen scr : Screen.getAllScreens())IJ.log("Sc:"+scr);
+		glw=GLWindow.create(glc);
 		icc=new NewtCanvasAWT(glw);
 		createPopupMenu();
 		sb=new StackBuffer(imp);
 		float[] res=new float[] {1.0f,1.0f};
+		//float[] oldres=glw.getRequestedSurfaceScale(res);
 		glw.setSurfaceScale(res);
-		//res=icc.getRequestedSurfaceScale(res);
-		//IJ.log("GetRequestedSurfaceScale:"+res[0]+" "+res[1]);
+		//IJ.log("GetRequestedSurfaceScale:"+oldres[0]+" "+oldres[1]);
 		final JOGLImageCanvas jic=this;
 		(new Thread(){
 			@Override
@@ -201,6 +202,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		GraphicsConfiguration gc=imp.getWindow().getGraphicsConfiguration();
 		AffineTransform t=gc.getDefaultTransform();
 		dpimag=t.getScaleX();
+		if(dpimag==1.0) {
+			dpimag=(double)drawable.getSurfaceWidth()/(double)((int)(srcRect.width*magnification+0.5));
+			if(dpimag!=1.0)IJ.log("Surface Width Adjustment DPI");
+		}
 		//if(IJ.isMacOSX())dpimag=1.0;
 		//icc.setSize(dstWidth, dstHeight);
 		if(dpimag>1.0)IJ.log("Dpimag: "+dpimag);
@@ -302,7 +307,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	
 	@Override
 	public void reshape(GLAutoDrawable drawable, int x, int y, int width, int height) {
-		//IJ.log("Reshaping:x"+x+" y"+y+" w"+width+" h"+height);
+		if(JCP.debug) {
+			IJ.log("Reshaping:x"+x+" y"+y+" w"+width+" h"+height);
+			IJ.log("IC Size:  w"+imp.getCanvas().getSize().width+" h"+imp.getCanvas().getSize().height);
+		}
 		setGL(drawable);
 		resetGlobalMatricies();
 		Rectangle r=getViewportAspectRectangle(x,y,width,height);
@@ -317,8 +325,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	
 	private Rectangle getViewportAspectRectangle(int x, int y, int width, int height) {
 		//int x=(int)(x*dpimag+0.5), y=(int)(y*dpimag+0.5);
-		width=(int)(width*dpimag+0.5);
-		height=(int)(height*dpimag+0.5);
+		if(!IJ.isMacOSX()){
+			width=(int)(width*dpimag+0.5);
+			height=(int)(height*dpimag+0.5);
+		}
 		int srmw=(int)((int)(srcRect.width*magnification+0.5)*dpimag+0.5);
 		int srmh=(int)((int)(srcRect.height*magnification+0.5)*dpimag+0.5);
 		int w=srmw,h=srmh;
@@ -596,9 +606,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					float[] translatecb=FloatUtil.makeTranslation(new float[16], 0, false, (stereoi==0?(-CB_MAXSIZE*CB_TRANSLATE):(CB_MAXSIZE*CB_TRANSLATE)), 0f, 0f);
 					FloatUtil.multMatrix(orthocb, translatecb);
 					gl.glEnable(GL_SCISSOR_TEST);
-					int x=(int)(drawable.getSurfaceWidth()*dpimag/2)-(int)(r.width/CB_MAXSIZE/2f) + (int)(CB_TRANSLATE*r.width/2f*(stereoi==0?-1:1));
+					int x=(int)(drawable.getSurfaceWidth()/2)-(int)(r.width/CB_MAXSIZE/2f) + (int)(CB_TRANSLATE*r.width/2f*(stereoi==0?-1:1));
 					//int y=(int)((1f-(1f/CB_MAXSIZE))*yrat/2f*(float)r.height);
-					int y=(int)(drawable.getSurfaceHeight()*dpimag/2)-(int)(r.height/CB_MAXSIZE/2f);
+					int y=(int)(drawable.getSurfaceHeight()/2)-(int)(r.height/CB_MAXSIZE/2f);
 					gl.glScissor(x, y, (int)(r.width/CB_MAXSIZE), (int)(r.height/CB_MAXSIZE));
 					glos.getUniformBuffer("global").loadMatrix(orthocb);
 				}else if(stereoType==StereoType.ANAGLYPH) {
@@ -1165,7 +1175,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					@Override
 					public void paint(Graphics g){
 						updateMirror();
-						glw.display();
+						repaint();
 						super.paint(g);
 					}
 				});
@@ -1211,11 +1221,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		glw.setUndecorated(dofs);
 		if(dofs) {
 			
-			//ArrayList<MonitorDevice> ml=new ArrayList<MonitorDevice>(1);
-			//for(MonitorDevice md : screen.getMonitorDevices())IJ.log("MD:"+md);
-			//ml.add(screen.getMonitorDevices().get(0));
+			ArrayList<MonitorDevice> ml=new ArrayList<MonitorDevice>();
+			for(MonitorDevice md : glw.getScreen().getMonitorDevices())IJ.log("MD:"+md);
+			ml.add(glw.getScreen().getMonitorDevices().get(0));
 			//ml.add(glw.getMainMonitor());
-			glw.setFullscreen(true);
+			glw.setFullscreen(ml);
 		}else glw.setFullscreen(false);
 		return dofs;
 	}
@@ -1347,8 +1357,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	public void repaint() {
 		if(icc!=null) {
 			if(isMirror)updateMirror();
-			glw.display();
-			//icc.repaint();
+			//glw.display();
+			icc.repaint();
 		}
 		else if(gl!=null) setPaintPending(false);
 		//else super.repaint();
@@ -1358,8 +1368,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	public void repaint(int x,int y,int width,int height) {
 		if(icc!=null) {
 			updateMirror();
-			glw.display();
-			//icc.repaint(x,y,width,height);
+			//glw.display();
+			icc.repaint(x,y,width,height);
 		}else super.repaint(x,y,width,height);
 	}
 
@@ -1483,7 +1493,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				//int a=0;
 				//for(int i=0;i<imageFBs.length;i++)if(imageFBs!=null)a++;
 				//if(a<imageFBs.length)mi3d.setLabel(lbl+" PBOs:"+a+"/"+imageFBs.length);
-				if(dpimag>1.0 && !IJ.isMacOSX())dcpopup.show(icc, (int)(x*dpimag), (int)(y*dpimag));
+				if(dpimag>1.0) {
+					if(!IJ.isMacOSX())dcpopup.show(icc, (int)(x*dpimag), (int)(y*dpimag));
+					else dcpopup.show(icc, (int)(x/dpimag), (int)(y/dpimag));
+				}
 				else dcpopup.show(icc, x, y);
 				mi3d.setLabel(lbl);
 			}
@@ -1740,24 +1753,29 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	@Override
 	public void keyTyped(KeyEvent arg0) {
 		if(go3d) {
-		if(arg0.getKeyChar()=='u') {
-			myImageUpdated=true;
-			repaint();
-		}else {
-			if(arg0.getKeyChar()=='='||arg0.getKeyChar()=='-') {
-				Point loc = getCursorLoc();
-				if (!cursorOverImage()) {
-					loc.x = srcRect.x + srcRect.width/2;
-					loc.y = srcRect.y + srcRect.height/2;
+			char key=arg0.getKeyChar();
+			int code=arg0.getKeyCode();
+			if(arg0.getKeyChar()=='u') {
+				myImageUpdated=true;
+				repaint();
+			}else if(code==KeyEvent.VK_ESCAPE) {
+				if(glw.isFullscreen())toggleFullscreen();
+			}else {
+				if(key=='='||key=='-') {
+					Point loc = getCursorLoc();
+					if (!cursorOverImage()) {
+						loc.x = srcRect.x + srcRect.width/2;
+						loc.y = srcRect.y + srcRect.height/2;
+					}
+					int x = screenX(loc.x);
+					int y = screenY(loc.y);
+					ImageCanvas ic=isMirror?imp.getCanvas():this;
+					if(key=='=')ic.zoomIn(x,y);
+					else ic.zoomOut(x,y);
 				}
-				int x = screenX(loc.x);
-				int y = screenY(loc.y);
-				ImageCanvas ic=isMirror?imp.getCanvas():this;
-				if(arg0.getKeyChar()=='=')ic.zoomIn(x,y);
-				else ic.zoomOut(x,y);
+				if(isMirror) {updateMirror(); repaint();}
 			}
-			if(isMirror) {updateMirror(); repaint();}
-		}}
+		}
 		ij.keyTyped(arg0);
 	}
 	

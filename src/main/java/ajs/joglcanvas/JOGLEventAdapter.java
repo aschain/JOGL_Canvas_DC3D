@@ -15,6 +15,7 @@ public class JOGLEventAdapter implements MouseListener, KeyListener {
 	private final java.awt.event.MouseListener ml;
 	private final java.awt.event.MouseMotionListener mml;
 	private final java.awt.event.KeyListener kl;
+	boolean isRunning=false;
 	
 	/**
 	 * 
@@ -32,7 +33,6 @@ public class JOGLEventAdapter implements MouseListener, KeyListener {
 			if(ml!=null||mml!=null)win.addMouseListener(this);
 			if(kl!=null)win.addKeyListener(this);
 		}
-		
 	}
 	
 	public JOGLEventAdapter(JOGLImageCanvas jic, com.jogamp.newt.Window win) {
@@ -40,24 +40,36 @@ public class JOGLEventAdapter implements MouseListener, KeyListener {
 	}
 	
 	public final java.awt.event.MouseEvent convertME(MouseEvent e){
-		return new java.awt.event.MouseEvent(source, eventTypeNEWT2AWT(e.getEventType()), e.getWhen(), e.getModifiers(), e.getX(), e.getY(), e.getX(), e.getY(), (int)e.getClickCount(), false, (int)e.getButton());
+		java.awt.event.MouseEvent res=new java.awt.event.MouseEvent(source, eventTypeNEWT2AWT(e.getEventType()), e.getWhen(), e.getModifiers(), e.getX(), e.getY(), e.getX(), e.getY(), (int)e.getClickCount(), (int)e.getButton()==3, (int)e.getButton());
+		if(JCP.debug) {
+			System.out.println("--");
+			System.out.println("newt:"+e);
+			System.out.println("awt:"+res);
+		}
+		
+		return res;
 	}
 
+	public boolean check(Object o) {
+		if(o==null)return false;
+		return true;
+	}
+	
 	/**
 	 * newt MouseListener->java.awt.MouseListener
 	 */
 	@Override
-	public void mouseClicked(MouseEvent e) {if(ml!=null)ml.mouseClicked(convertME(e));}
-	public void mouseEntered(MouseEvent e)  {if(ml!=null)ml.mouseEntered(convertME(e));}
-	public void mouseExited(MouseEvent e) {if(ml!=null)ml.mouseExited(convertME(e));}
-	public void mousePressed(MouseEvent e)  {if(ml!=null)ml.mousePressed(convertME(e));}
-	public void mouseReleased(MouseEvent e) {if(ml!=null)ml.mouseReleased(convertME(e));}
+	public void mouseClicked(MouseEvent e) {if(check(ml))ml.mouseClicked(convertME(e));}
+	public void mouseEntered(MouseEvent e)  {if(check(ml))ml.mouseEntered(convertME(e));}
+	public void mouseExited(MouseEvent e) {if(check(ml))ml.mouseExited(convertME(e));}
+	public void mousePressed(MouseEvent e)  {if(check(ml))ml.mousePressed(convertME(e));}
+	public void mouseReleased(MouseEvent e) {if(check(ml))ml.mouseReleased(convertME(e));}
 	/**
 	 * newt MouseListener->java.awt.MouseMotionListener
 	 */
 	@Override
-	public void mouseMoved(MouseEvent e)  {if(mml!=null)mml.mouseMoved(convertME(e));}
-	public void mouseDragged(MouseEvent e)  {if(mml!=null)mml.mouseDragged(convertME(e));}
+	public void mouseMoved(MouseEvent e)  {if(check(mml))mml.mouseMoved(convertME(e));}
+	public void mouseDragged(MouseEvent e)  {if(check(mml))mml.mouseDragged(convertME(e));}
 	/**
 	 * newt MouseListener->java.awt.MouseWheelListener
 	 */
@@ -107,8 +119,8 @@ public class JOGLEventAdapter implements MouseListener, KeyListener {
 	 * newt KeyListener-> java.awt.KeyListener
 	 */
 	@Override
-	public void keyPressed(KeyEvent e) {if(kl!=null)kl.keyPressed(convertKE(e));}
+	public void keyPressed(KeyEvent e) {if(check(kl))kl.keyPressed(convertKE(e));}
 	@Override
-	public void keyReleased(KeyEvent e) {if(kl!=null) {kl.keyReleased(convertKE(e)); kl.keyTyped(convertKE(e));}}
+	public void keyReleased(KeyEvent e) {if(check(kl)) {kl.keyReleased(convertKE(e)); kl.keyTyped(convertKE(e));}}
 	
 }

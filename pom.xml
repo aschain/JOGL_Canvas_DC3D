@@ -14,7 +14,7 @@
 
 	<groupId>ajs.joglcanvas</groupId>
 	<artifactId>JOGL_Canvas_DC3D</artifactId>
-	<version>0.2.1-SNAPSHOT</version>
+	<version>0.2.2-SNAPSHOT</version>
 
 	<name>JOGL_Canvas_DC3D</name>
 	<description>ImageJ1 Plugin replacing the Java Canvas with an OpenGL JOGL GLCanvas.</description>

@@ -106,7 +106,7 @@ public class JCBrightness extends JCAdjuster implements ImageListener {
 			add(new Label("C"+(i+1)+":"),c);
 			c.anchor=GridBagConstraints.CENTER;
 			c.gridx=1;
-			gnsps[i]=new NumberScrollPanel(inits[i],0f,5.0f,'G',2);
+			gnsps[i]=new NumberScrollPanel(inits[i],0.05f,5.0f,'G',2);
 			add(gnsps[i], c);
 			gnsps[i].addAdjustmentListener(this);
 			gnsps[i].setFocusable(false);

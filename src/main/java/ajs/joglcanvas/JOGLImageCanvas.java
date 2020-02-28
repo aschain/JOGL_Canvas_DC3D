@@ -1785,7 +1785,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	}
 	
 	public void resetAngles() {
-		dx=0f; dy=0f; dz=0f; tx=0f; ty=0f; tz=0f;
+		dx=0f; dy=0f; dz=0f; tx=0f; ty=0f; tz=0f; supermag=0;
+		if(jcrDialog!=null)jcrDialog.mouseDragged(null);
 		icc.repaint();
 	}
 	

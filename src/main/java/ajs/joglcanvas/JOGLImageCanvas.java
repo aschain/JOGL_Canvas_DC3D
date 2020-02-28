@@ -1743,6 +1743,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	@Override
 	public void mouseDragged(MouseEvent e) {
 		if(shouldKeep(e)) {
+			//(e.getModifiers() & MouseEvent.BUTTON1_MASK) != 0 &&
+            boolean ctrl=(e.getModifiersEx() & (MouseEvent.CTRL_DOWN_MASK | MouseEvent.META_DOWN_MASK)) != 0;
+            boolean shift=(e.getModifiersEx() & MouseEvent.SHIFT_DOWN_MASK) != 0;
+            boolean alt=(e.getModifiersEx() & MouseEvent.ALT_DOWN_MASK) != 0;
 			if(JCP.debug) {IJ.log("\\Update2:   Drag took: "+String.format("%5.1f", (float)(System.nanoTime()-dragtime)/1000000f)+"ms"); dragtime=System.nanoTime();}
 			if(IJ.spaceBarDown()&&isMirror) {
 				scroll(e.getX(),e.getY());
@@ -1751,12 +1755,12 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				float xd=(float)(e.getX()-sx)/(float)srcRect.width;
 				float yd=(float)(e.getY()-sy)/(float)srcRect.height;
 				sx=e.getX(); sy=e.getY();
-				if(IJ.altKeyDown()||e.getButton()==MouseEvent.BUTTON2) {
-					if(IJ.shiftKeyDown()) {
+				if(alt||e.getButton()==MouseEvent.BUTTON2) {
+					if(shift) {
 						tz-=yd;
 					}else dz+=yd*90f;
-				}else if(IJ.shiftKeyDown()) {
-					if(IJ.controlKeyDown()) {
+				}else if(shift) {
+					if(ctrl) {
 						supermag-=yd*magnification;
 					}else {
 						tx+=xd;

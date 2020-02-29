@@ -1231,7 +1231,14 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			
 			ArrayList<MonitorDevice> ml=new ArrayList<MonitorDevice>();
 			for(MonitorDevice md : glw.getScreen().getMonitorDevices())IJ.log("MD:"+md);
-			ml.add(glw.getScreen().getMonitorDevices().get(1));
+			java.util.List<MonitorDevice> mds=glw.getScreen().getMonitorDevices();
+			if(mds.size()==1)ml.add(mds.get(0));
+			else{
+				ij.gui.GenericDialog gd=new ij.gui.GenericDialog("Monitors");
+				for(int i=0;i<mds.size();i++) gd.addCheckbox("Monitor "+(i+1), i==0?true:false);
+				gd.show();
+				for(int i=0;i<mds.size();i++)if(gd.getNextBoolean())ml.add(mds.get(i));
+			}
 			//ml.add(glw.getMainMonitor());
 			glw.setFullscreen(ml);
 		}else glw.setFullscreen(false);

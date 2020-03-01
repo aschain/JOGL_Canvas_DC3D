@@ -1482,16 +1482,16 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		else {
 			if (disablePopupMenu) return;
 			if (IJ.debugMode) IJ.log("show popup: " + (e.isPopupTrigger()?"true":"false"));
-			final int x = e.getX();
-			final int y = e.getY();
+			int x = e.getX();
+			int y = e.getY();
 			Roi roi = imp.getRoi();
 			if (roi!=null && roi.getState()==Roi.CONSTRUCTING) {
 				return;
 			}
 
 			if (dcpopup!=null) {
-				//final int xp=(int)(x*dpimag/surfacedpimag);
-				//final int yp=(int)(y*dpimag/surfacedpimag);
+				x=(int)(x/dpimag);
+				y=(int)(y/dpimag);
 				add(dcpopup);
 				dcpopup.show(icc,x,y);
 			}

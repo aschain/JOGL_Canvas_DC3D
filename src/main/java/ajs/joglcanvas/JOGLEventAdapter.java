@@ -46,6 +46,8 @@ public class JOGLEventAdapter implements MouseListener, KeyListener {
 		this(jic.icc, win, jic, jic, null, jic);
 	}
 	
+	
+	
 	public void setMouseWheelListener(java.awt.event.MouseWheelListener mouseWheelListener) {this.mwl=mouseWheelListener;}
 	
 	public final java.awt.event.MouseEvent convertME(MouseEvent e){
@@ -75,22 +77,38 @@ public class JOGLEventAdapter implements MouseListener, KeyListener {
 	 * newt MouseListener->java.awt.MouseListener
 	 */
 	@Override
-	public void mouseClicked(MouseEvent e) {if(check(ml))ml.mouseClicked(convertME(e));}
-	public void mouseEntered(MouseEvent e)  {if(check(ml))ml.mouseEntered(convertME(e));}
-	public void mouseExited(MouseEvent e) {if(check(ml))ml.mouseExited(convertME(e));}
-	public void mousePressed(MouseEvent e)  {if(check(ml))ml.mousePressed(convertME(e));}
-	public void mouseReleased(MouseEvent e) {if(check(ml))ml.mouseReleased(convertME(e));}
+	public void mouseClicked(MouseEvent e) {
+		if(check(ml)) java.awt.EventQueue.invokeLater(new Runnable() { public void run() {ml.mouseClicked(convertME(e));}});
+	}
+	public void mouseEntered(MouseEvent e)  {
+		if(check(ml)) java.awt.EventQueue.invokeLater(new Runnable() { public void run() {ml.mouseEntered(convertME(e));}});
+	}
+	public void mouseExited(MouseEvent e) {
+		if(check(ml)) java.awt.EventQueue.invokeLater(new Runnable() { public void run() {ml.mouseExited(convertME(e));}});
+	}
+	public void mousePressed(MouseEvent e) {
+		if(check(ml)) java.awt.EventQueue.invokeLater(new Runnable() { public void run() {ml.mousePressed(convertME(e));}});
+	}
+	public void mouseReleased(MouseEvent e) {
+		if(check(ml)) java.awt.EventQueue.invokeLater(new Runnable() { public void run() {ml.mouseReleased(convertME(e));}});
+	}
 	/**
 	 * newt MouseListener->java.awt.MouseMotionListener
 	 */
 	@Override
-	public void mouseMoved(MouseEvent e)  {if(check(mml))mml.mouseMoved(convertME(e));}
-	public void mouseDragged(MouseEvent e)  {if(check(mml))mml.mouseDragged(convertME(e));}
+	public void mouseMoved(MouseEvent e) {
+		if(check(mml)) java.awt.EventQueue.invokeLater(new Runnable() { public void run() {mml.mouseMoved(convertME(e));}});
+	}
+	public void mouseDragged(MouseEvent e) {
+		if(check(mml)) java.awt.EventQueue.invokeLater(new Runnable() { public void run() {mml.mouseDragged(convertME(e));}});
+	}
 	/**
 	 * newt MouseListener->java.awt.MouseWheelListener
 	 */
 	@Override
-	public void mouseWheelMoved(MouseEvent e) {if(check(mwl))mwl.mouseWheelMoved((java.awt.event.MouseWheelEvent)convertME(e));}
+	public void mouseWheelMoved(MouseEvent e) {
+		if(check(mwl))java.awt.EventQueue.invokeLater(new Runnable() { public void run() {mwl.mouseWheelMoved((java.awt.event.MouseWheelEvent)convertME(e));}});
+	}
 	
 	public static final int eventTypeNEWT2AWT(final short newtType) {
         switch( newtType ) {
@@ -174,8 +192,12 @@ public class JOGLEventAdapter implements MouseListener, KeyListener {
 	 * newt KeyListener-> java.awt.KeyListener
 	 */
 	@Override
-	public void keyPressed(KeyEvent e) {if(check(kl))kl.keyPressed(convertKE(e));}
+	public void keyPressed(KeyEvent e) {
+		if(check(kl))java.awt.EventQueue.invokeLater(new Runnable() { public void run() {kl.keyPressed(convertKE(e));}});
+		}
 	@Override
-	public void keyReleased(KeyEvent e) {if(check(kl)) {kl.keyReleased(convertKE(e)); kl.keyTyped(convertKE(e));}}
+	public void keyReleased(KeyEvent e) {
+		if(check(kl)) java.awt.EventQueue.invokeLater(new Runnable() { public void run() {kl.keyReleased(convertKE(e)); kl.keyTyped(convertKE(e));}});
+		}
 	
 }

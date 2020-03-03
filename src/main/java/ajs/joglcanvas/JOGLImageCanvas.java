@@ -21,12 +21,9 @@ import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Frame;
 import java.awt.Graphics;
-import java.awt.GraphicsConfiguration;
 import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
 import java.awt.Image;
-import java.awt.Insets;
-import java.awt.List;
 import java.awt.Menu;
 import java.awt.MenuItem;
 import java.awt.Point;
@@ -47,7 +44,6 @@ import java.awt.event.MouseMotionListener;
 import java.awt.event.MouseWheelEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
-import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.nio.Buffer;
 import java.nio.FloatBuffer;
@@ -99,7 +95,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	protected boolean isMirror=false;
 	private Frame mirror=null;
 	private boolean mirrorMagUnlock=false;
-	private boolean maxmirror=true;
 	private ImageState imageState;
 	private boolean[] ltr=null;
 
@@ -249,7 +244,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 
 		glos.getUniformBuffer("model").loadIdentity();
 		glos.getUniformBuffer("modelr").loadIdentity();
-		resetGlobalMatrices();
 		//global written during reshape call
 		
 		//int[] pf=new int[1];
@@ -309,7 +303,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	
 	@Override
 	public void reshape(GLAutoDrawable drawable, int x, int y, int width, int height) {
-		imageState.resized=true;
+		//imageState.resized=true;
+		resetGlobalMatrices(drawable);
 		if(JCP.debug) {
 			IJ.log("Reshaping:x"+x+" y"+y+" w"+width+" h"+height);
 			IJ.log("IC Size:  w"+imp.getCanvas().getSize().width+" h"+imp.getCanvas().getSize().height);
@@ -320,14 +315,20 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			//if(dpimag>1.0)
 			IJ.log("bef VPS: "+vps[0]+" "+vps[1]+" "+vps[2]+" "+vps[3]);
 		}
+		//if(!(go3d&& mirrorMagUnlock)) {
+		//	Rectangle r=getViewportAspectRectangle(x,y,width,height);
+		//	gl.glViewport(r.x, r.y, r.width, r.height);
+		//}
 	}
 	
 	private Rectangle getViewportAspectRectangle(int x, int y, int width, int height) {
-		if(maxmirror)return new Rectangle(x,y,width,height);
+		return new Rectangle(x,y,width,height);
+		//if(go3d&& mirrorMagUnlock)
 		//int x=(int)(x*dpimag+0.5), y=(int)(y*dpimag+0.5);
 		//Double totdpimag=Math.max(dpimag,surfacedpimag);
 		//width=(int)(width*dpimag/surfacedpimag+0.5);
 		//height=(int)(height*surfacedpimag+0.5);
+		/*
 		int srmw=(int)((int)(srcRect.width*magnification+0.5)*dpimag+0.5);
 		int srmh=(int)((int)(srcRect.height*magnification+0.5)*dpimag+0.5);
 		int w=srmw,h=srmh;
@@ -347,10 +348,20 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			}
 		}
 		return new Rectangle((width-w)/2, (int)((height-h)/2), w, h);
+		*/
 	}
 	
-	private void resetGlobalMatrices() {
-		float[] ortho = FloatUtil.makeOrtho(new float[16], 0, false, -1f, 1f, -1f, 1f, -1f, 1f);
+	private void resetGlobalMatrices(GLAutoDrawable drawable) {
+		float rat=((float)drawable.getSurfaceWidth()/drawable.getSurfaceHeight())/((float)imageWidth/imageHeight);
+		float sx=1f, sy=1f;
+		if(rat>1.0f) sx/=rat;  else sy*=rat;
+		//FloatUtil.makeOrtho(new float[16], 0, false, -1f/sx, 1f/sx, -1f/sy, 1f/sy, -1f/sx, 1f/sx);
+		float[] ortho = new float[] {
+				sx, 0, 0, 0,
+				0, sy, 0, 0,
+				0, 0, -sx, 0,
+				0, 0, 0, 1f
+			};
 		glos.getUniformBuffer("global").loadMatrix(ortho);
 		glos.getUniformBuffer("global").loadIdentity(16*Buffers.SIZEOF_FLOAT);
 	}
@@ -382,7 +393,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		Calibration cal=imp.getCalibration();
 		if(go3d&&sls==1)go3d=false;
 		sb.setPixelType(go3d?pixelType3d:getPixelType(), go3d?undersample:1);
-		float yrat=1f;//(float)srcRect.height/srcRect.width;
 		
 		int srcRectWidthMag = (int)(srcRect.width*magnification+0.5);
 		int srcRectHeightMag = (int)(srcRect.height*magnification+0.5);
@@ -390,7 +400,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		
 		if(stereoUpdated) {
 			if(stereoType!=StereoType.CARDBOARD) {
-				resetGlobalMatrices();
+				resetGlobalMatrices(drawable);
 			}
 			if(stereoType==StereoType.ANAGLYPH) {
 				if(!glos.textures.containsKey("anaglyph"))initAnaglyph();
@@ -404,7 +414,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			}else {
 				glos.getUniformBuffer("model").loadIdentity();
 				imageState.isChanged.srcRect=true;
-				resetGlobalMatrices();
+				//resetGlobalMatrices();
 				glos.getTexture("image2d").initiate(getPixelType(), sb.bufferWidth, sb.bufferHeight, 1, 1);
 			}
 			threeDupdated=false;
@@ -569,12 +579,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				trY=((float)(srcRect.y*2+srcRect.height)/imageHeight-1f),
 				scX=(float)imageWidth/srcRect.width+(go3d?supermag:0f),
 				scY=(float)imageHeight/srcRect.height+(go3d?supermag:0f);
-		if(maxmirror) {
-			float rat=((float)drawable.getSurfaceWidth()/drawable.getSurfaceHeight())/((float)imageWidth/imageHeight);
-			if(rat>1.0f) scX/=rat; 
-			else scY*=rat;
-			//IJ.log("rat:"+rat+" scX:"+scX+" scY:"+scY);
-		}
 		float[] translate=null,scale=null,rotate=null;
 		if( (imageState.isChanged.srcRect || imageState.resized) || go3d) {
 			if(tx>2.0f)tx=2.0f; if(tx<-2.0f)tx=-2.0f;
@@ -606,7 +610,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						gl.glDrawBuffer(GL_RIGHT);
 						//gl.glDrawBuffers(1, new int[] {GL_BACK_RIGHT},0);
 				}else if(stereoType==StereoType.CARDBOARD) {
-					float[] orthocb = FloatUtil.makeOrtho(new float[16], 0, false, -CB_MAXSIZE, CB_MAXSIZE, -CB_MAXSIZE*yrat, CB_MAXSIZE*yrat, -CB_MAXSIZE, CB_MAXSIZE);
+					float rat=((float)drawable.getSurfaceWidth()/drawable.getSurfaceHeight())/((float)imageWidth/imageHeight);
+					float sx=1f, sy=1f;
+					if(rat>1.0f) sx/=rat;  else sy*=rat;
+					float[] orthocb = FloatUtil.makeOrtho(new float[16], 0, false, -CB_MAXSIZE/sx, CB_MAXSIZE/sx, -CB_MAXSIZE/sy, CB_MAXSIZE/sy, -CB_MAXSIZE/sx, CB_MAXSIZE/sx);
 					float[] translatecb=FloatUtil.makeTranslation(new float[16], 0, false, (stereoi==0?(-CB_MAXSIZE*CB_TRANSLATE):(CB_MAXSIZE*CB_TRANSLATE)), 0f, 0f);
 					FloatUtil.multMatrix(orthocb, translatecb);
 					gl.glEnable(GL_SCISSOR_TEST);
@@ -792,10 +799,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			
 			if(roi!=null || overlay!=null) { 
 				if(go3d) {
-					float tmag=(float)imageWidth/(float)srcRect.width;
-					FloatUtil.multMatrix(rotate,FloatUtil.makeTranslation(new float[16], false, tx*tmag, ty*tmag, tz*tmag));
+					scX=(float)imageWidth/srcRect.width;
+					scY=(float)imageHeight/srcRect.height;
+					FloatUtil.multMatrix(rotate,FloatUtil.makeTranslation(new float[16], false, tx*scX, ty*scY, tz*scX));
 					if(supermag!=0f) {
-						float tsm=(tmag+supermag)/tmag;
+						float tsm=(scX+supermag)/scX;
 						rotate=FloatUtil.multMatrix(FloatUtil.makeScale(new float[16], false, tsm, tsm, tsm), rotate);
 					}
 					glos.getUniformBuffer("modelr").loadMatrix(rotate);
@@ -1235,7 +1243,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			else{
 				ij.gui.GenericDialog gd=new ij.gui.GenericDialog("Monitors");
 				for(int i=0;i<mds.size();i++) gd.addCheckbox("Monitor "+(i+1), i==0?true:false);
-				gd.show();
+				gd.showDialog();
+				if(gd.wasCanceled())return !dofs;
 				for(int i=0;i<mds.size();i++)if(gd.getNextBoolean())ml.add(mds.get(i));
 			}
 			//ml.add(glw.getMainMonitor());

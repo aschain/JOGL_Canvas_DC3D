@@ -12,6 +12,7 @@ import ij.gui.ScrollbarWithLabel;
 import ij.gui.StackWindow;
 import ij.measure.Calibration;
 import ij.process.LUT;
+import java.awt.geom.AffineTransform;
 
 import java.awt.CheckboxMenuItem;
 import java.awt.Color;
@@ -21,6 +22,7 @@ import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Frame;
 import java.awt.Graphics;
+import java.awt.GraphicsConfiguration;
 import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
 import java.awt.Image;
@@ -160,6 +162,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		//for(Screen scr : Screen.getAllScreens())IJ.log("Sc:"+scr);
 		glw=GLWindow.create(glc);
 		icc=new NewtCanvasAWT(glw);
+		glw.addWindowListener( new com.jogamp.newt.event.WindowAdapter() {
+			@Override
+			public void windowDestroyed(com.jogamp.newt.event.WindowEvent e) {revert();}
+		});
 		createPopupMenu();
 		sb=new StackBuffer(imp);
 		final JOGLImageCanvas jic=this;
@@ -184,21 +190,25 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	public void init(GLAutoDrawable drawable) {
 		JCP.version=drawable.getGL().glGetString(GL_VERSION);
 		glos=new JCGLObjects(drawable);
-		//GraphicsConfiguration gc=imp.getWindow().getGraphicsConfiguration();
-		//AffineTransform t=gc.getDefaultTransform();
-		//dpimag=t.getScaleX();
-		//if(dpimag!=1.0)IJ.log("GC DPImag: "+dpimag);
-		dpimag=(double)drawable.getSurfaceWidth()/(double)((int)(srcRect.width*magnification+0.5));
-		if(dpimag!=1.0)IJ.log("DPImag: "+dpimag);
-		//float[] res=new float[] {(float)dpimag,(float)dpimag};
-		//float[] oldres=new float[2];
-		//glw.getCurrentSurfaceScale(oldres);
-		//glw.setSurfaceScale(res);
-		//IJ.log("Previous SurfaceScale:"+oldres[0]+" "+oldres[1]);
-		//oldres=glw.getCurrentSurfaceScale(oldres);
-		//IJ.log("New SurfaceScale:"+oldres[0]+" "+oldres[1]);
-		//IJ.log("GLW surface DPImag: "+surfacedpimag+" sw:"+drawable.getSurfaceWidth()+" ic:"+(int)(srcRect.width*magnification+0.5));
 		setGL(drawable);
+		
+		GraphicsConfiguration gc=imp.getWindow().getGraphicsConfiguration();
+		AffineTransform t=gc.getDefaultTransform();
+		dpimag=t.getScaleX();
+		if(dpimag!=1.0)IJ.log("GC DPImag: "+dpimag);
+		if(dpimag==1.0f) {
+			dpimag=(double)drawable.getSurfaceWidth()/(double)((int)(srcRect.width*magnification+0.5));
+			if(dpimag!=1.0)IJ.log("DPImag: "+dpimag);
+		}
+		
+		float[] oldres=new float[2];
+		glw.getCurrentSurfaceScale(oldres);
+		IJ.log("Previous SurfaceScale:"+oldres[0]+" "+oldres[1]);
+		float[] res=new float[] {(float)dpimag,(float)dpimag};
+		glw.setSurfaceScale(res);
+		oldres=glw.getCurrentSurfaceScale(oldres);
+		IJ.log("New SurfaceScale:"+oldres[0]+" "+oldres[1]);
+		//IJ.log("GLW surface DPImag: "+surfacedpimag+" sw:"+drawable.getSurfaceWidth()+" ic:"+(int)(srcRect.width*magnification+0.5));
 		gl.glClearColor(0f, 0f, 0f, 0f);
 		gl.glDisable(GL_DEPTH_TEST);
 		gl.glDisable(GL_MULTISAMPLE);
@@ -358,11 +368,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		//IJ.log("\\Update2:Display took: "+(System.nanoTime()-starttime)/1000000L+"ms");
 		long displaytime=System.nanoTime();
 		if(JCP.debug) {
-			IJ.log("\\Update0:Display start took: "+String.format("%5.1f", (float)(System.nanoTime()-dragtime)/1000000f)+"ms");
+			//IJ.log("\\Update0:Display start took: "+String.format("%5.1f", (float)(System.nanoTime()-dragtime)/1000000f)+"ms");
 		}
-		if(imp.isLocked()) {if(JCP.debug)IJ.log("\\Update3:imp.lock "+System.currentTimeMillis());return;}
+		if(imp.isLocked()) {if(JCP.debug)IJ.log("imp.lock "+System.currentTimeMillis());return;}
 		//imp.lockSilently(); //causing z scrollbar to lose focus?
-		if(mylock) {if(JCP.debug)IJ.log("\\Update3:mylock "+System.currentTimeMillis());return;};
+		if(mylock) {if(JCP.debug)IJ.log("mylock "+System.currentTimeMillis());return;};
 		mylock=true;
 		imageState.check();
 		if(JCP.openglroi && rgldu==null) rgldu=new RoiGLDrawUtility(imp, drawable,glos.programs.get("roi"));
@@ -856,7 +866,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			}
 		} //stereoi
 		if(JCP.debug) {
-			IJ.log("\\Update1:Display took: "+String.format("%5.1f", (float)(System.nanoTime()-displaytime)/1000000f)+"ms");
+			//IJ.log("\\Update1:Display took: "+String.format("%5.1f", (float)(System.nanoTime()-displaytime)/1000000f)+"ms");
 		}
 		
 		if(imageUpdated) {imageUpdated=false;} //ImageCanvas imageupdated only for single ImagePlus
@@ -1802,7 +1812,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			boolean alt=(e.getModifiersEx() & MouseEvent.ALT_DOWN_MASK)!=0;
 			boolean ctrl=(e.getModifiersEx() & (MouseEvent.CTRL_DOWN_MASK | MouseEvent.META_DOWN_MASK))!=0;
 			boolean shift=(e.getModifiersEx() & MouseEvent.SHIFT_DOWN_MASK)!=0;
-			if(JCP.debug) {IJ.log("\\Update2:   Drag took: "+String.format("%5.1f", (float)(System.nanoTime()-dragtime)/1000000f)+"ms"); dragtime=System.nanoTime();}
+			//if(JCP.debug) {IJ.log("\\Update2:   Drag took: "+String.format("%5.1f", (float)(System.nanoTime()-dragtime)/1000000f)+"ms"); dragtime=System.nanoTime();}
 			if(IJ.spaceBarDown()&&isMirror) {
 				scroll(e.getX(),e.getY());
 				imp.getCanvas().setSourceRect(srcRect);

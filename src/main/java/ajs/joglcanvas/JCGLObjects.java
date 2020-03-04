@@ -494,6 +494,17 @@ public class JCGLObjects {
 		return buf.buffer;
 	}
 	
+	public ByteBuffer newBuffer(int gltype, String name, Buffer buffer) {
+		JCBuffer buf=new JCBuffer(gltype,  name, buffer);
+		JCBuffer oldbuf=buffers.put(name+gltype, buf);
+		if(oldbuf!=null)oldbuf.dispose();
+		return buf.buffer;
+	}
+	
+	public void newBuffer(int gltype, String name) {
+		buffers.put(name+gltype, new JCBuffer(gltype,  name));
+	}
+	
 	public JCBuffer getBuffer(int gltype, String name) {
 		return buffers.get(name+gltype);
 	}
@@ -512,10 +523,6 @@ public class JCGLObjects {
 		JCBuffer buf=buffers.get(name+gltype);
 		if(buf==null) return null;
 		return buf.buffer;
-	}
-	
-	public void newBuffer(int gltype, String name) {
-		buffers.put(name+gltype, new JCBuffer(gltype,  name));
 	}
 	
 	public void bindUniformBuffer(String name, int binding) {
@@ -554,6 +561,10 @@ public class JCGLObjects {
 		
 		public JCBuffer(int gltype, String name, long size, Buffer buffer) {
 			this(gltype, name, size, buffer, true);
+		}
+		
+		public JCBuffer(int gltype, String name, Buffer buffer) {
+			this(gltype, name, buffer.capacity()*getSizeofType(buffer), buffer, true);
 		}
 		
 		public JCBuffer(int gltype, String name) {

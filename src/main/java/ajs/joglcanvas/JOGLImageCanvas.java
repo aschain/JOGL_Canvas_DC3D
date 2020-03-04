@@ -196,19 +196,20 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		AffineTransform t=gc.getDefaultTransform();
 		dpimag=t.getScaleX();
 		if(dpimag!=1.0)IJ.log("GC DPImag: "+dpimag);
-		if(dpimag==1.0f) {
-			dpimag=(double)drawable.getSurfaceWidth()/(double)((int)(srcRect.width*magnification+0.5));
+		if(dpimag!=1.0) {
+			if(dpimag==(double)drawable.getSurfaceWidth()/(double)((int)glw.getWidth())) dpimag=1.0;
 			if(dpimag!=1.0)IJ.log("DPImag: "+dpimag);
 		}
 		
 		float[] oldres=new float[2];
 		glw.getCurrentSurfaceScale(oldres);
-		IJ.log("Previous SurfaceScale:"+oldres[0]+" "+oldres[1]);
-		float[] res=new float[] {(float)dpimag,(float)dpimag};
-		glw.setSurfaceScale(res);
-		oldres=glw.getCurrentSurfaceScale(oldres);
-		IJ.log("New SurfaceScale:"+oldres[0]+" "+oldres[1]);
-		//IJ.log("GLW surface DPImag: "+surfacedpimag+" sw:"+drawable.getSurfaceWidth()+" ic:"+(int)(srcRect.width*magnification+0.5));
+		if(oldres[0]!=1.0f) {
+			IJ.log("Previous SurfaceScale:"+oldres[0]+" "+oldres[1]);
+			if(glw.setSurfaceScale(new float[] {1f,1f}))IJ.log("Changed to 1.0 1.0");
+			else IJ.log("Unable to change SurfaceScale");
+			//oldres=glw.getCurrentSurfaceScale(oldres);
+			//IJ.log("New SurfaceScale:"+oldres[0]+" "+oldres[1]);
+		}
 		gl.glClearColor(0f, 0f, 0f, 0f);
 		gl.glDisable(GL_DEPTH_TEST);
 		gl.glDisable(GL_MULTISAMPLE);
@@ -305,22 +306,25 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	
 	@Override
 	public void reshape(GLAutoDrawable drawable, int x, int y, int width, int height) {
+		if(JCP.debug) IJ.log("Reshaping:x"+x+" y"+y+" w"+width+" h"+height);
+		width=(int)((double)width*dpimag+0.5);
+		height=(int)((double)height*dpimag+0.5);
 		if(go3d && stereoType==StereoType.CARDBOARD) {
 			resetGlobalMatrices(1.0f);
 			Rectangle r=getCBViewportAspectRectangle(x,y,width,height);
 			gl.glViewport(r.x, r.y, r.width, r.height);
 		}else {
 			resetGlobalMatrices(drawable);
+			gl.glViewport(x, y, width, height);
 		}
 		if(JCP.debug) {
-			IJ.log("Reshaping:x"+x+" y"+y+" w"+width+" h"+height);
 			IJ.log("IC Size:  w"+imp.getCanvas().getSize().width+" h"+imp.getCanvas().getSize().height);
 			IJ.log("Drbl size w"+drawable.getSurfaceWidth()+" h"+drawable.getSurfaceHeight());
 			IJ.log("glw size  w"+glw.getBounds().getWidth()+" h"+glw.getBounds().getHeight());
 			int[] vps=new int[4];
 			gl.glGetIntegerv(GL_VIEWPORT, vps, 0);
 			//if(dpimag>1.0)
-			IJ.log("bef VPS: "+vps[0]+" "+vps[1]+" "+vps[2]+" "+vps[3]);
+			IJ.log("VPS: "+vps[0]+" "+vps[1]+" "+vps[2]+" "+vps[3]);
 		}
 	}
 	
@@ -386,12 +390,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		setGL(drawable);
 		
 		if(stereoUpdated) {
-			if(stereoType!=StereoType.CARDBOARD) {
-				resetGlobalMatrices(drawable);
-				gl.glViewport(0, 0, drawable.getSurfaceWidth(), drawable.getSurfaceHeight());
-			}else {
-				reshape(drawable,0,0,drawable.getSurfaceWidth(),drawable.getSurfaceHeight());
-			}
+			reshape(drawable,0,0,drawable.getSurfaceWidth(),drawable.getSurfaceHeight());
 			if(stereoType==StereoType.ANAGLYPH) {
 				if(!glos.textures.containsKey("anaglyph"))initAnaglyph();
 			}
@@ -589,8 +588,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		for(int stereoi=0;stereoi<views;stereoi++) {
 			glos.useProgram("image");
 			if(go3d) {
-				//Rectangle r=getViewportAspectRectangle(0,0,drawable.getSurfaceWidth(),drawable.getSurfaceHeight());
-				//Double totdpimag=dpimag*surfacedpimag;
 				if(stereoType==StereoType.QUADBUFFER) {
 					if(stereoi==0)
 						gl.glDrawBuffer(GL_LEFT);
@@ -602,15 +599,17 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					float[] translatecb=FloatUtil.makeTranslation(new float[16], 0, false, (stereoi==0?(-CB_MAXSIZE*CB_TRANSLATE):(CB_MAXSIZE*CB_TRANSLATE)), 0f, 0f);
 					FloatUtil.multMatrix(orthocb, translatecb);
 					gl.glEnable(GL_SCISSOR_TEST);
-					Rectangle r=getCBViewportAspectRectangle(0,0,drawable.getSurfaceWidth(),drawable.getSurfaceHeight());
-					int x=(int)(drawable.getSurfaceWidth()/2)-(int)(r.width/CB_MAXSIZE/2f) + (int)(CB_TRANSLATE*r.width/2f*(stereoi==0?-1:1));
+					int width=(int)((double)drawable.getSurfaceWidth()*dpimag+0.5);
+					int height=(int)((double)drawable.getSurfaceHeight()*dpimag+0.5);
+					Rectangle r=getCBViewportAspectRectangle(0,0,width,height);
+					int x=(int)(width/2)-(int)(r.width/CB_MAXSIZE/2f) + (int)(CB_TRANSLATE*r.width/2f*(stereoi==0?-1:1));
 					//int y=(int)((1f-(1f/CB_MAXSIZE))*yrat/2f*(float)r.height);
-					int y=(int)(drawable.getSurfaceHeight()/2)-(int)(r.height/CB_MAXSIZE/2f);
+					int y=(int)(width/2)-(int)(r.height/CB_MAXSIZE/2f);
 					gl.glScissor(x, y, (int)(r.width/CB_MAXSIZE), (int)(r.height/CB_MAXSIZE));
 					glos.getUniformBuffer("global").loadMatrix(orthocb);
 				}else if(stereoType==StereoType.ANAGLYPH) {
-					int width=drawable.getSurfaceWidth();//(int)(srcRectWidthMag*dpimag+0.5);
-					int height=drawable.getSurfaceHeight();//(int)(srcRectHeightMag*dpimag+0.5);
+					int[] vps=new int[4]; gl.glGetIntegerv(GL_VIEWPORT, vps, 0);
+					int width=vps[2], height=vps[3];
 					gl.glBindFramebuffer(GL_FRAMEBUFFER, stereoFramebuffers[0]);
 					gl.glBindRenderbuffer(GL_RENDERBUFFER, stereoFramebuffers[1]);
 					if(stereoi==0) {
@@ -845,10 +844,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			if(go3d && stereoType==StereoType.ANAGLYPH) {
 				gl.glBindFramebuffer(GL_FRAMEBUFFER, 0);
 				gl.glBindRenderbuffer(GL_RENDERBUFFER, 0);
-				//int width=(int)(srcRectWidthMag*dpimag+0.5);
-				//int height=(int)(srcRectHeightMag*dpimag+0.5);
-				//Rectangle r=getViewportAspectRectangle(0, 0, drawable.getSurfaceWidth(), drawable.getSurfaceHeight());
-				//gl.glViewport(r.x, r.y, r.width, r.height);
 				gl.glEnable(GL_BLEND);
 				gl.glBlendEquation(GL_MAX);
 				gl.glBlendFunc(GL_SRC_COLOR, GL_DST_COLOR);
@@ -1027,7 +1022,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	}
 	
 	public BufferedImage grabScreen(GLAutoDrawable drawable) {
-		int x=0,y=0,width=drawable.getSurfaceWidth(),height=drawable.getSurfaceHeight();
+		int[] vps=new int[4]; gl.glGetIntegerv(GL_VIEWPORT, vps, 0);
+		int width=vps[2], height=vps[3];
+		int x=0,y=0;
 		boolean alpha=false, awtOrientation=true;
 		if(stereoType==StereoType.CARDBOARD) {
 			y=(int)((1f-(1f/CB_MAXSIZE))*(float)srcRect.height/(float)srcRect.width/2f*(float)height);

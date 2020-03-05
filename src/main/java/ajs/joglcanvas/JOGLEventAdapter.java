@@ -53,7 +53,7 @@ public class JOGLEventAdapter implements MouseListener, KeyListener {
 	
 	public final java.awt.event.MouseEvent convertME(MouseEvent e){
 		java.awt.event.MouseEvent res=null;
-		int x=(int)(e.getY()/dpimag),
+		int x=(int)(e.getX()/dpimag),
 			y=(int)(e.getY()/dpimag),
 			sx=x, sy=y;
 		if(source.isVisible()) {

@@ -201,14 +201,14 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			if(dpimag!=1.0)IJ.log("DPImag: "+dpimag);
 		}
 		
-		float[] oldres=new float[2];
-		glw.getCurrentSurfaceScale(oldres);
-		if(oldres[0]!=1.0f) {
-			IJ.log("Previous SurfaceScale:"+oldres[0]+" "+oldres[1]);
-			if(glw.setSurfaceScale(new float[] {1f,1f}))IJ.log("Changed to 1.0 1.0");
-			else IJ.log("Unable to change SurfaceScale");
-			//oldres=glw.getCurrentSurfaceScale(oldres);
-			//IJ.log("New SurfaceScale:"+oldres[0]+" "+oldres[1]);
+		float[] ssc=new float[2];
+		glw.getCurrentSurfaceScale(ssc);
+		if(ssc[0]!=1.0f) {
+			IJ.log("SurfaceScale:"+ssc[0]+" "+ssc[1]);
+			com.jogamp.newt.event.MouseListener[] mls=glw.getMouseListeners();
+			for(com.jogamp.newt.event.MouseListener ml : mls)if(ml instanceof JOGLEventAdapter)((JOGLEventAdapter)ml).setDPI(ssc[0]);
+			//if(glw.setSurfaceScale(new float[] {1f,1f}))IJ.log("Changed to 1.0 1.0");
+			//else IJ.log("Unable to change SurfaceScale");
 		}
 		gl.glClearColor(0f, 0f, 0f, 0f);
 		gl.glDisable(GL_DEPTH_TEST);
@@ -604,7 +604,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					Rectangle r=getCBViewportAspectRectangle(0,0,width,height);
 					int x=(int)(width/2)-(int)(r.width/CB_MAXSIZE/2f) + (int)(CB_TRANSLATE*r.width/2f*(stereoi==0?-1:1));
 					//int y=(int)((1f-(1f/CB_MAXSIZE))*yrat/2f*(float)r.height);
-					int y=(int)(width/2)-(int)(r.height/CB_MAXSIZE/2f);
+					int y=(int)(height/2)-(int)(r.height/CB_MAXSIZE/2f);
 					gl.glScissor(x, y, (int)(r.width/CB_MAXSIZE), (int)(r.height/CB_MAXSIZE));
 					glos.getUniformBuffer("global").loadMatrix(orthocb);
 				}else if(stereoType==StereoType.ANAGLYPH) {
@@ -1226,8 +1226,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			ArrayList<MonitorDevice> ml=new ArrayList<MonitorDevice>();
 			for(MonitorDevice md : glw.getScreen().getMonitorDevices())IJ.log("MD:"+md);
 			java.util.List<MonitorDevice> mds=glw.getScreen().getMonitorDevices();
-			if(mds.size()==1)ml.add(mds.get(0));
-			else{
+			if(mds.size()==1) {
+				ml.add(mds.get(0));
+			}else{
 				ij.gui.GenericDialog gd=new ij.gui.GenericDialog("Monitors");
 				for(int i=0;i<mds.size();i++) gd.addCheckbox("Monitor "+(i+1), i==0?true:false);
 				gd.showDialog();
@@ -1235,7 +1236,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				for(int i=0;i<mds.size();i++)if(gd.getNextBoolean())ml.add(mds.get(i));
 			}
 			//ml.add(glw.getMainMonitor());
-			glw.setFullscreen(ml);
+			java.awt.EventQueue.invokeLater(new Runnable() {
+				public void run() {glw.setFullscreen(ml);}
+			});
 		}else glw.setFullscreen(false);
 		return dofs;
 	}

@@ -16,7 +16,7 @@ public class JOGLEventAdapter implements MouseListener, KeyListener {
 	private final java.awt.event.MouseMotionListener mml;
 	private java.awt.event.MouseWheelListener mwl;
 	private final java.awt.event.KeyListener kl;
-	boolean isRunning=false;
+	private float dpimag=1.0f;
 	public boolean verbose=false;
 	
 	/**
@@ -46,7 +46,7 @@ public class JOGLEventAdapter implements MouseListener, KeyListener {
 		this(jic.icc, win, jic, jic, null, jic);
 	}
 	
-	
+	public void setDPI(float dpi) {dpimag=dpi;}
 	
 	public void setMouseWheelListener(java.awt.event.MouseWheelListener mouseWheelListener) {this.mwl=mouseWheelListener;}
 	
@@ -55,10 +55,16 @@ public class JOGLEventAdapter implements MouseListener, KeyListener {
 		if(e.getEventType() ==MouseEvent.EVENT_MOUSE_WHEEL_MOVED) {
 			float rot=e.getRotation()[1];
 			if((e.getModifiers() & java.awt.event.InputEvent.SHIFT_DOWN_MASK) !=0)rot=e.getRotation()[1];
-			res=new java.awt.event.MouseWheelEvent(source, eventTypeNEWT2AWT(e.getEventType()), e.getWhen(), newtModifiers2awt(e.getModifiers(),true), e.getX(), e.getY(), e.getX()+source.getLocationOnScreen().x, e.getY()+source.getLocationOnScreen().y, 
-					(int)e.getClickCount(), (int)e.getButton()==3, java.awt.event.MouseWheelEvent.WHEEL_BLOCK_SCROLL, (int) e.getRotationScale(), (int)-rot, (double) -rot);
+			res=new java.awt.event.MouseWheelEvent(source, eventTypeNEWT2AWT(e.getEventType()), e.getWhen(), newtModifiers2awt(e.getModifiers(),true),
+					(int)(e.getX()/dpimag), (int)(e.getY()/dpimag),
+					(int)(e.getX()/dpimag)+source.getLocationOnScreen().x, (int)(e.getY()/dpimag)+source.getLocationOnScreen().y, 
+					(int)e.getClickCount(), (int)e.getButton()==3,
+					java.awt.event.MouseWheelEvent.WHEEL_BLOCK_SCROLL, (int) e.getRotationScale(), (int)-rot, (double) -rot);
 		}
-		else res=new java.awt.event.MouseEvent(source, eventTypeNEWT2AWT(e.getEventType()), e.getWhen(), e.getModifiers(), e.getX(), e.getY(), e.getX()+source.getLocationOnScreen().x, e.getY()+source.getLocationOnScreen().y, (int)e.getClickCount(), (int)e.getButton()==3, (int)e.getButton());
+		else res=new java.awt.event.MouseEvent(source, eventTypeNEWT2AWT(e.getEventType()), e.getWhen(), e.getModifiers(), 
+					(int)(e.getX()/dpimag), (int)(e.getY()/dpimag), 
+					(int)(e.getX()/dpimag)+source.getLocationOnScreen().x, (int)(e.getY()/dpimag)+source.getLocationOnScreen().y,
+					(int)e.getClickCount(), (int)e.getButton()==3, (int)e.getButton());
 		if(JCP.debug && verbose) {
 			System.out.println("--");
 			System.out.println("newt:"+e);

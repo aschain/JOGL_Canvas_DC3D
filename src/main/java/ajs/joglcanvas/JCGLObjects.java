@@ -69,7 +69,7 @@ public class JCGLObjects {
 		boolean dosv=gl23==null;
 		this.gl=gl;
 		if(dosv)setGLVer();
-		if(glver==2) {gl23=gl.getGL2();gl2=gl.getGL2();}
+		if(glver==2) {gl2=gl.getGL2();gl23=gl2;}
 		if(glver==3) {gl23=gl.getGL3();gl3=gl.getGL3();}
 		if(glver==4) {gl23=gl.getGL4();gl4=gl.getGL4();}
 	}

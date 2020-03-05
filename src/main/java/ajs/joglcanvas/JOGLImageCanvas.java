@@ -146,6 +146,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		imageState=new ImageState(imp);
 		imageState.prevSrcRect=new Rectangle(0,0,0,0);
 		cutPlanes=new CutPlanesCube(0,0,0,imp.getWidth(), imp.getHeight(), imp.getNSlices(), true);
+		GraphicsConfiguration gc=imp.getWindow().getGraphicsConfiguration();
+		AffineTransform t=gc.getDefaultTransform();
+		dpimag=t.getScaleX();
+		if(dpimag!=1.0)IJ.log("GC DPImag: "+dpimag);
 		GLCapabilities glc=JCP.getGLCapabilities();
 		int bits=imp.getBitDepth();
 		if((bits<16 || bits==24)&& (glc.getRedBits()>8 || glc.getGreenBits()>8 || glc.getBlueBits()>8) ) {
@@ -192,10 +196,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		glos=new JCGLObjects(drawable);
 		setGL(drawable);
 		
-		GraphicsConfiguration gc=imp.getWindow().getGraphicsConfiguration();
-		AffineTransform t=gc.getDefaultTransform();
-		dpimag=t.getScaleX();
-		if(dpimag!=1.0)IJ.log("GC DPImag: "+dpimag);
 		if(dpimag!=1.0) {
 			if(dpimag==(double)drawable.getSurfaceWidth()/(double)((int)glw.getWidth())) dpimag=1.0;
 			if(dpimag!=1.0)IJ.log("DPImag: "+dpimag);
@@ -1247,18 +1247,25 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		//showUpdateButton(false);
 		if(isMirror){
 			if(imp!=null) {
-				imp.setProperty("JOGLImageCanvas", null);
-				new StackWindow(imp,new ImageCanvas(imp));
+				java.awt.EventQueue.invokeLater(new Runnable() {
+					public void run() {
+						new StackWindow(imp,new ImageCanvas(imp));
+						imp.setProperty("JOGLImageCanvas", null);
+						mirror.dispose();
+						mirror=null;
+					}
+				});
 			}
-			mirror.dispose();
-			mirror=null;
 		}else {
-			int mode=imp.getDisplayMode();
-			imp.getWindow().dispose();
-			new StackWindow(imp);
-			imp.getCanvas().setMagnification(magnification);
-			imp.getCanvas().setSourceRect(srcRect);
-			imp.setDisplayMode(mode);
+			final int mode=imp.getDisplayMode();
+			java.awt.EventQueue.invokeLater(new Runnable(){
+				public void run() {
+					new StackWindow(imp);
+					imp.getCanvas().setMagnification(magnification);
+					imp.getCanvas().setSourceRect(srcRect);
+					imp.setDisplayMode(mode);
+				}
+			});
 		}
 	}
 	

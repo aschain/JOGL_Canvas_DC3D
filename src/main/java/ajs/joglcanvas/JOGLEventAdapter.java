@@ -1,6 +1,7 @@
 package ajs.joglcanvas;
 
 import java.awt.Component;
+import java.awt.Point;
 
 import com.jogamp.newt.event.KeyEvent;
 import com.jogamp.newt.event.KeyListener;
@@ -52,19 +53,25 @@ public class JOGLEventAdapter implements MouseListener, KeyListener {
 	
 	public final java.awt.event.MouseEvent convertME(MouseEvent e){
 		java.awt.event.MouseEvent res=null;
+		int x=(int)(e.getY()/dpimag),
+			y=(int)(e.getY()/dpimag),
+			sx=x, sy=y;
+		if(source.isVisible()) {
+			try {
+				Point p=source.getLocationOnScreen();
+				sx=x+p.x;
+				sy=y+p.y;
+			}catch(Exception ex) {}
+		}
 		if(e.getEventType() ==MouseEvent.EVENT_MOUSE_WHEEL_MOVED) {
 			float rot=e.getRotation()[1];
 			if((e.getModifiers() & java.awt.event.InputEvent.SHIFT_DOWN_MASK) !=0)rot=e.getRotation()[1];
 			res=new java.awt.event.MouseWheelEvent(source, eventTypeNEWT2AWT(e.getEventType()), e.getWhen(), newtModifiers2awt(e.getModifiers(),true),
-					(int)(e.getX()/dpimag), (int)(e.getY()/dpimag),
-					(int)(e.getX()/dpimag)+source.getLocationOnScreen().x, (int)(e.getY()/dpimag)+source.getLocationOnScreen().y, 
-					(int)e.getClickCount(), (int)e.getButton()==3,
+					x, y, sx, sy, (int)e.getClickCount(), (int)e.getButton()==3,
 					java.awt.event.MouseWheelEvent.WHEEL_BLOCK_SCROLL, (int) e.getRotationScale(), (int)-rot, (double) -rot);
 		}
 		else res=new java.awt.event.MouseEvent(source, eventTypeNEWT2AWT(e.getEventType()), e.getWhen(), e.getModifiers(), 
-					(int)(e.getX()/dpimag), (int)(e.getY()/dpimag), 
-					(int)(e.getX()/dpimag)+source.getLocationOnScreen().x, (int)(e.getY()/dpimag)+source.getLocationOnScreen().y,
-					(int)e.getClickCount(), (int)e.getButton()==3, (int)e.getButton());
+					x, y, sx, sy, (int)e.getClickCount(), (int)e.getButton()==3, (int)e.getButton());
 		if(JCP.debug && verbose) {
 			System.out.println("--");
 			System.out.println("newt:"+e);

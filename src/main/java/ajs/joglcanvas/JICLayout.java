@@ -45,7 +45,7 @@ public class JICLayout implements LayoutManager {
 			ms.height=(int)((double)ms.height*jic.dpimag+0.5);
 		}
 		m.setSize(ms.width, ms.height);
-		m.setLocation(ins.left+1,ins.top);
+		m.setLocation(ins.left,ins.top);
 	}
 
 }

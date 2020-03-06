@@ -236,12 +236,25 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		glos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "roiGraphic");
 		glos.newVao("roiGraphic", 3, GL_FLOAT, 3, GL_FLOAT);
 		glos.newProgram("roi", "shaders", "roiTexture", "roiTexture");
+
+		FloatBuffer id=GLBuffers.newDirectFloatBuffer(FloatUtil.makeIdentity(new float[16]));
+		FloatBuffer aid=GLBuffers.newDirectFloatBuffer(new float[] {
+				1f, 0, 0, 0,
+				0, 1f, 0, 0,
+				0, 0, -1f, 0,
+				0, 0, 0, 1f,
+				1f, 0, 0, 0,
+				0, 1f, 0, 0,
+				0, 0, 1f, 0,
+				0, 0, 0, 1f
+			});
 		
 		glos.newBuffer(GL_UNIFORM_BUFFER, "global", 16*2 * Buffers.SIZEOF_FLOAT, null);
+		glos.newBuffer(GL_UNIFORM_BUFFER, "globalidm", 16*2 * Buffers.SIZEOF_FLOAT, aid);
 		glos.newBuffer(GL_UNIFORM_BUFFER, "model", 16 * Buffers.SIZEOF_FLOAT, null);
 		glos.newBuffer(GL_UNIFORM_BUFFER, "modelr", 16 * Buffers.SIZEOF_FLOAT, null);
 		glos.newBuffer(GL_UNIFORM_BUFFER, "lut", 6*4 * Buffers.SIZEOF_FLOAT, null);
-		glos.newBuffer(GL_UNIFORM_BUFFER, "idm", 16 * Buffers.SIZEOF_FLOAT, GLBuffers.newDirectFloatBuffer(FloatUtil.makeIdentity(new float[16])));
+		glos.newBuffer(GL_UNIFORM_BUFFER, "idm", 16 * Buffers.SIZEOF_FLOAT, id);
 
 		glos.getUniformBuffer("model").loadIdentity();
 		glos.getUniformBuffer("modelr").loadIdentity();
@@ -312,7 +325,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			Rectangle r=getCBViewportAspectRectangle(x,y,width,height);
 			gl.glViewport(r.x, r.y, r.width, r.height);
 		}else {
-			rat=((float)drawable.getSurfaceWidth()/drawable.getSurfaceHeight())/((float)imageWidth/imageHeight);
+			rat=((float)drawable.getSurfaceWidth()/drawable.getSurfaceHeight())/((float)srcRect.width/srcRect.height);
 		}
 		resetGlobalMatrices(rat);
 		
@@ -399,12 +412,13 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			if(go3d) {
 				init3dTex();
 				glos.getTexture("image3d").initiate(pixelType3d, sb.bufferWidth, sb.bufferHeight, sls, 1);
+				ltr=null;
 			}else {
 				glos.getUniformBuffer("model").loadIdentity();
-				imageState.isChanged.srcRect=true;
 				//resetGlobalMatrices();
 				glos.getTexture("image2d").initiate(getPixelType(), sb.bufferWidth, sb.bufferHeight, 1, 1);
 			}
+			imageState.isChanged.srcRect=true;
 			threeDupdated=false;
 		}
 		
@@ -609,6 +623,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					gl.glScissor(x, y, (int)(r.width/CB_MAXSIZE), (int)(r.height/CB_MAXSIZE));
 					glos.getUniformBuffer("global").loadMatrix(orthocb);
 				}else if(stereoType==StereoType.ANAGLYPH) {
+					resetGlobalMatrices(((float)drawable.getSurfaceWidth()/drawable.getSurfaceHeight())/((float)srcRect.width/srcRect.height));
 					int[] vps=new int[4]; gl.glGetIntegerv(GL_VIEWPORT, vps, 0);
 					int width=vps[2], height=vps[3];
 					gl.glBindFramebuffer(GL_FRAMEBUFFER, stereoFramebuffers[0]);
@@ -843,7 +858,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			gl.glFinish();
 			
 			if(go3d && stereoType==StereoType.ANAGLYPH) {
-				//resetGlobalMatrices(1.0f);
 				gl.glBindFramebuffer(GL_FRAMEBUFFER, 0);
 				gl.glBindRenderbuffer(GL_RENDERBUFFER, 0);
 				gl.glEnable(GL_BLEND);
@@ -854,7 +868,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				gl.glUniformMatrix3fv(glos.getLocation("anaglyph", "ana"), 1, false, JCP.anaColors[stereoi], 0);
 				gl.glUniform1f(glos.getLocation("anaglyph", "dubois"), JCP.dubois?1f:0f);
 
-				glos.bindUniformBuffer("global", 1);
+				glos.bindUniformBuffer("globalidm", 1);
 				glos.bindUniformBuffer("idm", 2);
 				glos.drawTexVao("anaglyph",GL_UNSIGNED_BYTE, 6, 1);
 				glos.unBindBuffer(GL_UNIFORM_BUFFER,1);
@@ -1353,13 +1367,15 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(icc!=null) {
 			IJ.log("SetSize w:"+width+" h:"+height);
 			Dimension s=new Dimension((int)(width*dpimag+0.5), (int)(height*dpimag+0.5));
-			//Dimension s=new Dimension(width,height);
-			icc.setPreferredSize(s);
+			Dimension sms=new Dimension(width,height);
+			icc.setPreferredSize(sms);
 			if(isMirror) {
 				java.awt.Insets ins=mirror.getInsets();
 				IJ.log("mirror setsize");
 				mirror.setSize(width+ins.left+ins.right+1,height+ins.top+ins.bottom+1);
-			}else icc.setSize(s);
+			}else {
+				icc.setSize(sms);
+			}
 		}
 		else super.setSize(width, height);
 		dstWidth = width;

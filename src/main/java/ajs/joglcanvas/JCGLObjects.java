@@ -657,7 +657,7 @@ public class JCGLObjects {
 					int[] pr=new int[1];gl.glGetIntegerv(GL_CURRENT_PROGRAM, pr,0);
 					//gl3.glUniform1i(gl3.glGetUniformLocation(pr[0], "mytex"),0);
 					JCProgram program=findProgram(pr[0]);
-					if(name.contentEquals("global")) {
+					if(name.contentEquals("global") || name.contentEquals("globalidm")) {
 						int loc=(program==null?gl2.glGetUniformLocation(pr[0], "proj"):program.getLocation("proj"));
 						gl2.glUniformMatrix4fv(loc, 2, false, buffer.asFloatBuffer());
 					}

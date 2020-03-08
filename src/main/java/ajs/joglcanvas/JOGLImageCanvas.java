@@ -26,7 +26,6 @@ import java.awt.Graphics;
 import java.awt.GraphicsConfiguration;
 import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
-import java.awt.GridBagConstraints;
 import java.awt.Image;
 import java.awt.Menu;
 import java.awt.MenuItem;
@@ -167,7 +166,24 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		Screen screen=NewtFactory.createScreen(display, 0);
 		screen.addReference();
 		glw=GLWindow.create(glc);
-		icc=new NewtCanvasAWT(glw);
+		icc=new NewtCanvasAWT(glw) {
+			private static final long serialVersionUID = 1256279205085144008L;
+			@Override
+			public void setSize(int width, int height) {this.setSize(new Dimension(width,height));}
+			@Override
+			public void setSize(Dimension d) {
+				d.width=(int)(d.width*dpimag+0.5);
+				d.height=(int)(d.height*dpimag+0.5);
+				super.setSize(d);
+			}
+			@Override
+			public Dimension getSize() {
+				Dimension s=icc.getSize();
+				s.width=(int)(s.width/dpimag+0.5);
+				s.height=(int)(s.height/dpimag+0.5);
+				return s;
+			}
+		};
 		createPopupMenu();
 		sb=new StackBuffer(imp);
 		final JOGLImageCanvas jic=this;
@@ -1162,7 +1178,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		//c.insets=new java.awt.Insets(0,0,0,0);
 		//c.fill=GridBagConstraints.NONE;
 		//c.anchor=GridBagConstraints.NORTHWEST;
-		mirror.setLayout(new JICLayout(this));
+		mirror.setLayout(new JICLayout());
 		mirror.add(icc);
 		mirror.addWindowListener(new WindowAdapter() {
 			public void windowClosing(WindowEvent e) { revert(); }
@@ -1222,14 +1238,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		srcRect=ic.getSrcRect();
 		magnification=ic.getMagnification();
 		Dimension s=ic.getSize();
-		Dimension mag=s;
-		if(dpimag!=1.0) {
-			mag=new Dimension(
-				(int)((double)s.width*dpimag+0.5),
-				(int)((double)s.height*dpimag+0.5)
-			);
-		}
-		if(!mirrorMagUnlock && !icc.getSize().equals(mag) && mirror!=null && mirror.getExtendedState()!=Frame.MAXIMIZED_BOTH && !glw.isFullscreen()) {
+		if(!mirrorMagUnlock && !icc.getSize().equals(s) && mirror!=null && mirror.getExtendedState()!=Frame.MAXIMIZED_BOTH && !glw.isFullscreen()) {
 			setSize(s);
 		}
 	}
@@ -1366,15 +1375,15 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	public void setSize(int width, int height) {
 		if(icc!=null) {
 			IJ.log("SetSize w:"+width+" h:"+height);
-			Dimension s=new Dimension((int)(width*dpimag+0.5), (int)(height*dpimag+0.5));
-			Dimension sms=new Dimension(width,height);
-			icc.setPreferredSize(sms);
+			//Dimension s=new Dimension((int)(width*dpimag+0.5), (int)(height*dpimag+0.5));
+			Dimension s=new Dimension(width,height);
+			icc.setPreferredSize(s);
 			if(isMirror) {
 				java.awt.Insets ins=mirror.getInsets();
 				IJ.log("mirror setsize");
 				mirror.setSize(width+ins.left+ins.right+1,height+ins.top+ins.bottom+1);
 			}else {
-				icc.setSize(sms);
+				icc.setSize(s);
 			}
 		}
 		else super.setSize(width, height);

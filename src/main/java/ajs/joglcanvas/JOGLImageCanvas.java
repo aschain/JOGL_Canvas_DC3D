@@ -169,16 +169,12 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		icc=new NewtCanvasAWT(glw) {
 			private static final long serialVersionUID = 1256279205085144008L;
 			@Override
-			public void setSize(int width, int height) {this.setSize(new Dimension(width,height));}
-			@Override
-			public void setSize(Dimension d) {
-				d.width=(int)(d.width*dpimag+0.5);
-				d.height=(int)(d.height*dpimag+0.5);
-				super.setSize(d);
+			public void setSize(int width, int height) {
+				super.setSize((int)(width*dpimag+0.5),(int)(height*dpimag+0.5));
 			}
 			@Override
 			public Dimension getSize() {
-				Dimension s=icc.getSize();
+				Dimension s=super.getSize();
 				s.width=(int)(s.width/dpimag+0.5);
 				s.height=(int)(s.height/dpimag+0.5);
 				return s;
@@ -369,8 +365,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	 * @param rat ratio of ratios: drawable w/h : srcRect w/h
 	 */
 	private void resetGlobalMatrices(float rat) {
-		
 		float sx=1f, sy=1f;
+		//float ratio = ((float)srcRect.width/srcRect.height)/((float)imageWidth/imageHeight);
+		//if(ratio>1.0f)sx/=ratio; else sy*=ratio;
 		if(rat>1.0f) sx/=rat;  else sy*=rat;
 		//FloatUtil.makeOrtho(new float[16], 0, false, -1f/sx, 1f/sx, -1f/sy, 1f/sy, -1f/sx, 1f/sx);
 		glos.getUniformBuffer("global").loadMatrix(new float[] {
@@ -380,6 +377,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				0, 0, 0, 1f
 			}, 0);
 		glos.getUniformBuffer("global").loadIdentity(16*Buffers.SIZEOF_FLOAT);
+	}
+	
+	private void resetGlobalMatrices(GLAutoDrawable drawable) {
+		resetGlobalMatrices(((float)drawable.getSurfaceWidth()/drawable.getSurfaceHeight())/((float)srcRect.width/srcRect.height));
 	}
 
 	@Override
@@ -406,6 +407,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(mylock) {if(JCP.debug)IJ.log("mylock "+System.currentTimeMillis());return;};
 		mylock=true;
 		imageState.check();
+		if(imageState.isChanged.srcRect)resetGlobalMatrices(drawable);
 		if(JCP.openglroi && rgldu==null) rgldu=new RoiGLDrawUtility(imp, drawable,glos.programs.get("roi"));
 		int sl=imp.getZ()-1, fr=imp.getT()-1,chs=imp.getNChannels(),sls=imp.getNSlices(),frms=imp.getNFrames();
 		Calibration cal=imp.getCalibration();
@@ -639,7 +641,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					gl.glScissor(x, y, (int)(r.width/CB_MAXSIZE), (int)(r.height/CB_MAXSIZE));
 					glos.getUniformBuffer("global").loadMatrix(orthocb);
 				}else if(stereoType==StereoType.ANAGLYPH) {
-					resetGlobalMatrices(((float)drawable.getSurfaceWidth()/drawable.getSurfaceHeight())/((float)srcRect.width/srcRect.height));
+					resetGlobalMatrices(drawable);
 					int[] vps=new int[4]; gl.glGetIntegerv(GL_VIEWPORT, vps, 0);
 					int width=vps[2], height=vps[3];
 					gl.glBindFramebuffer(GL_FRAMEBUFFER, stereoFramebuffers[0]);
@@ -1178,7 +1180,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		//c.insets=new java.awt.Insets(0,0,0,0);
 		//c.fill=GridBagConstraints.NONE;
 		//c.anchor=GridBagConstraints.NORTHWEST;
-		mirror.setLayout(new JICLayout());
+		//mirror.setLayout(new JICLayout());
 		mirror.add(icc);
 		mirror.addWindowListener(new WindowAdapter() {
 			public void windowClosing(WindowEvent e) { revert(); }
@@ -1378,12 +1380,12 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			//Dimension s=new Dimension((int)(width*dpimag+0.5), (int)(height*dpimag+0.5));
 			Dimension s=new Dimension(width,height);
 			icc.setPreferredSize(s);
+			icc.setSize(s);
 			if(isMirror) {
 				java.awt.Insets ins=mirror.getInsets();
 				IJ.log("mirror setsize");
 				mirror.setSize(width+ins.left+ins.right+1,height+ins.top+ins.bottom+1);
 			}else {
-				icc.setSize(s);
 			}
 		}
 		else super.setSize(width, height);

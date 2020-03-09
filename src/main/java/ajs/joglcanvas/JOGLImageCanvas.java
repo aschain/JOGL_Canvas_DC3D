@@ -1171,7 +1171,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	
 	private void createMirror() {
 		isMirror=true;
-		addMirrorListeners();
 		mirror=new Frame("JOGL-DC3D Mirror of "+imp.getTitle());
 		//mirror=new ImageWindow("DC3D Mirror of "+imp.getTitle());
 		//
@@ -1197,7 +1196,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				});
 			}
 		}
-		setSize(imp.getCanvas().getSize());
+		addMirrorListeners();
 		java.awt.EventQueue.invokeLater(new Runnable() {
 			@Override
 			public void run() {
@@ -1384,7 +1383,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			if(isMirror) {
 				java.awt.Insets ins=mirror.getInsets();
 				IJ.log("mirror setsize");
-				mirror.setSize(width+ins.left+ins.right+1,height+ins.top+ins.bottom+1);
+				mirror.setSize(width+ins.left+ins.right,height+ins.top+ins.bottom);
 			}else {
 			}
 		}

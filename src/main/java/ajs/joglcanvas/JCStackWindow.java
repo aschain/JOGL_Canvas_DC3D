@@ -2,6 +2,9 @@ package ajs.joglcanvas;
 
 import java.awt.Component;
 import java.awt.Container;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+
 import javax.swing.JFrame;
 
 import ij.IJ;
@@ -24,6 +27,11 @@ public class JCStackWindow extends StackWindow {
         for(int i=0;i<wincs.length;i++) {
         		if(wincs[i] instanceof JOGLImageCanvas) {c.remove(i); c.add(dcic.icc, i);}
         }
+        addWindowListener(new WindowAdapter() {
+			public void windowClosing(WindowEvent e) {
+				dcic.glw.destroy();
+			}
+		});
 		repaint();
 	}
 	

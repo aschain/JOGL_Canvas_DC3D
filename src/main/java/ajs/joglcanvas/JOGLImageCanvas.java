@@ -5,7 +5,6 @@ import ij.IJ;
 import ij.ImageListener;
 import ij.ImagePlus;
 import ij.Prefs;
-import ij.WindowManager;
 import ij.gui.ImageCanvas;
 import ij.gui.PointRoi;
 import ij.gui.Roi;
@@ -27,6 +26,7 @@ import java.awt.GraphicsConfiguration;
 import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
 import java.awt.Image;
+import java.awt.Insets;
 import java.awt.Menu;
 import java.awt.MenuItem;
 import java.awt.Point;
@@ -166,19 +166,31 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		Screen screen=NewtFactory.createScreen(display, 0);
 		screen.addReference();
 		glw=GLWindow.create(glc);
-		icc=new NewtCanvasAWT(glw) {
+		icc=new NewtCanvasAWT(glw){
 			private static final long serialVersionUID = 1256279205085144008L;
 			@Override
-			public void setSize(int width, int height) {
-				super.setSize((int)(width*dpimag+0.5),(int)(height*dpimag+0.5));
+			public void reshape(int x, int y, int width, int height) {
+				//if(isMirror) super.setSize((int)(width*dpimag+0.5),(int)(height*dpimag+0.5));
+				//else {
+					super.reshape(x,y,width, height);
+					if(isMirror)
+						java.awt.EventQueue.invokeLater(new Runnable() {public void run() {glw.setSize((int)(width*dpimag+0.5),(int)(height*dpimag+0.5));}});
+					else
+						glw.setSize((int)(width*dpimag+0.5),(int)(height*dpimag+0.5));
+					Dimension s=new Dimension(width,height);
+					setMinimumSize(s);
+					setPreferredSize(s);
+				//}
 			}
-			@Override
-			public Dimension getSize() {
-				Dimension s=super.getSize();
-				s.width=(int)(s.width/dpimag+0.5);
-				s.height=(int)(s.height/dpimag+0.5);
-				return s;
-			}
+			//@Override
+			//public Dimension getSize() {
+			//	Dimension s=super.getSize();
+			//	if(isMirror) {
+			//		s.width=(int)(s.width/dpimag+0.5);
+			//		s.height=(int)(s.height/dpimag+0.5);
+			//	}
+			//	return s;
+			//}
 		};
 		createPopupMenu();
 		sb=new StackBuffer(imp);
@@ -213,8 +225,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		
 		float[] ssc=new float[2];
 		glw.getCurrentSurfaceScale(ssc);
-		if(ssc[0]!=1.0f) {
-			IJ.log("SurfaceScale:"+ssc[0]+" "+ssc[1]);
+		if(ssc[0]!=1.0f)IJ.log("SurfaceScale:"+ssc[0]+" "+ssc[1]);
+		if(ssc[0]!=1.0f || (dpimag!=1.0 && !isMirror)) {
+			if(ssc[0]==1.0f)ssc[0]=(float)dpimag;
 			com.jogamp.newt.event.MouseListener[] mls=glw.getMouseListeners();
 			for(com.jogamp.newt.event.MouseListener ml : mls)if(ml instanceof JOGLEventAdapter)((JOGLEventAdapter)ml).setDPI(ssc[0]);
 			//if(glw.setSurfaceScale(new float[] {1f,1f}))IJ.log("Changed to 1.0 1.0");
@@ -1238,9 +1251,18 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(ic==null) {revert();return;}
 		srcRect=ic.getSrcRect();
 		magnification=ic.getMagnification();
-		Dimension s=ic.getSize();
-		if(!mirrorMagUnlock && !icc.getSize().equals(s) && mirror!=null && mirror.getExtendedState()!=Frame.MAXIMIZED_BOTH && !glw.isFullscreen()) {
-			setSize(s);
+		if(mirror==null || !mirror.isVisible() || glw.isFullscreen())return;
+		int glww=glw.getSurfaceWidth(), glwh=glw.getSurfaceHeight();
+		int w=ic.getWidth(), h=ic.getHeight();
+		if(mirrorMagUnlock || mirror.getExtendedState()==Frame.MAXIMIZED_BOTH) {
+			Insets ins=mirror.getInsets();
+			Dimension d=mirror.getSize();
+			w=d.width-ins.left-ins.right;
+			h=d.height-ins.top-ins.bottom;
+		}
+		int wm=(int)(w*dpimag+0.5), hm=(int)(h*dpimag+0.5);
+		if(glww!=wm || glwh!=hm) {
+			setSize(w,h);
 		}
 	}
 	
@@ -1288,6 +1310,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				});
 			}
 		}else {
+			glw.destroy();
 			final int mode=imp.getDisplayMode();
 			java.awt.EventQueue.invokeLater(new Runnable(){
 				public void run() {
@@ -1375,21 +1398,20 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	@Override
 	public void setSize(int width, int height) {
 		if(icc!=null) {
-			IJ.log("SetSize w:"+width+" h:"+height);
+			if(JCP.debug)IJ.log("SetSize w:"+width+" h:"+height);
 			//Dimension s=new Dimension((int)(width*dpimag+0.5), (int)(height*dpimag+0.5));
 			Dimension s=new Dimension(width,height);
-			icc.setPreferredSize(s);
-			icc.setSize(s);
-			if(isMirror) {
+			if(isMirror && mirror.getExtendedState()!=Frame.MAXIMIZED_BOTH) {
 				java.awt.Insets ins=mirror.getInsets();
-				IJ.log("mirror setsize");
+				if(JCP.debug)IJ.log("mirror setsize");
 				mirror.setSize(width+ins.left+ins.right,height+ins.top+ins.bottom);
-			}else {
 			}
+			icc.setSize(s);
 		}
 		else super.setSize(width, height);
 		dstWidth = width;
 		dstHeight = height;
+		IJ.log("Post Setsize");
 	}
 
 	@Override

@@ -18,7 +18,7 @@ public class JOGLEventAdapter implements MouseListener, KeyListener {
 	private java.awt.event.MouseWheelListener mwl;
 	private final java.awt.event.KeyListener kl;
 	private float dpimag=1.0f;
-	public boolean verbose=false;
+	public static boolean verbose=false;
 	
 	/**
 	 * 
@@ -50,36 +50,6 @@ public class JOGLEventAdapter implements MouseListener, KeyListener {
 	public void setDPI(float dpi) {dpimag=dpi;}
 	
 	public void setMouseWheelListener(java.awt.event.MouseWheelListener mouseWheelListener) {this.mwl=mouseWheelListener;}
-	
-	public final java.awt.event.MouseEvent convertME(MouseEvent e){
-		java.awt.event.MouseEvent res=null;
-		int x=(int)(e.getX()/dpimag),
-			y=(int)(e.getY()/dpimag),
-			sx=x, sy=y;
-		if(source.isVisible()) {
-			try {
-				Point p=source.getLocationOnScreen();
-				sx=x+p.x;
-				sy=y+p.y;
-			}catch(Exception ex) {}
-		}
-		if(e.getEventType() ==MouseEvent.EVENT_MOUSE_WHEEL_MOVED) {
-			float rot=e.getRotation()[1];
-			if((e.getModifiers() & java.awt.event.InputEvent.SHIFT_DOWN_MASK) !=0)rot=e.getRotation()[1];
-			res=new java.awt.event.MouseWheelEvent(source, eventTypeNEWT2AWT(e.getEventType()), e.getWhen(), newtModifiers2awt(e.getModifiers(),true),
-					x, y, sx, sy, (int)e.getClickCount(), (int)e.getButton()==3,
-					java.awt.event.MouseWheelEvent.WHEEL_BLOCK_SCROLL, (int) e.getRotationScale(), (int)-rot, (double) -rot);
-		}
-		else res=new java.awt.event.MouseEvent(source, eventTypeNEWT2AWT(e.getEventType()), e.getWhen(), e.getModifiers(), 
-					x, y, sx, sy, (int)e.getClickCount(), (int)e.getButton()==3, (int)e.getButton());
-		if(JCP.debug && verbose) {
-			System.out.println("--");
-			System.out.println("newt:"+e);
-			System.out.println("awt:"+res);
-		}
-		
-		return res;
-	}
 
 	public boolean check(Object o) {
 		if(o==null)return false;
@@ -113,7 +83,13 @@ public class JOGLEventAdapter implements MouseListener, KeyListener {
 		if(check(mml)) java.awt.EventQueue.invokeLater(new Runnable() { public void run() {mml.mouseMoved(convertME(e));}});
 	}
 	public void mouseDragged(MouseEvent e) {
-		if(check(mml)) java.awt.EventQueue.invokeLater(new Runnable() { public void run() {mml.mouseDragged(convertME(e));}});
+		if(check(mml)) java.awt.EventQueue.invokeLater(new Runnable() { 
+			public void run() {
+				java.awt.event.MouseEvent ame=convertME(e);
+				if(e.getButton()==0)mml.mouseMoved(ame);
+				else mml.mouseDragged(ame);
+			}
+		});
 	}
 	/**
 	 * newt MouseListener->java.awt.MouseWheelListener
@@ -122,8 +98,88 @@ public class JOGLEventAdapter implements MouseListener, KeyListener {
 	public void mouseWheelMoved(MouseEvent e) {
 		if(check(mwl))java.awt.EventQueue.invokeLater(new Runnable() { public void run() {mwl.mouseWheelMoved((java.awt.event.MouseWheelEvent)convertME(e));}});
 	}
+
+	/**
+	 * newt KeyListener-> java.awt.KeyListener
+	 */
+	@Override
+	public void keyPressed(KeyEvent e) {
+		if(check(kl))java.awt.EventQueue.invokeLater(new Runnable() { public void run() {kl.keyPressed(convertKE(e));}});
+	}
+	@Override
+	public void keyReleased(KeyEvent e) {
+		if(check(kl)) java.awt.EventQueue.invokeLater(new Runnable() { public void run() {kl.keyReleased(convertKE(e)); kl.keyTyped(convertKE(e));}});
+	}
 	
-	public static final int eventTypeNEWT2AWT(final short newtType) {
+	
+	/**
+	 * private converting functions, using set source and dpimag
+	 * @param e
+	 * @return
+	 */
+	private java.awt.event.MouseEvent convertME(MouseEvent e){
+		return convertME(e, source, dpimag);
+	}
+	private java.awt.event.KeyEvent convertKE(KeyEvent e){
+		return convertKE(e, source);
+	}
+	
+	
+	
+	/**
+	 * Converts NEWT MouseEvent to AWT MouseEvent
+	 * 
+	 * @param e			The NEWT MouseEvent
+	 * @param source	The apparent AWT source of the event
+	 * @param dpimag	To correct for dpi magnification if necessary (use 1.0f if not)
+	 * @return			The AWT MouseEvent
+	 */
+	public static java.awt.event.MouseEvent convertME(MouseEvent e, Component source, float dpimag){
+		java.awt.event.MouseEvent res=null;
+		int x=(int)(e.getX()/dpimag),
+			y=(int)(e.getY()/dpimag),
+			sx=x, sy=y;
+		if(source.isVisible()) {
+			try {
+				Point p=source.getLocationOnScreen();
+				sx=x+p.x;
+				sy=y+p.y;
+			}catch(Exception ex) {}
+		}
+		if(e.getEventType() ==MouseEvent.EVENT_MOUSE_WHEEL_MOVED) {
+			float rot=e.getRotation()[1];
+			if((e.getModifiers() & java.awt.event.InputEvent.SHIFT_DOWN_MASK) !=0)rot=e.getRotation()[1];
+			res=new java.awt.event.MouseWheelEvent(source, eventTypeNEWT2AWT(e.getEventType()), e.getWhen(), newtModifiers2awt(e.getModifiers(),true),
+					x, y, sx, sy, (int)e.getClickCount(), (int)e.getButton()==3,
+					java.awt.event.MouseWheelEvent.WHEEL_BLOCK_SCROLL, (int) e.getRotationScale(), (int)-rot, (double) -rot);
+		}
+		else res=new java.awt.event.MouseEvent(source, eventTypeNEWT2AWT(e.getEventType()), e.getWhen(), e.getModifiers(), 
+					x, y, sx, sy, (int)e.getClickCount(), (int)e.getButton()==3, (int)e.getButton());
+		if(JCP.debug && verbose) {
+			System.out.println("--");
+			System.out.println("newt:"+e);
+			System.out.println("awt:"+res);
+		}
+		
+		return res;
+	}
+	
+	/**
+	 * Converts NEWT KeyEvent to AWT KeyEvent
+	 * @param NEWT KeyEvent e
+	 * @return AWT KeyEvent
+	 */
+	public static java.awt.event.KeyEvent convertKE(KeyEvent e, Component source){
+		return new java.awt.event.KeyEvent(source, eventTypeNEWT2AWT(e.getEventType()), e.getWhen(), newtModifiers2awt(e.getModifiers(),true), AWTNewtEventFactory.newtKeyCode2AWTKeyCode(e.getKeyCode()), e.getKeyChar());
+	}
+	
+	/**
+	 * Adapted from eventTypeAWT2NEWT from jogamp.newt.event.AWTNewtEventFactory
+	 * 
+	 * @param newtType
+	 * @return
+	 */
+	public static int eventTypeNEWT2AWT(final short newtType) {
         switch( newtType ) {
             case com.jogamp.newt.event.WindowEvent.EVENT_WINDOW_DESTROY_NOTIFY: return java.awt.event.WindowEvent.WINDOW_CLOSING;
             case com.jogamp.newt.event.WindowEvent.EVENT_WINDOW_DESTROYED: return java.awt.event.WindowEvent.WINDOW_CLOSED;
@@ -148,8 +204,15 @@ public class JOGLEventAdapter implements MouseListener, KeyListener {
         }
         return (short)0;
     }
-	
-	public static final int eventTypeNEWT2AWTFE(final short newtType, boolean doWindowEvent) {
+
+	/**
+	 * Adapted from eventTypeAWT2NEWT from jogamp.newt.event.AWTNewtEventFactory (The FocusEvents)
+	 * 
+	 * @param newtType
+	 * @param doWindowEvent
+	 * @return
+	 */
+	public static int eventTypeNEWT2AWTFE(final short newtType, boolean doWindowEvent) {
 		 switch( newtType ) {
          	case com.jogamp.newt.event.WindowEvent.EVENT_WINDOW_LOST_FOCUS: if(doWindowEvent) return java.awt.event.WindowEvent.WINDOW_LOST_FOCUS; else return java.awt.event.FocusEvent.FOCUS_LOST;
             case com.jogamp.newt.event.WindowEvent.EVENT_WINDOW_GAINED_FOCUS: if(doWindowEvent)return java.awt.event.WindowEvent.WINDOW_GAINED_FOCUS; else return java.awt.event.FocusEvent.FOCUS_GAINED;
@@ -159,21 +222,23 @@ public class JOGLEventAdapter implements MouseListener, KeyListener {
 	}
 	
 	/**
-     * Converts the specified set of AWT event modifiers and extended event
-     * modifiers to the equivalent NEWT event modifiers.
+	 * Modified from awtModifiers2Newt from jogamp.newt.event.AWTNewtEventFactory
+	 * 
+     * Converts the specified set of NEWT event modifiers
+     * modifiers to the equivalent AWT event modifiers and extended event.
      *
      * <p>
      * See <a href="#AWTEventModifierMapping"> AWT event modifier mapping details</a>.
      * </p>
      *
-     * @param awtMods
-     * The AWT event modifiers.
+     * @param newtMods
+     * The NEWT event modifiers.
      *
-     * @param awtModsEx
-     * The AWT extended event modifiers.
-     * AWT passes mouse button specific bits here and are the preferred way check the mouse button state.
+     * @param ex
+     * Whether to output AWT extended event modifiers, or regular modifiers.
+     * 
      */
-    public static final int newtModifiers2awt(final int newtMods, boolean ex) {
+    public static int newtModifiers2awt(final int newtMods, boolean ex) {
         int awtMods = 0;
 
         if(!ex) {
@@ -194,23 +259,7 @@ public class JOGLEventAdapter implements MouseListener, KeyListener {
         	if ((newtMods & com.jogamp.newt.event.InputEvent.getButtonMask(1)) != 0) awtMods |= java.awt.event.InputEvent.BUTTON3_DOWN_MASK;
         }
 
-        return newtMods;
+        return awtMods;
     }
-	
-	public final java.awt.event.KeyEvent convertKE(KeyEvent e){
-		return new java.awt.event.KeyEvent(source, eventTypeNEWT2AWT(e.getEventType()), e.getWhen(), newtModifiers2awt(e.getModifiers(),true), AWTNewtEventFactory.newtKeyCode2AWTKeyCode(e.getKeyCode()), e.getKeyChar());
-	}
-
-	/**
-	 * newt KeyListener-> java.awt.KeyListener
-	 */
-	@Override
-	public void keyPressed(KeyEvent e) {
-		if(check(kl))java.awt.EventQueue.invokeLater(new Runnable() { public void run() {kl.keyPressed(convertKE(e));}});
-		}
-	@Override
-	public void keyReleased(KeyEvent e) {
-		if(check(kl)) java.awt.EventQueue.invokeLater(new Runnable() { public void run() {kl.keyReleased(convertKE(e)); kl.keyTyped(convertKE(e));}});
-		}
 	
 }

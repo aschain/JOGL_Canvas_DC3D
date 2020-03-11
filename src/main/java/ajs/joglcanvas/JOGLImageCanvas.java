@@ -435,6 +435,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		setGL(drawable);
 		
 		if(go3d && stereoUpdated) {
+			IJ.log("stereoUpdate reshape");
 			reshape(drawable,0,0,drawable.getSurfaceWidth(),drawable.getSurfaceHeight());
 			if(stereoType==StereoType.ANAGLYPH) {
 				if(!glos.textures.containsKey("anaglyph"))initAnaglyph();

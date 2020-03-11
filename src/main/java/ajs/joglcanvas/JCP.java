@@ -80,7 +80,7 @@ public class JCP implements PlugIn {
 	public static float[][] anaColors;
 	public static boolean go3d=Prefs.get("ajs.joglcanvas.go3d", false);;
 	public static boolean wrappedBuffers=Prefs.get("ajs.joglcanvas.wrappedBuffers", true);
-	public static boolean debug=true;
+	public static boolean debug=false;
 	private static final float[][] duboisColors = new float[][] {
 		 {0.456f, -0.04f, -0.015f,
 		 0.5f, -0.038f, -0.021f,

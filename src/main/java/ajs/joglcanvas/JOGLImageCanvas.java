@@ -225,7 +225,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		
 		float[] ssc=new float[2];
 		glw.getCurrentSurfaceScale(ssc);
-		if(ssc[0]!=1.0f)IJ.log("SurfaceScale:"+ssc[0]+" "+ssc[1]);
+		if(ssc[0]!=1.0f) {
+			java.awt.EventQueue.invokeLater(new Runnable() {
+				public void run() {IJ.log("SurfaceScale:"+ssc[0]+" "+ssc[1]);}
+			});
+		}
 		if(ssc[0]!=1.0f || (dpimag!=1.0 && !isMirror)) {
 			if(ssc[0]==1.0f)ssc[0]=(float)dpimag;
 			com.jogamp.newt.event.MouseListener[] mls=glw.getMouseListeners();
@@ -401,7 +405,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 
 	@Override
 	public void dispose(GLAutoDrawable drawable) {
-		IJ.log("Disposing");
+		IJ.log("Disposing GL Canvas");
 		System.out.println("Disposing ajs-----------------------");
 		glos.setGL(drawable);
 		glos.dispose();

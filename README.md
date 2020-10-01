@@ -37,7 +37,7 @@ _Note:_ JOGL_Canvas cannot use LUTs that are more complex than a single color (R
 |Other Options| What it does|
 |------------------|--------|
 |Resizable Mirror| If a JOGLCanvas Mirror, allows you to resize instead of locking to the original's size|
-|Fullscreen| Puts the canvas into a GL fullscreen mode|
+|Fullscreen| Puts the canvas into a GL fullscreen mode, press Esc to exit|
 |JOGL Canvas Preferences| Opens the preferences|
 |Revert to Normal Window| Switches back to ImageCanvas or closes the mirror window|
 

@@ -540,7 +540,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}
 		
 		if(glos.getPboLength("image")!=(chs*frms) || deletePBOs) {
-			glos.newPbo("image", chs*frms);
+			glos.newPbo("image", chs*(sb.isFrameStack?1:frms));
 			sb.resetSlices();
 			deletePBOs=false;
 		}
@@ -574,7 +574,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						try {
 							for(int i=0;i<chs;i++) {
 								int ccfr=cfr*chs+i;
-								glos.getPbo("image").updateSubRgbaPBO(ccfr, sb.getSliceBuffer(i+1, sl+1, fr+1),0, sl*sb.sliceSize, sb.sliceSize, sb.bufferSize);
+								glos.getPbo("image").updateSubRgbaPBO(ccfr, sb.getSliceBuffer(i+1, sl+1, fr+1),0, (sb.isFrameStack?fr:sl)*sb.sliceSize, sb.sliceSize, sb.bufferSize);
 								sb.updateSlice(sl, fr);
 							}
 						}catch(Exception e) {
@@ -585,7 +585,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 								JCP.usePBOforSlices=false;
 								sb.resetSlices();
 								glos.disposePbo("image");
-								glos.newPbo("image", frms);
+								glos.newPbo("image", chs*(sb.isFrameStack?1:frms));
 							}
 						}
 					}

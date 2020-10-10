@@ -407,11 +407,15 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	public void dispose(GLAutoDrawable drawable) {
 		IJ.log("Disposing GL Canvas");
 		System.out.println("Disposing ajs-----------------------");
+		java.awt.EventQueue.invokeLater(new Runnable() {
+			public void run() {
+					if(jccpDialog!=null)jccpDialog.dispose();
+					if(jcgDialog!=null)jcgDialog.dispose();
+					if(jcrDialog!=null)jcrDialog.dispose();
+			}
+		});
 		glos.setGL(drawable);
 		glos.dispose();
-		if(jccpDialog!=null)jccpDialog.dispose();
-		if(jcgDialog!=null)jcgDialog.dispose();
-		if(jcrDialog!=null)jcrDialog.dispose();
 		imp.unlock();
 	}
 
@@ -439,7 +443,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		setGL(drawable);
 		
 		if(go3d && stereoUpdated) {
-			IJ.log("stereoUpdate reshape");
+			if(JCP.debug)IJ.log("stereoUpdate reshape");
 			reshape(drawable,0,0,drawable.getSurfaceWidth(),drawable.getSurfaceHeight());
 			if(stereoType==StereoType.ANAGLYPH) {
 				if(!glos.textures.containsKey("anaglyph"))initAnaglyph();
@@ -1304,8 +1308,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					public void run() {
 						new StackWindow(imp,new ImageCanvas(imp));
 						imp.setProperty("JOGLImageCanvas", null);
+						if(JCP.debug)IJ.log("post new stackwindow, before GLW destroy");
 						glw.destroy();
+						if(JCP.debug)IJ.log("after GLW destroy");
 						mirror.dispose();
+						if(JCP.debug)IJ.log("after mirror dispose");
 						mirror=null;
 					}
 				});
@@ -1963,7 +1970,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	}
 	
 	private void addAdjustmentListening() {
-		if(imp==null || imp.getWindow()==null || !(imp.getWindow() instanceof StackWindow)) {IJ.log("no imp window"); return;}
+		if(imp==null || imp.getWindow()==null || !(imp.getWindow() instanceof StackWindow)) {IJ.log("JOGLCanvas was created but no ImagePlus Window was found"); return;}
 		StackWindow stwin=(StackWindow) imp.getWindow();
 		Component[] comps=stwin.getComponents();
 		for(int i=0;i<comps.length;i++) {

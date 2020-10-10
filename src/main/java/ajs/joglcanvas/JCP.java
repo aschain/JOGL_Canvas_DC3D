@@ -333,7 +333,7 @@ public class JCP implements PlugIn {
 		}
 		if(defaultBitString==null || defaultBitString.equals("default")) return null;
 		setGLCapabilities(glCapabilities, defaultBitString);
-		IJ.log("GL Settings:"+glCapabilities);
+		IJ.log("Starting JOGL with Settings:\n   "+glCapabilities);
 		return glCapabilities;
 	}
 	
@@ -475,6 +475,7 @@ public class JCP implements PlugIn {
 		gd.addCheckbox("Use image arrays wrapped in a buffer for video memory", wrappedBuffers);
 		gd.addCheckbox("Show some extra debug info", debug);
 		gd.showDialog();
+		
 		if(gd.wasCanceled())return;
 		if(profiles.size()>1) {
 			glProfileName=gd.getNextChoice().replace(" (Default)","").replace(" (Max Default)", "");
@@ -518,6 +519,7 @@ public class JCP implements PlugIn {
 		wrappedBuffers=gd.getNextBoolean();
 		Prefs.set("ajs.joglcanvas.wrappedBuffers", wrappedBuffers);
 		debug=gd.getNextBoolean();
+		
 		if(doana) anaglyphSettings();
 		if(dotest) openTestImage();
 

@@ -117,12 +117,11 @@
 				       <goal>exec</goal>
 				    </goals>
 				    <configuration>
-				      <executable>../copyToFiji.bat</executable>
+				      <executable>bash</executable>
 				      <workingDirectory>${basedir}</workingDirectory>
 				      <arguments>
-				    	  <argument>plugins</argument>
-				    	  <argument>${artifactId}</argument>
-				    	  <argument>${basedir}/target/${project.build.finalName}.jar</argument>
+				    	  <argument>-c</argument>
+				    	  <argument>"../copyToFiji.sh plugins ${project.artifactId} target/${project.build.finalName}.jar"</argument>
 				      </arguments>
 				    </configuration>
 				  </execution>

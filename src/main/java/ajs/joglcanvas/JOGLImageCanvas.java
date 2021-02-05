@@ -705,7 +705,17 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				reverse=(Zza==rotate[10]);
 				if(left)reverse=Xza==rotate[2];
 				if(top)reverse=Yza==rotate[6];
-				glos.getUniformBuffer("model").loadMatrix(FloatUtil.multMatrix(scale, FloatUtil.multMatrix(rotate, translate, new float[16]), new float[16]));
+				float[] modelTransform=new float[16];
+				if(imageWidth!=imageHeight) {
+					float ratio=(float)imageWidth/(float)imageHeight;
+					modelTransform=FloatUtil.makeScale(modelTransform, false, ((imageWidth>imageHeight)?1.0f:ratio), ((imageWidth>imageHeight)?1.0f/ratio:1.0f), 1.0f); //scale aspect ratio
+					float[] temptrans=FloatUtil.multMatrix(modelTransform, translate, new float[16]);
+					float[] temprot=FloatUtil.multMatrix(rotate, temptrans, new float[16]);
+					modelTransform=FloatUtil.multMatrix(FloatUtil.makeScale(new float[16], false, ((imageWidth>imageHeight)?1.0f:1.f/ratio), ((imageWidth>imageHeight)?ratio:1.0f), 1.0f), temprot, new float[16]);
+					modelTransform=FloatUtil.multMatrix(scale, modelTransform, new float[16]);
+				}else
+					FloatUtil.multMatrix(scale, FloatUtil.multMatrix(rotate, translate, new float[16]), modelTransform);
+				glos.getUniformBuffer("model").loadMatrix(modelTransform);
 				
 				if(ltr==null || !(ltr[0]==left && ltr[1]==top && ltr[2]==reverse) || cutPlanes.changed/*|| imageState.isChanged.srcRect*/) {
 					cutPlanes.changed=false;

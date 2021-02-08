@@ -1822,11 +1822,16 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	 */
 	@Override
 	public void keyPressed(KeyEvent e) {
+		//System.out.println("AJS- JIC-keyPressed"+Character.toString(e.getKeyChar()));
 		if(!(e.getKeyChar()=='='||e.getKeyChar()=='-')) ij.keyPressed(e);}
 	@Override
-	public void keyReleased(KeyEvent e) {ij.keyReleased(e);}
+	public void keyReleased(KeyEvent e) {
+		//System.out.println("AJS- JIC-keyReleased"+Character.toString(e.getKeyChar())); 
+		ij.keyReleased(e);
+	}
 	@Override
 	public void keyTyped(KeyEvent e) {
+		//System.out.println("AJS- JIC-keyTyped"+Character.toString(e.getKeyChar()));
 		char key=e.getKeyChar();
 		int code=e.getKeyCode();
 		if(key=='u') {
@@ -1868,7 +1873,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	}
 	
 	private boolean shouldKeep(MouseEvent e) {
-		return (!isRightClick(e) && isMirror) || (!isRightClick(e) && (go3d && ((IJ.getToolName()=="hand" && !IJ.spaceBarDown()) || IJ.controlKeyDown())));
+		return ((!isRightClick(e) && isMirror) || (!isRightClick(e) && (go3d && ((IJ.getToolName()=="hand" && !IJ.spaceBarDown()) || IJ.controlKeyDown()))));
 	}
 	
 	@Override

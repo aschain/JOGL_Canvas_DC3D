@@ -137,6 +137,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private JCAdjuster jccpDialog,jcgDialog,jcrDialog;
 	private boolean verbose=false;
 	private long dragtime;
+	private JOGLEventAdapter joglEventAdapter=null;
 	//private Button updateButton;
 	//private long starttime=0;
 
@@ -195,7 +196,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		createPopupMenu();
 		sb=new StackBuffer(imp);
 		final JOGLImageCanvas jic=this;
-		new JOGLEventAdapter(jic, glw);
+		joglEventAdapter=new JOGLEventAdapter(jic, glw);
 		icc.setPreferredSize(new Dimension(imageWidth,imageHeight));
 		glw.addGLEventListener(this);
 		icc.setMinimumSize(new Dimension(10,10));
@@ -232,8 +233,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}
 		if(ssc[0]!=1.0f || (dpimag!=1.0 && !isMirror)) {
 			if(ssc[0]==1.0f)ssc[0]=(float)dpimag;
-			com.jogamp.newt.event.MouseListener[] mls=glw.getMouseListeners();
-			for(com.jogamp.newt.event.MouseListener ml : mls)if(ml instanceof JOGLEventAdapter)((JOGLEventAdapter)ml).setDPI(ssc[0]);
+			joglEventAdapter.setDPI(ssc[0]);
 			//if(glw.setSurfaceScale(new float[] {1f,1f}))IJ.log("Changed to 1.0 1.0");
 			//else IJ.log("Unable to change SurfaceScale");
 		}
@@ -1211,18 +1211,14 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		mirror.addWindowListener(new WindowAdapter() {
 			public void windowClosing(WindowEvent e) { revert(); }
 		});
-		for(com.jogamp.newt.event.MouseListener ml : glw.getMouseListeners()) {
-			if(ml instanceof JOGLEventAdapter) {
-				((JOGLEventAdapter)ml).setMouseWheelListener(new MouseAdapter() {
-					@Override
-					public void mouseWheelMoved(MouseWheelEvent e) {
-						imp.getCanvas().setCursor(e.getX(), e.getY(), offScreenX(e.getX()), offScreenY(e.getY()));
-						imp.getWindow().mouseWheelMoved(e);
-						updateMirror(); repaint();
-					}
-				});
+		joglEventAdapter.addMouseWheelListener(new MouseAdapter() {
+			@Override
+			public void mouseWheelMoved(MouseWheelEvent e) {
+				imp.getCanvas().setCursor(e.getX(), e.getY(), offScreenX(e.getX()), offScreenY(e.getY()));
+				imp.getWindow().mouseWheelMoved(e);
+				updateMirror(); repaint();
 			}
-		}
+		});
 		addMirrorListeners();
 		java.awt.EventQueue.invokeLater(new Runnable() {
 			@Override
@@ -1475,34 +1471,34 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	/* called in super() disable so I don't have to remove them*/
 	@Override
 	public void addMouseListener(MouseListener object) {
-		if(icc!=null)icc.addMouseListener(object);
+		if(joglEventAdapter!=null)joglEventAdapter.addMouseListener(object);
 		//else super.addMouseListener(object);
 	}
 	@Override
 	public void addMouseMotionListener(MouseMotionListener object) {
-		if(icc!=null)icc.addMouseMotionListener(object);
+		if(joglEventAdapter!=null)joglEventAdapter.addMouseMotionListener(object);
 		//else super.addMouseMotionListener(object);
 	}
 	@Override
 	public void addKeyListener(KeyListener object) {
-		if(icc!=null)icc.addKeyListener(object);
+		if(joglEventAdapter!=null)joglEventAdapter.addKeyListener(object);
 		//else super.addKeyListener(object);
 	}
 	
 	/*just in case*/
 	@Override
 	public void removeMouseListener(MouseListener object) {
-		if(icc!=null)icc.removeMouseListener(object);
+		if(joglEventAdapter!=null)joglEventAdapter.removeMouseListener(object);
 		//else super.removeMouseListener(object);
 	}
 	@Override
 	public void removeMouseMotionListener(MouseMotionListener object) {
-		if(icc!=null)icc.removeMouseMotionListener(object);
+		if(joglEventAdapter!=null)joglEventAdapter.removeMouseMotionListener(object);
 		//else super.removeMouseMotionListener(object);
 	}
 	@Override
 	public void removeKeyListener(KeyListener object) {
-		if(icc!=null)icc.removeKeyListener(object);
+		if(joglEventAdapter!=null)joglEventAdapter.removeKeyListener(object);
 		//else super.removeKeyListener(object);
 	}
 	
@@ -1822,11 +1818,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	 */
 	@Override
 	public void keyPressed(KeyEvent e) {
-		//System.out.println("AJS- JIC-keyPressed"+Character.toString(e.getKeyChar()));
+		if(JCP.debug) System.out.println("AJS- JIC-keyPressed"+Character.toString(e.getKeyChar()));
 		if(!(e.getKeyChar()=='='||e.getKeyChar()=='-')) ij.keyPressed(e);}
 	@Override
 	public void keyReleased(KeyEvent e) {
-		//System.out.println("AJS- JIC-keyReleased"+Character.toString(e.getKeyChar())); 
+		if(JCP.debug) System.out.println("AJS- JIC-keyReleased"+Character.toString(e.getKeyChar())); 
 		ij.keyReleased(e);
 	}
 	@Override

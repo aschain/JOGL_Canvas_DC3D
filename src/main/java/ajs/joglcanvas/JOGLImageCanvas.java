@@ -705,7 +705,17 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				reverse=(Zza==rotate[10]);
 				if(left)reverse=Xza==rotate[2];
 				if(top)reverse=Yza==rotate[6];
-				glos.getUniformBuffer("model").loadMatrix(FloatUtil.multMatrix(scale, FloatUtil.multMatrix(rotate, translate, new float[16]), new float[16]));
+				float[] modelTransform=new float[16];
+				if(imageWidth!=imageHeight) {
+					float ratio=(float)imageWidth/(float)imageHeight;
+					modelTransform=FloatUtil.makeScale(modelTransform, false, ((imageWidth>imageHeight)?1.0f:ratio), ((imageWidth>imageHeight)?1.0f/ratio:1.0f), 1.0f); //scale aspect ratio
+					float[] temptrans=FloatUtil.multMatrix(modelTransform, translate, new float[16]);
+					float[] temprot=FloatUtil.multMatrix(rotate, temptrans, new float[16]);
+					modelTransform=FloatUtil.multMatrix(FloatUtil.makeScale(new float[16], false, ((imageWidth>imageHeight)?1.0f:1.f/ratio), ((imageWidth>imageHeight)?ratio:1.0f), 1.0f), temprot, new float[16]);
+					modelTransform=FloatUtil.multMatrix(scale, modelTransform, new float[16]);
+				}else
+					FloatUtil.multMatrix(scale, FloatUtil.multMatrix(rotate, translate, new float[16]), modelTransform);
+				glos.getUniformBuffer("model").loadMatrix(modelTransform);
 				
 				if(ltr==null || !(ltr[0]==left && ltr[1]==top && ltr[2]==reverse) || cutPlanes.changed/*|| imageState.isChanged.srcRect*/) {
 					cutPlanes.changed=false;
@@ -1812,11 +1822,16 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	 */
 	@Override
 	public void keyPressed(KeyEvent e) {
+		//System.out.println("AJS- JIC-keyPressed"+Character.toString(e.getKeyChar()));
 		if(!(e.getKeyChar()=='='||e.getKeyChar()=='-')) ij.keyPressed(e);}
 	@Override
-	public void keyReleased(KeyEvent e) {ij.keyReleased(e);}
+	public void keyReleased(KeyEvent e) {
+		//System.out.println("AJS- JIC-keyReleased"+Character.toString(e.getKeyChar())); 
+		ij.keyReleased(e);
+	}
 	@Override
 	public void keyTyped(KeyEvent e) {
+		//System.out.println("AJS- JIC-keyTyped"+Character.toString(e.getKeyChar()));
 		char key=e.getKeyChar();
 		int code=e.getKeyCode();
 		if(key=='u') {
@@ -1858,7 +1873,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	}
 	
 	private boolean shouldKeep(MouseEvent e) {
-		return (!isRightClick(e) && isMirror) || (!isRightClick(e) && (go3d && ((IJ.getToolName()=="hand" && !IJ.spaceBarDown()) || IJ.controlKeyDown())));
+		return ((!isRightClick(e) && isMirror) || (!isRightClick(e) && (go3d && ((IJ.getToolName()=="hand" && !IJ.spaceBarDown()) || IJ.controlKeyDown()))));
 	}
 	
 	@Override

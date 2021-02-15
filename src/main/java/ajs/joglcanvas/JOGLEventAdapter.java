@@ -2,6 +2,7 @@ package ajs.joglcanvas;
 
 import java.awt.Component;
 import java.awt.Point;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.jogamp.newt.event.KeyEvent;
 import com.jogamp.newt.event.KeyListener;
@@ -19,6 +20,8 @@ public class JOGLEventAdapter implements MouseListener, KeyListener {
 	private final java.awt.event.KeyListener kl;
 	private float dpimag=1.0f;
 	public static boolean verbose=false;
+	private Point sourceLoc=null;
+	private AtomicBoolean running=new AtomicBoolean();
 	
 	/**
 	 * 
@@ -61,31 +64,37 @@ public class JOGLEventAdapter implements MouseListener, KeyListener {
 	 */
 	@Override
 	public void mouseClicked(MouseEvent e) {
-		if(check(ml)) java.awt.EventQueue.invokeLater(new Runnable() { public void run() {ml.mouseClicked(convertME(e));}});
+		final java.awt.event.MouseEvent ame=convertME(e);
+		if(check(ml)) java.awt.EventQueue.invokeLater(new Runnable() { public void run() {ml.mouseClicked(ame);}});
 	}
 	public void mouseEntered(MouseEvent e)  {
-		if(check(ml)) java.awt.EventQueue.invokeLater(new Runnable() { public void run() {ml.mouseEntered(convertME(e));}});
+		final java.awt.event.MouseEvent ame=convertME(e);
+		if(check(ml)) java.awt.EventQueue.invokeLater(new Runnable() { public void run() {ml.mouseEntered(ame);}});
 	}
 	public void mouseExited(MouseEvent e) {
-		if(check(ml)) java.awt.EventQueue.invokeLater(new Runnable() { public void run() {ml.mouseExited(convertME(e));}});
+		final java.awt.event.MouseEvent ame=convertME(e);
+		if(check(ml)) java.awt.EventQueue.invokeLater(new Runnable() { public void run() {ml.mouseExited(ame);}});
 	}
 	public void mousePressed(MouseEvent e) {
-		if(check(ml)) java.awt.EventQueue.invokeLater(new Runnable() { public void run() {ml.mousePressed(convertME(e));}});
+		final java.awt.event.MouseEvent ame=convertME(e);
+		if(check(ml)) java.awt.EventQueue.invokeLater(new Runnable() { public void run() {ml.mousePressed(ame);}});
 	}
 	public void mouseReleased(MouseEvent e) {
-		if(check(ml)) java.awt.EventQueue.invokeLater(new Runnable() { public void run() {ml.mouseReleased(convertME(e));}});
+		final java.awt.event.MouseEvent ame=convertME(e);
+		if(check(ml)) java.awt.EventQueue.invokeLater(new Runnable() { public void run() {ml.mouseReleased(ame);}});
 	}
 	/**
 	 * newt MouseListener->java.awt.MouseMotionListener
 	 */
 	@Override
 	public void mouseMoved(MouseEvent e) {
-		if(check(mml)) java.awt.EventQueue.invokeLater(new Runnable() { public void run() {mml.mouseMoved(convertME(e));}});
+		final java.awt.event.MouseEvent ame=convertME(e);
+		if(check(mml)) java.awt.EventQueue.invokeLater(new Runnable() { public void run() {mml.mouseMoved(ame);}});
 	}
 	public void mouseDragged(MouseEvent e) {
+		final java.awt.event.MouseEvent ame=convertME(e);
 		if(check(mml)) java.awt.EventQueue.invokeLater(new Runnable() { 
 			public void run() {
-				java.awt.event.MouseEvent ame=convertME(e);
 				if(e.getButton()==0)mml.mouseMoved(ame);
 				else mml.mouseDragged(ame);
 			}
@@ -96,7 +105,8 @@ public class JOGLEventAdapter implements MouseListener, KeyListener {
 	 */
 	@Override
 	public void mouseWheelMoved(MouseEvent e) {
-		if(check(mwl))java.awt.EventQueue.invokeLater(new Runnable() { public void run() {mwl.mouseWheelMoved((java.awt.event.MouseWheelEvent)convertME(e));}});
+		final java.awt.event.MouseWheelEvent amwe=(java.awt.event.MouseWheelEvent)convertME(e);
+		if(check(mwl))java.awt.EventQueue.invokeLater(new Runnable() { public void run() {mwl.mouseWheelMoved(amwe);}});
 	}
 
 	/**
@@ -104,11 +114,13 @@ public class JOGLEventAdapter implements MouseListener, KeyListener {
 	 */
 	@Override
 	public void keyPressed(KeyEvent e) {
-		if(check(kl))java.awt.EventQueue.invokeLater(new Runnable() { public void run() {kl.keyPressed(convertKE(e));}});
+		final java.awt.event.KeyEvent ake=convertKE(e);
+		if(check(kl))java.awt.EventQueue.invokeLater(new Runnable() { public void run() {kl.keyPressed(ake);}});
 	}
 	@Override
 	public void keyReleased(KeyEvent e) {
-		if(check(kl)) java.awt.EventQueue.invokeLater(new Runnable() { public void run() {kl.keyReleased(convertKE(e)); kl.keyTyped(convertKE(e));}});
+		final java.awt.event.KeyEvent ake=convertKE(e);
+		if(check(kl) && !e.isAutoRepeat()) java.awt.EventQueue.invokeLater(new Runnable() { public void run() {kl.keyReleased(ake); kl.keyTyped(ake);}});
 	}
 	
 	
@@ -118,7 +130,12 @@ public class JOGLEventAdapter implements MouseListener, KeyListener {
 	 * @return
 	 */
 	private java.awt.event.MouseEvent convertME(MouseEvent e){
-		return convertME(e, source, dpimag);
+		if(!running.get()) {
+			running.set(true);
+			sourceLoc=source.getLocation(sourceLoc);
+			running.set(false);
+		}
+		return convertME(e, source, dpimag, sourceLoc);
 	}
 	private java.awt.event.KeyEvent convertKE(KeyEvent e){
 		return convertKE(e, source);
@@ -145,6 +162,41 @@ public class JOGLEventAdapter implements MouseListener, KeyListener {
 				sx=x+p.x;
 				sy=y+p.y;
 			}catch(Exception ex) {}
+		}
+		if(e.getEventType() ==MouseEvent.EVENT_MOUSE_WHEEL_MOVED) {
+			float rot=e.getRotation()[1];
+			if((e.getModifiers() & java.awt.event.InputEvent.SHIFT_DOWN_MASK) !=0)rot=e.getRotation()[1];
+			res=new java.awt.event.MouseWheelEvent(source, eventTypeNEWT2AWT(e.getEventType()), e.getWhen(), newtModifiers2awt(e.getModifiers(),true),
+					x, y, sx, sy, (int)e.getClickCount(), (int)e.getButton()==3,
+					java.awt.event.MouseWheelEvent.WHEEL_BLOCK_SCROLL, (int) e.getRotationScale(), (int)-rot, (double) -rot);
+		}
+		else res=new java.awt.event.MouseEvent(source, eventTypeNEWT2AWT(e.getEventType()), e.getWhen(), e.getModifiers(), 
+					x, y, sx, sy, (int)e.getClickCount(), (int)e.getButton()==3, (int)e.getButton());
+		if(JCP.debug && verbose) {
+			System.out.println("--");
+			System.out.println("newt:"+e);
+			System.out.println("awt:"+res);
+		}
+		
+		return res;
+	}
+	
+	/**
+	 * Converts NEWT MouseEvent to AWT MouseEvent and does not require a call to the awt source
+	 * 
+	 * @param e			The NEWT MouseEvent
+	 * @param source	The apparent AWT source of the event
+	 * @param dpimag	To correct for dpi magnification if necessary (use 1.0f if not)
+	 * @return			The AWT MouseEvent
+	 */
+	public static java.awt.event.MouseEvent convertME(MouseEvent e, Component source, float dpimag, Point sourceLoc){
+		java.awt.event.MouseEvent res=null;
+		int x=(int)(e.getX()/dpimag),
+			y=(int)(e.getY()/dpimag),
+			sx=x, sy=y;
+		if(sourceLoc!=null) {
+			sx=x+sourceLoc.x;
+			sy=y+sourceLoc.y;
 		}
 		if(e.getEventType() ==MouseEvent.EVENT_MOUSE_WHEEL_MOVED) {
 			float rot=e.getRotation()[1];

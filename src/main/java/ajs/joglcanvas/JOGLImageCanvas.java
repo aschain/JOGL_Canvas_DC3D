@@ -171,7 +171,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			@Override
 			public void reshape(int x, int y, int width, int height) {
 				//if(isMirror) super.setSize((int)(width*dpimag+0.5),(int)(height*dpimag+0.5));
-				//else {
+				//else { 
 					super.reshape(x,y,width, height);
 					if(isMirror)
 						java.awt.EventQueue.invokeLater(new Runnable() {public void run() {glw.setSize((int)(width*dpimag+0.5),(int)(height*dpimag+0.5));}});

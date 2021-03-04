@@ -634,11 +634,11 @@ public class JCGLObjects {
 		}
 		
 		public void loadMatrix(float[] matrix, int offset) {
-			buffer.rewind();
+			((Buffer)buffer).rewind();
 			for (int i = 0; i < 16; i++) {
 	            buffer.putFloat(offset + i * 4, matrix[i]);
 	        }
-	        buffer.rewind();
+			((Buffer)buffer).rewind();
 		}
 		
 		public void bindBuffer() {
@@ -674,7 +674,7 @@ public class JCGLObjects {
 			}else {
 				gl.glBindBuffer(gltype, handle);
 				if(glver<4 && buffer!=null) {
-					buffer.rewind();
+					((Buffer)buffer).rewind();
 					gl.glBufferSubData(gltype, 0L, (long)buffer.limit(), buffer);
 				}
 			}

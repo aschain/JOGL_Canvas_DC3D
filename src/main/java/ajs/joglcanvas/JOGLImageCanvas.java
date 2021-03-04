@@ -313,7 +313,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				e[i*6+3]=(short)(i*4+2); e[i*6+4]=(short)(i*4+3); e[i*6+5]=(short)(i*4+0);
 			}
 			ShortBuffer elementBuffer=GLBuffers.newDirectShortBuffer(e);
-			elementBuffer.rewind();
+			((Buffer)elementBuffer).rewind();
 	
 			glos.newTexture("image3d", imp.getNChannels());
 			glos.newBuffer(GL_ARRAY_BUFFER, "image3d", maxsize*floatsPerVertex*4*Buffers.SIZEOF_FLOAT, null);
@@ -794,7 +794,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			
 			//setluts
 			ByteBuffer lutMatrixPointer=glos.getDirectBuffer(GL_UNIFORM_BUFFER, "lut");
-			lutMatrixPointer.rewind();
+			((Buffer)lutMatrixPointer).rewind();
 			LUT[] luts=imp.getLuts();
 			boolean[] active=new boolean[chs];
 			for(int i=0;i<chs;i++)active[i]=true;
@@ -835,7 +835,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				lutMatrixPointer.putFloat(color);
 				lutMatrixPointer.putFloat((gamma==null || gamma.length<=i)?0f:gamma[i]); //padding for vec3 std140
 			}
-			lutMatrixPointer.rewind();
+			((Buffer)lutMatrixPointer).rewind();
 			
 			
 			glos.bindUniformBuffer("global", 1);
@@ -1374,13 +1374,13 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		
 		gl.glDisable(GL_BLEND);
 		gl.glLineWidth((float)dpimag);
-		zoomIndVerts.rewind();
+		((Buffer)zoomIndVerts).rewind();
 		float[] color=new float[] {(float)128/255, (float)128/255, 1f, 1f};
 		zoomIndVerts.put(x1).put(y1).put(0f).put(color);
 		zoomIndVerts.put(x1+w1).put(y1).put(0f).put(color);
 		zoomIndVerts.put(x1+w1).put(y1-h1).put(0f).put(color);
 		zoomIndVerts.put(x1).put(y1-h1).put(0f).put(color);
-		zoomIndVerts.rewind();
+		((Buffer)zoomIndVerts).rewind();
 		
 		if(rgldu==null) rgldu=new RoiGLDrawUtility(imp, drawable);
 		if(glos.glver==2)rgldu.startDrawing();
@@ -1392,7 +1392,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		zoomIndVerts.put(x1+x2+w2).put(y1-y2).put(0f).put(color);
 		zoomIndVerts.put(x1+x2+w2).put(y1-y2-h2).put(0f).put(color);
 		zoomIndVerts.put(x1+x2).put(y1-y2-h2).put(0f).put(color);
-		zoomIndVerts.rewind();
+		((Buffer)zoomIndVerts).rewind();
 		
 		rgldu.drawGLfb(drawable, zoomIndVerts, GL_LINE_LOOP);
 
@@ -1981,7 +1981,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	}
 	
 	private void addAdjustmentListening() {
-		if(imp==null || imp.getWindow()==null || !(imp.getWindow() instanceof StackWindow)) {IJ.log("JOGLCanvas was created but no ImagePlus Window was found"); return;}
+		if(imp==null || imp.getWindow()==null) {IJ.log("JOGLCanvas was created but no ImagePlus Window was found"); return;}
+		if(imp.getWindow().getClass().getSimpleName().equals("ImageWindow"))return; //Don't need for ImageWindow
 		StackWindow stwin=(StackWindow) imp.getWindow();
 		Component[] comps=stwin.getComponents();
 		for(int i=0;i<comps.length;i++) {

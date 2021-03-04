@@ -26,8 +26,10 @@ import com.jogamp.opengl.util.texture.awt.AWTTextureIO;
 
 import ajs.joglcanvas.JCGLObjects.JCProgram;
 import ajs.joglcanvas.JOGLImageCanvas.CutPlanesCube;
+import ij.IJ;
 import ij.ImagePlus;
 import ij.gui.Arrow;
+import ij.gui.Line;
 import ij.gui.OvalRoi;
 import ij.gui.PointRoi;
 import ij.gui.Roi;
@@ -132,7 +134,7 @@ public class RoiGLDrawUtility {
 		setGL(drawable);
 		updateSrcRect();
 		boolean drawHandles=isRoi;
-		if(isRoi && roi.getState()==Roi.CONSTRUCTING)drawHandles=false;
+		//if(isRoi && roi.getState()==Roi.CONSTRUCTING)drawHandles=false;
 
 		float z=0f;
 		Calibration cal=imp.getCalibration();
@@ -208,6 +210,7 @@ public class RoiGLDrawUtility {
 		}
 		
 		if(drawHandles) {
+			IJ.log("\\Update:tp:"+tp+" n:"+n+" cn: "+roi.getClass().getSimpleName());
 			float[] xhandles=new float[0],yhandles=new float[0];
 			if(roi instanceof ij.gui.EllipseRoi || tp==Roi.OVAL) {
 				int hn=4; //n==72 ellipse
@@ -220,12 +223,17 @@ public class RoiGLDrawUtility {
 			}else if(tp==Roi.RECTANGLE) {
 				xhandles=new float[8];
 				yhandles=new float[8];
-				int[] ix=new int[] {0,1,2,3}, iy=ix;
-				if(n==44) { ix=new int[] {8,9,32,33}; iy=new int[] {0,19,20,43};}//roundrect indices
+				float[] xps=xpoints, yps=ypoints;
+				if(roi.getCornerDiameter()>0){ //roundrect indices
+					Roi rect=(Roi)roi.clone();
+					rect.setCornerDiameter(0);
+					FloatPolygon rfp=rect.getFloatPolygon();
+					xps=rfp.xpoints; yps=rfp.ypoints;
+				}
 				for(int i=0;i<4;i++) {
-					xhandles[i*2]=xpoints[ix[i]]; yhandles[i*2]=ypoints[iy[i]];
-					int j=(i==(n-1))?(0):(i+1);
-					xhandles[i*2+1]=(xpoints[ix[i]]+xpoints[ix[j]])/2; yhandles[i*2+1]=(ypoints[iy[i]]+ypoints[iy[j]])/2;
+					xhandles[i*2]=xps[i]; yhandles[i*2]=yps[i];
+					int j=((i==3)?0:(i+1));
+					xhandles[i*2+1]=(xps[i]+xps[j])/2; yhandles[i*2+1]=(yps[i]+yps[j])/2;
 				}
 			}else if(tp==Roi.POLYGON || tp==Roi.POLYLINE || tp==Roi.ANGLE) {
 				xhandles=xpoints; yhandles=ypoints;
@@ -235,7 +243,7 @@ public class RoiGLDrawUtility {
 					yhandles=new float[] {ypoints[0],(ypoints[0]+ypoints[1])/2,ypoints[1]};
 				}
 			}else if(tp==Roi.FREEROI) {
-				if(n==4 && !(roi instanceof ij.gui.FreehandRoi)) {
+				if(n>=4 && !(roi instanceof ij.gui.FreehandRoi) && (roi.getClass().getSimpleName()!="PolygonRoi")) {
 					xhandles=new float[4];
 					yhandles=new float[4];
 					for(int i=0;i<4;i++) {
@@ -245,9 +253,39 @@ public class RoiGLDrawUtility {
 				}
 			}
 			for(int i=0;i<xhandles.length;i++) {
-				drawHandle((int)xhandles[i],(int)yhandles[i],z,Roi.HANDLE_SIZE, anacolor==null?Color.WHITE:anacolor, true);
+				int hs=getHandleWidth(roi);
+				if(i==0 && (tp==Roi.LINE || tp==Roi.POLYLINE || tp==Roi.POLYGON || (roi.getClass().getSimpleName()=="RotatedRectRoi"))) {
+					if(roi.getState()==Roi.CONSTRUCTING && tp==Roi.POLYLINE || tp==Roi.POLYGON)drawHandle((int)xhandles[i],(int)yhandles[i],z,hs+4, roicolor, true);
+					drawHandle((int)xhandles[i],(int)yhandles[i],z,hs, roicolor, true);
+				}else drawHandle((int)xhandles[i],(int)yhandles[i],z,hs, anacolor==null?Color.WHITE:anacolor, true);
 			}
 		}
+	}
+	
+	private int getHandleWidth(Roi roi) {
+		int threshold1 = 7500;
+		int threshold2 = 1500;
+		Rectangle b=roi.getBounds();
+		double size = (b.width*b.height)*mag*mag;
+		if (roi instanceof Line) {
+			size = ((Line)roi).getLength()*mag;
+			threshold1 = 150;
+			threshold2 = 50;
+		} else {
+			if (roi.getState()==Roi.CONSTRUCTING && !(roi.getType()==Roi.RECTANGLE||roi.getType()==Roi.OVAL))
+				size = threshold1 + 1;	
+		}
+		int width = 7;
+		if (size>threshold1) {
+		} else if (size>threshold2) {
+			width = 5;
+		} else {
+			width = 3;
+		}
+		int inc = roi.getHandleSize() - 7;
+		width += inc;
+		if(width<3)width=1;
+		return width;
 	}
 	
 	private float[] getSubGLCoords(FloatPolygon fp, int start, int end, float z, boolean screen) {

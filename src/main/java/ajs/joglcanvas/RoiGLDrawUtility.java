@@ -31,6 +31,7 @@ import ij.gui.Arrow;
 import ij.gui.OvalRoi;
 import ij.gui.PointRoi;
 import ij.gui.Roi;
+import ij.gui.ShapeRoi;
 import ij.gui.TextRoi;
 import ij.measure.Calibration;
 import ij.process.FloatPolygon;
@@ -104,6 +105,14 @@ public class RoiGLDrawUtility {
 	 */
 	public void drawRoiGL(GLAutoDrawable drawable, Roi roi, boolean isRoi, Color anacolor, boolean go3d) {
 		if(roi==null)return;
+		if(roi instanceof ShapeRoi) {
+			Roi[] rois=((ShapeRoi)roi).getRois();
+			for(Roi r : rois) {
+				if(!(r instanceof ShapeRoi))drawRoiGL(drawable, r, isRoi, anacolor, go3d);
+				else drawRoiGL(drawable, ((ShapeRoi)r).shapeToRoi(), isRoi, anacolor, go3d);
+			}
+			return;
+		}
 		this.go3d=go3d;
 		this.anacolor=anacolor;
 		int sls=imp.getNSlices(), ch=imp.getC(), sl=imp.getZ(), fr=imp.getT();

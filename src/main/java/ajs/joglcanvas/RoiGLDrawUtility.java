@@ -110,8 +110,8 @@ public class RoiGLDrawUtility {
 		if(roi instanceof ShapeRoi) {
 			Roi[] rois=((ShapeRoi)roi).getRois();
 			for(Roi r : rois) {
-				if(!(r instanceof ShapeRoi))drawRoiGL(drawable, r, isRoi, anacolor, go3d);
-				else drawRoiGL(drawable, ((ShapeRoi)r).shapeToRoi(), isRoi, anacolor, go3d);
+				if(!(r instanceof ShapeRoi))drawRoiGL(drawable, r, false, anacolor, go3d);
+				else drawRoiGL(drawable, ((ShapeRoi)r).shapeToRoi(), false, anacolor, go3d);
 			}
 			return;
 		}
@@ -155,6 +155,7 @@ public class RoiGLDrawUtility {
 			int n=fp.npoints;
 			for(int i=0;i<n;i++) {
 				int pos=proi.getPointPosition(i);
+				if(pos==0)pos=imp.getCurrentSlice();
 				int[] hpos=imp.convertIndexToPosition(pos);
 				int rc=hpos[0], rz=hpos[1], rf=hpos[2];
 				if(!go3d && (imp.getCurrentSlice()==pos || pos==0))
@@ -165,7 +166,6 @@ public class RoiGLDrawUtility {
 							&& fp.xpoints[i]>fc.x() && fp.xpoints[i]<=fc.w()
 							&& fp.ypoints[i]>fc.y() && fp.ypoints[i]<=fc.h())
 							) {
-						if(pos==0)pos=imp.getCurrentSlice();
 						float pz=((float)sls-2f*(float)hpos[1])*zf;
 						drawPoint(proi, fp.xpoints[i], fp.ypoints[i], pz, i);
 					}
@@ -210,7 +210,7 @@ public class RoiGLDrawUtility {
 		}
 		
 		if(drawHandles) {
-			IJ.log("\\Update:tp:"+tp+" n:"+n+" cn: "+roi.getClass().getSimpleName());
+			//IJ.log("\\Update:tp:"+tp+" n:"+n+" cn: "+roi.getClass().getSimpleName());
 			float[] xhandles=new float[0],yhandles=new float[0];
 			if(roi instanceof ij.gui.EllipseRoi || tp==Roi.OVAL) {
 				int hn=4; //n==72 ellipse
@@ -243,7 +243,7 @@ public class RoiGLDrawUtility {
 					yhandles=new float[] {ypoints[0],(ypoints[0]+ypoints[1])/2,ypoints[1]};
 				}
 			}else if(tp==Roi.FREEROI) {
-				if(n>=4 && !(roi instanceof ij.gui.FreehandRoi) && (roi.getClass().getSimpleName()!="PolygonRoi")) {
+				if(n>=4 && !(roi instanceof ij.gui.FreehandRoi) && !(roi.getClass().getSimpleName().equals("PolygonRoi"))) {
 					xhandles=new float[4];
 					yhandles=new float[4];
 					for(int i=0;i<4;i++) {
@@ -254,10 +254,12 @@ public class RoiGLDrawUtility {
 			}
 			for(int i=0;i<xhandles.length;i++) {
 				int hs=getHandleWidth(roi);
-				if(i==0 && (tp==Roi.LINE || tp==Roi.POLYLINE || tp==Roi.POLYGON || (roi.getClass().getSimpleName()=="RotatedRectRoi"))) {
-					if(roi.getState()==Roi.CONSTRUCTING && tp==Roi.POLYLINE || tp==Roi.POLYGON)drawHandle((int)xhandles[i],(int)yhandles[i],z,hs+4, roicolor, true);
-					drawHandle((int)xhandles[i],(int)yhandles[i],z,hs, roicolor, true);
-				}else drawHandle((int)xhandles[i],(int)yhandles[i],z,hs, anacolor==null?Color.WHITE:anacolor, true);
+				if(i==0 && ((tp==Roi.LINE && !roi.getClass().getSimpleName().equals("Arrow")) || tp==Roi.POLYLINE || tp==Roi.POLYGON)) {
+					if(roi.getState()==Roi.CONSTRUCTING && (tp==Roi.POLYLINE || tp==Roi.POLYGON))drawHandle((int)xhandles[i], (int)yhandles[i], z, hs+4, roicolor, true);
+					drawHandle((int)xhandles[i], (int)yhandles[i], z, hs, roicolor, true);
+				}else if(i==3 && (roi.getClass().getSimpleName().equals("RotatedRectRoi"))) {
+					drawHandle((int)xhandles[i], (int)yhandles[i], z, hs, roicolor, true);
+				}else drawHandle((int)xhandles[i], (int)yhandles[i], z, hs, anacolor==null?Color.WHITE:anacolor, true);
 			}
 		}
 	}

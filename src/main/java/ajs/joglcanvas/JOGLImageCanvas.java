@@ -305,7 +305,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		ByteBuffer vertb=glos.getDirectBuffer(GL_ARRAY_BUFFER, "image3d");
 		int floatsPerVertex=6;
 		long vertbSize=maxsize*floatsPerVertex*4*Buffers.SIZEOF_FLOAT;
-		if(vertb==null || vertb.capacity()!=(int)vertbSize) {
+		if(vertb==null || ((Buffer)vertb).capacity()!=(int)vertbSize) {
 			int elementsPerSlice=6;
 			short[] e=new short[(int)maxsize*elementsPerSlice];
 			for(int i=0; i<(maxsize);i++) {
@@ -317,7 +317,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	
 			glos.newTexture("image3d", imp.getNChannels());
 			glos.newBuffer(GL_ARRAY_BUFFER, "image3d", maxsize*floatsPerVertex*4*Buffers.SIZEOF_FLOAT, null);
-			glos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "image3d", elementBuffer.capacity()*Buffers.SIZEOF_SHORT, elementBuffer);
+			glos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "image3d", ((Buffer)elementBuffer).capacity()*Buffers.SIZEOF_SHORT, elementBuffer);
 			glos.newVao("image3d", 3, GL_FLOAT, 3, GL_FLOAT);
 		}
 	}
@@ -728,7 +728,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					//For display of the square, there are 3 space verts and 3 texture verts
 					//for each of the 4 points of the square.
 					ByteBuffer vertb=glos.getDirectBuffer(GL_ARRAY_BUFFER, "image3d");
-					vertb.clear();
+					((Buffer)vertb).clear();
 					lim=0;
 					if(left) { //left or right
 						for(float p=cutPlanes.x();p<cutPlanes.w();p+=1.0f) {
@@ -774,7 +774,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						}
 						lim*=24;
 					}
-					vertb.limit(lim*4);
+					((Buffer)vertb).limit(lim*4);
 				}
 				ltr=new boolean[] {left,top,reverse};
 				

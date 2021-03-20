@@ -3,3 +3,6 @@
 /.project
 /.DS_Store
 /._.git
+.classpath
+.settings/
+.project

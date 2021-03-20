@@ -8,13 +8,13 @@
 	<parent>
 		<groupId>org.scijava</groupId>
 		<artifactId>pom-scijava</artifactId>
-		<version>14.0.0</version>
+		<version>29.2.1</version>
 		<relativePath />
 	</parent>
 
 	<groupId>ajs.joglcanvas</groupId>
 	<artifactId>JOGL_Canvas_DC3D</artifactId>
-	<version>0.1.0-SNAPSHOT</version>
+	<version>0.2.1-SNAPSHOT</version>
 
 	<name>JOGL_Canvas_DC3D</name>
 	<description>ImageJ1 Plugin replacing the Java Canvas with an OpenGL JOGL GLCanvas.</description>
@@ -88,6 +88,7 @@
 		<main-class>ajs.joglcanvas.JCP</main-class>
 		<license.licenseName>bsd_2</license.licenseName>
 		<license.copyrightOwners>Aaron Schain</license.copyrightOwners>
+	<scijava.jvm.build.version>[1.8.0-301,)</scijava.jvm.build.version>
 	</properties>
 
 	<dependencies>
@@ -104,4 +105,29 @@
 			<artifactId>ij</artifactId>
 		</dependency>
 	</dependencies>
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>exec-maven-plugin</artifactId>
+				<executions>
+				  <execution>
+				  	<id>first-execution</id>
+				    <phase>install</phase>
+				    <goals>
+				       <goal>exec</goal>
+				    </goals>
+				    <configuration>
+				      <executable>bash</executable>
+				      <workingDirectory>${basedir}</workingDirectory>
+				      <arguments>
+				    	  <argument>-c</argument>
+				    	  <argument>"../copyToFiji.sh plugins ${project.artifactId} target/${project.build.finalName}.jar"</argument>
+				      </arguments>
+				    </configuration>
+				  </execution>
+				</executions>
+			</plugin>
+		</plugins>
+	</build>
 </project>

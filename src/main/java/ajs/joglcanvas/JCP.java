@@ -19,6 +19,8 @@ import static com.jogamp.opengl.GL.GL_VERSION;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.Dimension;
+import java.awt.Frame;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.GridLayout;
@@ -31,7 +33,6 @@ import java.awt.event.ItemListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
-import java.awt.event.WindowListener;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
@@ -43,6 +44,7 @@ import com.jogamp.opengl.GLCapabilities;
 import com.jogamp.opengl.GLCapabilitiesImmutable;
 import com.jogamp.opengl.GLProfile;
 import com.jogamp.opengl.awt.GLCanvas;
+import com.jogamp.opengl.math.FloatUtil;
 import com.jogamp.opengl.util.gl2.GLUT;
 import com.jogamp.opengl.GLDrawableFactory;
 import com.jogamp.opengl.GLEventListener;
@@ -63,20 +65,31 @@ public class JCP implements PlugIn {
 
 	public static JOGLCanvasService listenerInstance=null;
 	public static String defaultBitString="default";
-	public static GLCapabilities glCapabilities=null;
+	public static String glProfileName=Prefs.get("ajs.joglcanvas.glProfileName", "");
 	public static int undersample=(int)Prefs.get("ajs.joglcanvas.undersample", 1.0);
 	public static String renderFunction=Prefs.get("ajs.joglcanvas.renderFunction", "MAX");
-	public static boolean backgroundLoadBuffers=Prefs.get("ajs.joglcanvas.backgroundLoadBuffers", false);
 	public static boolean openglroi=Prefs.get("ajs.joglcanvas.openglroi", false);
 	public static boolean usePBOforSlices=Prefs.get("ajs.joglcanvas.usePBOforSlices", false);
 	public static Color leftAnaglyphColor=new Color((int) Prefs.get("ajs.joglcanvas.leftAnaglyphColor",Color.RED.getRGB()));
 	public static Color rightAnaglyphColor=new Color((int) Prefs.get("ajs.joglcanvas.rightAnaglyphColor",Color.CYAN.getRGB()));
 	public static boolean dubois=Prefs.get("ajs.joglcanvas.dubois", false);
-	public static int stereoSep=5;
+	public static int stereoSep=(int)Prefs.get("ajs.joglcanvas.stereoSep", 5.0);
 	public static String version="";
+	public static String defaultVersion="";
+	public static String glslVersion="",glslDefVersion="";
 	public static float[][] anaColors;
 	public static boolean go3d=Prefs.get("ajs.joglcanvas.go3d", false);;
-	
+	public static boolean wrappedBuffers=Prefs.get("ajs.joglcanvas.wrappedBuffers", true);
+	public static boolean debug=false;
+	private static final float[][] duboisColors = new float[][] {
+		 {0.456f, -0.04f, -0.015f,
+		 0.5f, -0.038f, -0.021f,
+		 0.176f, -0.016f, -0.005f},
+		 
+		{-0.043f,  0.378f, -0.072f,
+		-0.088f,  0.734f, -0.113f,
+		-0.002f,  0.018f,  1.226f}};
+		
 	/**
 	 * This method gets called by ImageJ / Fiji.
 	 *
@@ -102,10 +115,6 @@ public class JCP implements PlugIn {
 				}
 			}
 		}
-
-		
-		if(!setGLCapabilities()) return;
-
 
 		if(arg.equals("MirrorWindow")) {
 			addJOGLCanvasMirror(imp);
@@ -137,22 +146,34 @@ public class JCP implements PlugIn {
 	}
 
 	private static void convertToJOGLCanvas(ImagePlus imp, boolean doMirror) {
-		if(glCapabilities==null && !setGLCapabilities())return;
 		if(imp==null)return;
+		JOGLImageCanvas jic=getJOGLImageCanvas(imp);
+		if(jic!=null) {
+			boolean isMirror=jic.isMirror;
+			jic.revert();
+			if(isMirror==doMirror) return;
+		}
+		if(IJ.isLinux())System.setProperty("jogl.disable.openglcore", "true"); //avoids this bug https://github.com/processing/processing/issues/5476
 		String classname= imp.getWindow().getClass().getSimpleName();
 		if(classname.equals("ImageWindow") || classname.equals("StackWindow")) {
-			int bits=imp.getBitDepth();
-			if((bits<16 || bits==24)&& (glCapabilities.getRedBits()>8 || glCapabilities.getGreenBits()>8 || glCapabilities.getBlueBits()>8) ) {
-				IJ.log("JCDC3D Warning:\nOriginal image is 8 bits or less and therefore \nwon't display any differently with 10 bits or higher display.");
-			}
-			if(imp.getNChannels()>4) {
-				IJ.error("JOGL Canvas currently limited to 4 channels");
+			if(imp.getNChannels()>6) {
+				IJ.error("JOGL Canvas currently limited to 6 channels");
 				return;
 			}
 			if(doMirror) {
-				new JOGLImageCanvas(imp, true);
+				java.awt.EventQueue.invokeLater(new Runnable() {
+				    @Override
+				    public void run() {
+						new JOGLImageCanvas(imp, true);
+				    }
+				});
 			}else {
-				new JCStackWindow(imp);
+				java.awt.EventQueue.invokeLater(new Runnable() {
+				    @Override
+				    public void run() {
+						new JCStackWindow(imp);
+				    }
+				});
 			}
 		}
 	}
@@ -169,8 +190,8 @@ public class JCP implements PlugIn {
 	public static JOGLImageCanvas getJOGLImageCanvas(ImagePlus imp) {
 		ImageCanvas ic=imp.getCanvas();
 		if(ic instanceof JOGLImageCanvas)return (JOGLImageCanvas)ic;
-		for(WindowListener wl:imp.getWindow().getWindowListeners()) {if(wl instanceof JOGLImageCanvas)return (JOGLImageCanvas)wl;}
-		return null;
+		Object jic=imp.getProperty("JOGLImageCanvas");
+		return (JOGLImageCanvas)jic;
 	}
 	
 	public static void addJCPopups() {
@@ -286,32 +307,37 @@ public class JCP implements PlugIn {
 		testimp.updateAndRepaintWindow();
 	}
 	
-	public static boolean setGLCapabilities() {
-		if(glCapabilities==null) {
-			GLProfile.initSingleton();
-		}
+	public static GLCapabilities getGLCapabilities() {
+		if(IJ.isLinux())System.setProperty("jogl.disable.openglcore", "true"); //avoids this bug https://github.com/processing/processing/issues/5476
 		fillAnaColors();
 
-		GLProfile glProfile = GLProfile.getDefault();
+		GLProfile glProfile=null;
+		if(!glProfileName.contentEquals("")) glProfile=GLProfile.get(glProfileName);
+		//else glProfile = GLProfile.getDefault();
+		else glProfile = GLProfile.getMaxProgrammable(true);
 		if(!glProfile.isGL2ES2()) {
-			IJ.showMessage("Deep Color requires at least OpenGL 2 ES2");
-			return false;
+			IJ.showMessage("Deep Color requires at least OpenGL 2ES2");
+			return null;
 		}
-		if(glCapabilities==null) glCapabilities = new GLCapabilities( glProfile );
+		GLCapabilities glCapabilities = new GLCapabilities( glProfile );
 		
 		//If setprefs is run before glCapabilites was defined, defaultBitString might be the intended bits
 		//Otherwise it will still be "default" and then get it from preferences
 		if(defaultBitString.equals("default")) defaultBitString=Prefs.get("ajs.joglcanvas.colordepths",defaultBitString);
 		//If it is still not defined then ask
-		if(defaultBitString.equals("default")) preferences();
-		if(defaultBitString==null || defaultBitString.equals("default"))return false;
-		setGLCapabilities(defaultBitString);
-		IJ.log("Initialized GL:");
-		IJ.log(""+glCapabilities);
-		return true;
+		if(defaultBitString.contentEquals("default")) {
+			preferences();
+			if(!glProfileName.contentEquals("")) glProfile=GLProfile.get(glProfileName);
+			else glProfile = GLProfile.getMaxProgrammable(true);
+			glCapabilities = new GLCapabilities( glProfile );
+		}
+		if(defaultBitString==null || defaultBitString.equals("default")) return null;
+		setGLCapabilities(glCapabilities, defaultBitString);
+		IJ.log("Starting JOGL with Settings:\n   "+glCapabilities);
+		return glCapabilities;
 	}
 	
-	public static void setGLCapabilities(String bitdepthstr) {
+	public static void setGLCapabilities(GLCapabilities glCapabilities, String bitdepthstr) {
 
 		String[] bitdepths=bitdepthstr.split(",");
 		if(bitdepths.length!=4)return;
@@ -330,34 +356,48 @@ public class JCP implements PlugIn {
 	}
 
 	
-	private static void getGLVersion() {
+	public static void getGLVersion(boolean max) {
 		IJ.log("Getting OpenGL version...");
 		boolean glCisnull=false;
-		if(glCapabilities==null) {
-			glCisnull=true;
-			GLProfile.initSingleton();
-			GLProfile glProfile = GLProfile.getMaxProgrammable(true);
-			if(!glProfile.isGL2ES2()) IJ.showMessage("Deep Color requires at least OpenGL 2 ES2");
-			glCapabilities = new GLCapabilities( glProfile );
-		}
-		JFrame win=new JFrame();
+		if(IJ.isLinux())System.setProperty("jogl.disable.openglcore", "true"); //avoids this bug https://github.com/processing/processing/issues/5476
+		glCisnull=true;
+		GLProfile.initSingleton();
+		GLProfile glProfile=null;
+		if(max) glProfile= GLProfile.getMaxProgrammable(true);
+		else glProfile= GLProfile.getDefault();
+		if(!glProfile.isGL2ES2()) IJ.showMessage("Deep Color requires at least OpenGL 2 ES2");
+		GLCapabilities glCapabilities = new GLCapabilities( glProfile );
+		Frame win=new Frame();
 		win.setSize(100,100);
 		GLCanvas glc=new GLCanvas(glCapabilities);
 		glc.addGLEventListener(new GLEventListener() {
 			@Override
 			public void init(GLAutoDrawable drawable) {
-				JCP.version=drawable.getGL().glGetString(GL_VERSION);
-				IJ.log("\\Update:"+JCP.version);
+				String ver=drawable.getGL().glGetString(GL_VERSION), glslver=drawable.getGL().glGetString(GL2.GL_SHADING_LANGUAGE_VERSION);
+				if(max) {
+					JCP.version=ver;
+					JCP.glslVersion=glslver;
+				}else {
+					JCP.defaultVersion=ver;
+					JCP.glslDefVersion=glslver;
+				}
+				IJ.log("\\Update:"+ver);
+				IJ.log(glslver);
 			}
 			@Override
 			public void dispose(GLAutoDrawable drawable) {}
 			@Override
 			public void display(GLAutoDrawable drawable) {
-				GL2 gl=drawable.getGL().getGL2();
-				gl.glBegin(GL2.GL_LINE);
-				gl.glVertex2f(-1, -1);
-				gl.glVertex2f(1,1);
-				gl.glEnd();
+				GL gl=drawable.getGL();
+				if(gl.isGL2()) {
+					GL2 gl2=drawable.getGL().getGL2();
+					gl2.glBegin(GL2.GL_LINE);
+					gl2.glVertex2f(-1, -1);
+					gl2.glVertex2f(1,1);
+					gl2.glEnd();
+				}else if(gl.isGL3()) {
+					gl.getContext();
+				}
 			}
 			@Override
 			public void reshape(GLAutoDrawable drawable, int x, int y, int width, int height) {}
@@ -376,13 +416,15 @@ public class JCP implements PlugIn {
 	}
 	
 	public static void preferences() {
-		if(version.equals(""))getGLVersion();
-		GLProfile glProfile=GLProfile.getDefault();
+		//if(version.equals("")) {getGLVersion(false); getGLVersion(true);}
+		if(IJ.isLinux())System.setProperty("jogl.disable.openglcore", "true"); //avoids this bug https://github.com/processing/processing/issues/5476
 		String defaultstr=defaultBitString;
-		if(defaultstr.equals("default"))defaultstr=Prefs.get("ajs.joglcanvas.colordepths","default");
+		if(defaultstr.equals("default"))defaultstr=Prefs.get("ajs.joglcanvas.colordepths","8,8,8,8");
 		if(defaultstr.equals("default"))defaultstr="8,8,8,8";
-		GLDrawableFactory factory=GLDrawableFactory.getFactory(glProfile);
-		List<GLCapabilitiesImmutable> glcList=factory.getAvailableCapabilities(null);
+		GLProfile def=GLProfile.getDefault();
+		GLProfile max=GLProfile.getMaxProgrammable(true);
+		List<GLCapabilitiesImmutable> glcList=GLDrawableFactory.getFactory(def).getAvailableCapabilities(null);
+		if(glcList.size()==0)glcList=GLDrawableFactory.getFactory(max).getAvailableCapabilities(null);
 		ArrayList<String> bitdepths=new ArrayList<String>();
 		bitdepths.add(defaultstr);
 		for(int i=0;i<glcList.size();i++) {
@@ -392,37 +434,64 @@ public class JCP implements PlugIn {
 			for(int j=0;j<bitdepths.size();j++) {if(bitdepths.get(j).equals(tempstr)) {add=false; break;}}
 			if(add)bitdepths.add(tempstr);
 		}
+		ArrayList<String> profiles=new ArrayList<String>();
+		String defprof="";
+		for(String prof : GLProfile.GL_PROFILE_LIST_ALL) {
+			if(GLProfile.isAvailable(prof)) {
+				if(prof.contentEquals(def.getImplName())) {prof=prof+" (Default)"; defprof=prof;}
+				else if(prof.contentEquals(max.getImplName())) {prof=prof+" (Max Default)"; defprof=prof;}
+				profiles.add(prof);
+			}
+		}
 		GenericDialog gd=new GenericDialog("JOGL Canvas Deep Color 3D Display Options");
-		if(!version.equals(""))gd.addMessage("GL Ver: "+version);
+		//gd.addMessage("GL Ver: "+GLProfile.getDefault().getImplName());
+		//gd.addMessage("GL Default Ver: "+GLProfile.getMaxProgrammable(true).getImplName());
+		//if(!version.equals(""))gd.addMessage("GL Ver: "+version);
+		//if(!defaultVersion.equals(""))gd.addMessage("GL Default Ver: "+defaultVersion);
+		gd.addMessage("You can choose a specific GLProfile instead of the default if you like:");
+		boolean hasPref=!Prefs.get("ajs.joglcanvas.glProfileName", "").contentEquals("");
+		if(profiles.size()>1) {
+			gd.addChoice("GLProfile:", profiles.toArray(new String[profiles.size()]), glProfileName.contentEquals("")?defprof:glProfileName);
+			gd.addCheckbox("Always use the selected profile?", hasPref);
+			if(hasPref)gd.addCheckbox("Clear saved profile", false);
+		}
 		gd.addMessage("For High-bit Monitors:\nChoose the color bit depths from those available\nChoices are bits for R,G,B,A respectively");
 		gd.addChoice("Bitdepths:", bitdepths.toArray(new String[bitdepths.size()]), bitdepths.get(0));
 		gd.addStringField("Or enter R,G,B,A if you are sure (e.g. 10,10,10,2)", "");
-		gd.addCheckbox("Save depths as default?", false);
 		gd.addMessage("Service:");
-		gd.addCheckbox("Run service now? (Run on all opened images?)", listenerInstance!=null);
+		gd.addCheckbox("Run on all opened images?", listenerInstance!=null);
 		gd.addMessage("Add to ImageJ Popup Menu:");
 		gd.addCheckbox("Convert to JOGL Canvas", hasInstalledPopup("convert"));
 		gd.addCheckbox("Add JOGL Canvas Mirror", hasInstalledPopup("mirror"));
-		gd.addMessage("Default 3d:");
+		gd.addMessage("Other Settings:");
 		gd.addCheckbox("3D on by default?", go3d);
-		gd.addMessage("Extra:");
 		gd.addChoice("Default 3d Render Type", new String[] {"MAX","ALPHA"}, renderFunction);
-		gd.addCheckbox("Load entire stack in background immediately (for 3d)", backgroundLoadBuffers);
-		gd.addChoice("Undersample?", new String[] {"None","2","4","6"},undersample==1?"None":(""+undersample));
-		gd.addCheckbox("Draw ROI with OpenGL (in progress)", openglroi);
-		gd.addCheckbox("Keep image of whole stack in memory in non-3d (faster but more memory)", usePBOforSlices);
+		gd.addChoice("Default Undersampling for 3D", new String[] {"None","2","4","6"},undersample==1?"None":(""+undersample));
 		gd.addCheckbox("Stereoscopic settings", false);
-		gd.addCheckbox("Open test image", false);
+		gd.addCheckbox("Open 10-bit test image", false);
+		gd.addMessage("Advanced Settings:");
+		gd.addCheckbox("Draw ROI with OpenGL (in progress)", openglroi);
+		gd.addCheckbox("Store whole stack in PBO, even for 2D (more video memory but faster)", usePBOforSlices);
+		gd.addCheckbox("Use image arrays wrapped in a buffer for video memory", wrappedBuffers);
+		gd.addCheckbox("Show some extra debug info", debug);
 		gd.showDialog();
+		
 		if(gd.wasCanceled())return;
+		if(profiles.size()>1) {
+			glProfileName=gd.getNextChoice().replace(" (Default)","").replace(" (Max Default)", "");
+			if(gd.getNextBoolean())Prefs.set("ajs.joglcanvas.glProfileName", glProfileName);
+			if(hasPref && gd.getNextBoolean())Prefs.set("ajs.joglcanvas.glProfileName", "");
+		}
 		String bd=gd.getNextChoice();
 		String userbd=gd.getNextString();
-		if(!userbd.equals(""))bd=userbd;
-		defaultBitString=bd;
-		setGLCapabilities(defaultBitString);
-		if(gd.getNextBoolean()) {
-			Prefs.set("ajs.joglcanvas.colordepths",bd);
+		if(!userbd.equals("")) {
+			if(userbd.split(",").length!=4) 
+				IJ.showMessage("Bit depths string was not valid (need 4 bit depths separated by commas).\n"
+							+ "Using "+bd);
+			else bd=userbd;
 		}
+		defaultBitString=bd;
+		Prefs.set("ajs.joglcanvas.colordepths",bd);
 		if(gd.getNextBoolean()) {
 			if(listenerInstance==null)
 				startListener();
@@ -438,23 +507,27 @@ public class JCP implements PlugIn {
 		Prefs.set("ajs.joglcanvas.go3d", go3d);
 		renderFunction=gd.getNextChoice();
 		Prefs.set("ajs.joglcanvas.renderFunction", renderFunction);
-		backgroundLoadBuffers=gd.getNextBoolean();
-		Prefs.set("ajs.joglcanvas.backgroundLoadBuffers", backgroundLoadBuffers);
 		String newus=gd.getNextChoice();
 		undersample=newus.equals("None")?1:Integer.parseInt(newus);
 		Prefs.set("ajs.joglcanvas.undersample", (double)undersample);
+		boolean doana=gd.getNextBoolean();
+		boolean dotest=gd.getNextBoolean();
 		openglroi=gd.getNextBoolean();
 		Prefs.set("ajs.joglcanvas.openglroi", openglroi);
 		usePBOforSlices=gd.getNextBoolean();
 		Prefs.set("ajs.joglcanvas.usePBOforSlices", usePBOforSlices);
-		if(gd.getNextBoolean()) anaglyphSettings();
-		if(gd.getNextBoolean()) openTestImage();
+		wrappedBuffers=gd.getNextBoolean();
+		Prefs.set("ajs.joglcanvas.wrappedBuffers", wrappedBuffers);
+		debug=gd.getNextBoolean();
+		
+		if(doana) anaglyphSettings();
+		if(dotest) openTestImage();
 
 	}
 	
-	static void anaglyphSettings(){
+	public static void anaglyphSettings(){
 		JFrame asettings=new JFrame("JOGLCanvas Stereo Options");
-		asettings.setSize(500,500);
+		asettings.setSize(500,750);
 		
 		class MyCanvas extends GLCanvas implements GLEventListener, MouseListener, MouseMotionListener{
 			private static final long serialVersionUID = 1L;
@@ -498,17 +571,21 @@ public class JCP implements PlugIn {
 				gl2.glRotatef((float)dy, 1.0f, 0f, 0f);
 				gl2.glRotatef((float)dz, 0f, 0f, 1.0f);
 				
-				if(i==0)gl2.glColor3f((float)left.getRed()/255f, (float)left.getGreen()/255f, (float)left.getBlue()/255f);
-				else {
-					gl2.glColor3f((float)right.getRed()/255f, (float)right.getGreen()/255f, (float)right.getBlue()/255f);
-				}
+				Color color=((i==0)?left:right);
+				//if(dubois) {
+				//	float[] cs=multiplyMatrix(new float[] {1f, 1f,1f},duboisColors[i]);
+				//	color=new Color(cs[0]*255f,cs[1]*255f,cs[2]*255f);
+				//}
+				gl2.glColor3f((float)color.getRed()/255f, (float)color.getGreen()/255f, (float)color.getBlue()/255f);
 				
 				GLUT glut=new GLUT();
 				glut.glutWireTeapot(0.5);
 				}
 			}
 			@Override
-			public void reshape(GLAutoDrawable drawable, int x, int y, int width, int height) {setSize(width,width/2);}
+			public void reshape(GLAutoDrawable drawable, int x, int y, int width, int height) {
+				//setSize(width/2,width/4);
+			}
 			@Override
 			public void mousePressed(MouseEvent e) {
 				sx = e.getX();
@@ -538,6 +615,7 @@ public class JCP implements PlugIn {
 		}
 		
 		MyCanvas canvas=new MyCanvas();
+		canvas.setPreferredSize(new Dimension(500,250));
 		JSlider[] sds=new JSlider[6];
 		sds[0]=new JSlider(JSlider.HORIZONTAL, 0, 255, leftAnaglyphColor.getRed());
 		sds[1]=new JSlider(JSlider.HORIZONTAL, 0, 255, leftAnaglyphColor.getGreen());
@@ -579,25 +657,24 @@ public class JCP implements PlugIn {
 		JPanel panel=new JPanel();
 		panel.setLayout(new GridBagLayout());
 		GridBagConstraints c=new GridBagConstraints();
-		c.gridx=0; c.weighty=1; c.gridy=0; c.gridwidth=1; c.weightx=1;
-		panel.add(new JLabel("   "),c);
-		c.gridx=1; c.weightx=9; panel.add(new JLabel("Anaglyph Left Eye Color"),c);
-		c.gridx=2; c.weighty=1; panel.add(new JLabel("   "),c);
-		c.gridx=3; c.weightx=9; panel.add(new JLabel("Anaglyph Right Eye Color"),c);
+		c.gridy=0;
+		//c.weighty=1; c.weightx=1;
+		c.gridx=0; c.gridwidth=1; panel.add(new JLabel("   "),c);
+		c.gridx=1; c.gridwidth=9; panel.add(new JLabel("Anaglyph Left Eye Color"),c);
+		c.gridx=10; c.gridwidth=1; panel.add(new JLabel("   "),c);
+		c.gridx=11; c.gridwidth=9; panel.add(new JLabel("Anaglyph Right Eye Color"),c);
 		for(int i=0;i<3;i++) {
 			String clr=(i==0)?"Red":(i==1)?"Green":"Blue";
 			c.gridy++;
-			c.gridx=0; c.weightx=1; c.anchor=GridBagConstraints.NORTH; panel.add(new JLabel(clr),c);
-			c.gridx=1; c.weightx=9; c.anchor=GridBagConstraints.CENTER; panel.add(sds[i],c);
-			c.gridx=2; c.weightx=1; c.anchor=GridBagConstraints.NORTH; panel.add(new JLabel(clr),c);
-			c.gridx=3; c.weightx=9; c.anchor=GridBagConstraints.CENTER; panel.add(sds[i+3],c);
+			c.gridx=0; c.gridwidth=1; c.anchor=GridBagConstraints.CENTER; panel.add(new JLabel(clr),c);
+			c.gridx=1; c.gridwidth=9; c.anchor=GridBagConstraints.CENTER; panel.add(sds[i],c);
+			c.gridx=10; c.gridwidth=1; c.anchor=GridBagConstraints.CENTER; panel.add(new JLabel(clr),c);
+			c.gridx=11; c.gridwidth=9; c.anchor=GridBagConstraints.CENTER; panel.add(sds[i+3],c);
 		}
-		c.gridy=4; c.gridx=0; c.gridwidth=4; panel.add(new JLabel(" "),c);
-		c.gridy=5; c.gridwidth=1;
-		c.gridx=1; c.weightx=5; c.anchor=GridBagConstraints.EAST; panel.add(new JLabel("Angle of separation"),c);
-		c.gridx=3; c.anchor=GridBagConstraints.CENTER; panel.add(sepsl,c);
-		
-		c.gridx=0; c.weightx=3; c.anchor=GridBagConstraints.WEST;
+		c.gridy++; 
+		c.gridx=0; c.gridwidth=20; panel.add(new JLabel(" "),c);
+		c.gridy++; 
+		c.gridx=0; c.gridwidth=3; c.anchor=GridBagConstraints.WEST;
 		JCheckBox cb=new JCheckBox("Dubois-red-cyan",dubois);
 		cb.addItemListener(new ItemListener() {
 			@Override
@@ -606,6 +683,8 @@ public class JCP implements PlugIn {
 			}
 		});
 		panel.add(cb,c);
+		c.gridx=3; c.gridwidth=7; c.anchor=GridBagConstraints.EAST; panel.add(new JLabel("Angle of separation"),c);
+		c.gridx=11; c.gridwidth=9; c.anchor=GridBagConstraints.CENTER; panel.add(sepsl,c);
 		
 		JPanel bpanel=new JPanel();
 		bpanel.setLayout(new GridLayout(1,2,10,2));
@@ -634,13 +713,15 @@ public class JCP implements PlugIn {
 			}
 		});
 		bpanel.add(button);
-		JPanel bigpanel=new JPanel();
-		bigpanel.setLayout(new GridLayout(3,1));
-		bigpanel.add(panel);
-		bigpanel.add(canvas);
-		bigpanel.add(new JLabel("   "));
+		c.gridy++; c.gridx=0; c.gridwidth=20; c.anchor=GridBagConstraints.CENTER;
+		panel.add(canvas, c);
+		//JPanel bigpanel=new JPanel();
+		//bigpanel.setLayout(new BorderLayout());
+		//bigpanel.add(panel, BorderLayout.NORTH);
+		//bigpanel.add(canvas, BorderLayout.SOUTH);
 		//bigpanel.add(bpanel);
-		asettings.add(bigpanel, BorderLayout.NORTH);
+		asettings.setLayout(new BorderLayout());
+		asettings.add(panel, BorderLayout.NORTH);
 		asettings.add(bpanel,BorderLayout.SOUTH);
 		asettings.pack();
 		asettings.setVisible(true);
@@ -651,22 +732,15 @@ public class JCP implements PlugIn {
 		if(dubois) {
 			//Source of below: bino, a 3d video player:  https://github.com/eile/bino/blob/master/src/video_output_render.fs.glsl
 			// Source of this matrix: http://www.site.uottawa.ca/~edubois/anaglyph/LeastSquaresHowToPhotoshop.pdf
-			anaColors = new float[][] {
+			/*anaColors = new float[][] {
 				 {0.437f, -0.062f, -0.048f,
 				 0.449f, -0.062f, -0.050f,
 				 0.164f, -0.024f, -0.017f},
 				 
 				{-0.011f,  0.377f, -0.026f,
 				-0.032f,  0.761f, -0.093f,
-				-0.007f,  0.009f,  1.234f}};
-			anaColors = new float[][] {
-				 {0.456f, -0.04f, -0.015f,
-				 0.5f, -0.038f, -0.021f,
-				 0.176f, -0.016f, -0.005f},
-				 
-				{-0.043f,  0.378f, -0.072f,
-				-0.088f,  0.734f, -0.113f,
-				-0.002f,  0.018f,  1.226f}};
+				-0.007f,  0.009f,  1.234f}};*/
+			anaColors = duboisColors;
 		}else {
 			float lr=(float)JCP.leftAnaglyphColor.getRed()/255f, lg=(float)JCP.leftAnaglyphColor.getGreen()/255f, lb=(float)JCP.leftAnaglyphColor.getBlue()/255f,
 				rr=(float)JCP.rightAnaglyphColor.getRed()/255f, gr=(float)JCP.rightAnaglyphColor.getGreen()/255f, br=(float)JCP.rightAnaglyphColor.getBlue()/255f;
@@ -674,7 +748,7 @@ public class JCP implements PlugIn {
 								{rr,rr,rr,gr,gr,gr,br,br,br}};
 		}
 	}
-
-
+	
+	public static void setDebug(boolean b) {debug=b;}
 
 }

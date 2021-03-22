@@ -88,7 +88,7 @@
 		<main-class>ajs.joglcanvas.JCP</main-class>
 		<license.licenseName>bsd_2</license.licenseName>
 		<license.copyrightOwners>Aaron Schain</license.copyrightOwners>
-	<scijava.jvm.build.version>[1.8.0-301,)</scijava.jvm.build.version>
+	<scijava.jvm.build.version>[1.8.0-1,300)</scijava.jvm.build.version>
 	</properties>
 
 	<dependencies>

@@ -134,11 +134,12 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private RoiGLDrawUtility rgldu=null;
 	private boolean scbrAdjusting=false;
 	private CutPlanesCube cutPlanes;
-	private CutPlanesCube cutPlanes2;
 	private JCAdjuster jccpDialog,jcgDialog,jcrDialog;
 	private boolean verbose=false;
 	private long dragtime;
 	private JOGLEventAdapter joglEventAdapter=null;
+	public float frustumZ=1.33f;
+	public float frustumD=3f;
 	//private Button updateButton;
 	//private long starttime=0;
 
@@ -150,7 +151,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		imageState=new ImageState(imp);
 		imageState.prevSrcRect=new Rectangle(0,0,0,0);
 		cutPlanes=new CutPlanesCube(0,0,0,imp.getWidth(), imp.getHeight(), imp.getNSlices(), true);
-		cutPlanes2=new CutPlanesCube(0,0,0,imp.getWidth(), imp.getHeight(), imp.getNSlices(), true);
 		GraphicsConfiguration gc=imp.getWindow().getGraphicsConfiguration();
 		AffineTransform t=gc.getDefaultTransform();
 		dpimag=t.getScaleX();
@@ -401,7 +401,15 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				0, 0, -sx, 0,
 				0, 0, 0, 1f
 			}, 16*Buffers.SIZEOF_FLOAT);
-		glos.getUniformBuffer("global").loadIdentity();
+		if(go3d && JCP.doFrustum) {
+			float[] clip=FloatUtil.makeFrustum(new float[16], 0, false, -1f, 1f, -1f, 1f, 1f, frustumD);
+			IJ.log("cp clip ");
+			IJ.log(""+FloatUtil.matrixToString(null, "", "%10.2f", clip, 0, 4, 4, false));
+			glos.getUniformBuffer("global").loadMatrix(clip,0);
+			//must also translate model -1f;
+		}else{
+			glos.getUniformBuffer("global").loadIdentity();
+		}
 	}
 	
 	private void resetGlobalMatrices(GLAutoDrawable drawable) {
@@ -453,6 +461,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			//if(stereoType==StereoType.ANAGLYPH ) {
 			//	if(!glos.textures.containsKey("anaglyph"))initAnaglyph();
 			//}
+			resetGlobalMatrices(drawable);
 			stereoUpdated=false;
 		}
 		if(threeDupdated || deletePBOs) {
@@ -702,19 +711,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					modelTransform=FloatUtil.multMatrix(scale, modelTransform, new float[16]);
 				}else
 					FloatUtil.multMatrix(scale, FloatUtil.multMatrix(rotate, translate, new float[16]), modelTransform);
+				if(JCP.doFrustum)modelTransform=FloatUtil.multMatrix(FloatUtil.makeTranslation(new float[16], false, 0, 0, frustumZ), modelTransform);
 				glos.getUniformBuffer("model").loadMatrix(modelTransform);
 				
-				if(cutPlanes2.changed) {
-					cutPlanes2.changed=false;
-					float[] v=cutPlanes2.getVertCoords();
-					float[] clip=FloatUtil.makeFrustum(new float[16], 0, false, v[0], v[3], v[1], v[4], (float)cutPlanes2.z()+1f, (float)cutPlanes2.d());
-					IJ.log("cp v "+v[0]+", "+v[3]+", "+v[1]+", "+v[4]+", "+((float)cutPlanes2.z()+1f)+", "+(float)cutPlanes2.d());
-					IJ.log("cp clip ");
-					IJ.log(""+FloatUtil.matrixToString(null, "", "%10.2f", clip, 0, 4, 4, false));
-					glos.getUniformBuffer("global").loadMatrix(clip,0);
-				}
-				
-				if(ltr==null || !(ltr[0]==left && ltr[1]==top && ltr[2]==reverse) /*|| cutPlanes.changed|| imageState.isChanged.srcRect*/) {
+				if(ltr==null || !(ltr[0]==left && ltr[1]==top && ltr[2]==reverse) || cutPlanes.changed /*|| imageState.isChanged.srcRect*/) {
 					cutPlanes.changed=false;
 					double zrat=cal.pixelDepth/cal.pixelWidth;
 					int zmaxsls=(int)(zrat*(double)sls);
@@ -857,6 +857,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						float tsm=(scX+supermag)/scX;
 						rotate=FloatUtil.multMatrix(FloatUtil.makeScale(new float[16], false, tsm, tsm, tsm), rotate);
 					}
+					if(JCP.doFrustum)rotate=FloatUtil.multMatrix(FloatUtil.makeTranslation(new float[16], false, 0, 0, frustumZ), rotate);
 					glos.getUniformBuffer("modelr").loadMatrix(rotate);
 				}
 				//if(go3d)IJ.log(FloatUtil.matrixToString(null, "rot2: ", "%10.4f", rotate, 0, 4, 4, false).toString());
@@ -965,13 +966,13 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	public void updateCutPlanesCube(int[] c) {
 		if(c==null || c.length<6)return;
 		int i=0;
-		if(cutPlanes2.x==c[i++] &&
-		cutPlanes2.y==c[i++] &&
-		cutPlanes2.z==c[i++] &&
-		cutPlanes2.w==c[i++] &&
-		cutPlanes2.h==c[i++] &&
-		cutPlanes2.d==c[i++])return;
-		cutPlanes2.updateCube(c);
+		if(cutPlanes.x==c[i++] &&
+		cutPlanes.y==c[i++] &&
+		cutPlanes.z==c[i++] &&
+		cutPlanes.w==c[i++] &&
+		cutPlanes.h==c[i++] &&
+		cutPlanes.d==c[i++])return;
+		cutPlanes.updateCube(c);
 		repaint();
 	}
 	

@@ -80,6 +80,7 @@ public class JCP implements PlugIn {
 	public static float[][] anaColors;
 	public static boolean go3d=Prefs.get("ajs.joglcanvas.go3d", false);;
 	public static boolean wrappedBuffers=Prefs.get("ajs.joglcanvas.wrappedBuffers", true);
+	public static boolean doFrustum=Prefs.get("ajs.joglcanvas.doFrustum", false);
 	public static boolean debug=false;
 	private static final float[][] duboisColors = new float[][] {
 		 {0.456f, -0.04f, -0.015f,
@@ -191,7 +192,8 @@ public class JCP implements PlugIn {
 		ImageCanvas ic=imp.getCanvas();
 		if(ic instanceof JOGLImageCanvas)return (JOGLImageCanvas)ic;
 		Object jic=imp.getProperty("JOGLImageCanvas");
-		return (JOGLImageCanvas)jic;
+		if(jic instanceof JOGLImageCanvas)return (JOGLImageCanvas)jic;
+		return null;
 	}
 	
 	public static void addJCPopups() {
@@ -352,7 +354,7 @@ public class JCP implements PlugIn {
 		glCapabilities.setStencilBits(1);
 		glCapabilities.setSampleBuffers(true);
 		glCapabilities.setNumSamples(4);
-		//glCapabilities.setStereo(true);
+		glCapabilities.setStereo(true);
 	}
 
 	
@@ -473,6 +475,7 @@ public class JCP implements PlugIn {
 		gd.addCheckbox("Draw ROI with OpenGL (in progress)", openglroi);
 		gd.addCheckbox("Store whole stack in PBO, even for 2D (more video memory but faster)", usePBOforSlices);
 		gd.addCheckbox("Use image arrays wrapped in a buffer for video memory", wrappedBuffers);
+		gd.addCheckbox("Frustum", doFrustum);
 		gd.addCheckbox("Show some extra debug info", debug);
 		gd.showDialog();
 		
@@ -518,6 +521,8 @@ public class JCP implements PlugIn {
 		Prefs.set("ajs.joglcanvas.usePBOforSlices", usePBOforSlices);
 		wrappedBuffers=gd.getNextBoolean();
 		Prefs.set("ajs.joglcanvas.wrappedBuffers", wrappedBuffers);
+		doFrustum=gd.getNextBoolean();
+		Prefs.set("ajs.joglcanvas.doFrustum", doFrustum);
 		debug=gd.getNextBoolean();
 		
 		if(doana) anaglyphSettings();

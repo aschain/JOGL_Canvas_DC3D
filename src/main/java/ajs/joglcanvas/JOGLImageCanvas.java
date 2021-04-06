@@ -969,7 +969,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			}
 			//IJ.log("\\Update0:Display took: "+(System.nanoTime()-starttime)/1000000L+"ms");	 
 			gl.glDisable(GL_SCISSOR_TEST);
-			//gl.glFinish();
+			gl.glFinish();
 		} //stereoi
 		
 		if(go3d && stereoType==StereoType.ANAGLYPH || stereoType==StereoType.CARDBOARD) {

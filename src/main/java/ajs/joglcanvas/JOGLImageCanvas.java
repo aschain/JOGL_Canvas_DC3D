@@ -74,7 +74,6 @@ import com.jogamp.opengl.GLException;
 import com.jogamp.opengl.GLProfile;
 import com.jogamp.opengl.util.awt.AWTGLReadBufferUtil;
 import com.jogamp.opengl.math.FloatUtil;
-import com.jogamp.opengl.math.VectorUtil;
 import com.jogamp.opengl.util.GLBuffers;
 
 import ajs.joglcanvas.StackBuffer.MinMax;
@@ -139,8 +138,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private boolean verbose=false;
 	private long dragtime;
 	private JOGLEventAdapter joglEventAdapter=null;
-	public float frustumZ=1.33f;
-	public float frustumD=3f;
+	public float frustumZ=-1.6f;
+	public float frustumD=100f;
 	//private Button updateButton;
 	//private long starttime=0;
 
@@ -402,15 +401,15 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				0, 0, -sx, 0,
 				0, 0, 0, 1f
 			}, 16*Buffers.SIZEOF_FLOAT);
-		if(go3d && JCP.doFrustum) {
-			float[] clip=FloatUtil.makeFrustum(new float[16], 0, false, -1f, 1f, -1f, 1f, 1f, frustumD);
-			IJ.log("cp clip ");
-			IJ.log(""+FloatUtil.matrixToString(null, "", "%10.2f", clip, 0, 4, 4, false));
-			glos.getUniformBuffer("global").loadMatrix(clip,0);
+		//if(go3d && JCP.doFrustum) {
+			//float[] clip=FloatUtil.makeFrustum(new float[16], 0, false, -1f, 1f, -1f, 1f, 1f, frustumD);
+			//IJ.log("cp clip ");
+			//IJ.log(""+FloatUtil.matrixToString(null, "", "%10.2f", clip, 0, 4, 4, false));
+			//glos.getUniformBuffer("global").loadMatrix(clip,0);
 			//must also translate model -1f;
-		}else{
+		//}else{
 			glos.getUniformBuffer("global").loadIdentity();
-		}
+		//}
 	}
 	
 	private void resetGlobalMatrices(GLAutoDrawable drawable) {
@@ -693,26 +692,26 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					/**TODO
 					 * copied properish eye movement instead of rotate
 					 */
-					float IOD=0.05f, depthZ=3f, g_initial_fov=(float)Math.toRadians(45);
+					float IOD=stereoType.ordinal()>0?JCP.stereoSep:0f, depthZ=3f, g_initial_fov=(float)Math.toRadians(45);
 					int width=drawable.getSurfaceWidth(), height=drawable.getSurfaceHeight();
 					//up vector
 	
 					//mirror the parameters with the right eye
-					float left_right_direction = 1.0f;
+					float left_right_direction = -1.0f;
 					if(stereoi==1) left_right_direction = 1.0f;
 					float aspect_ratio = (float)width/(float)height;
-					float nearZ = 1.0f, farZ = 100.0f;
+					float nearZ = 1.0f;
 					double frustumshift = (IOD/2)*nearZ/depthZ;
-					float ftop = (float)Math.tan(g_initial_fov/2)*nearZ;
+					float ftop = -(float)Math.tan(g_initial_fov/2)*nearZ;
 					float fright =(float)(aspect_ratio*ftop+frustumshift*left_right_direction);
 					float fleft =-fright;
 					float fbottom = -ftop;
-					float[] g_projection_matrix = FloatUtil.makeFrustum(new float[16], 0, false, fleft, fright, fbottom, ftop, nearZ, farZ);
+					float[] g_projection_matrix = FloatUtil.makeFrustum(new float[16], 0, false, fleft, fright, fbottom, ftop, nearZ, frustumD);
 				  // update the view matrix
 					float[] eye=new float[] {left_right_direction*IOD/2, 0, 1};
 					float[] center=new float[] {left_right_direction*IOD/2, 0, 0};
 					float[] up=new float[] {0,-1,0};
-					float[] g_view_matrix = FloatUtil.makeLookAt(new float[16], 0, eye, 0, center, 0, up, 0, null);
+					float[] g_view_matrix = FloatUtil.makeLookAt(new float[16], 0, eye, 0, center, 0, up, 0, new float[16]);
 					glos.getUniformBuffer("global").loadMatrix(g_projection_matrix, 0);
 					glos.getUniformBuffer("global").loadMatrix(g_view_matrix, 16*Buffers.SIZEOF_FLOAT);
 				}

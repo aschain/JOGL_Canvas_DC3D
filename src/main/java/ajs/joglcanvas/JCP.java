@@ -73,7 +73,7 @@ public class JCP implements PlugIn {
 	public static Color leftAnaglyphColor=new Color((int) Prefs.get("ajs.joglcanvas.leftAnaglyphColor",Color.RED.getRGB()));
 	public static Color rightAnaglyphColor=new Color((int) Prefs.get("ajs.joglcanvas.rightAnaglyphColor",Color.CYAN.getRGB()));
 	public static boolean dubois=Prefs.get("ajs.joglcanvas.dubois", false);
-	public static int stereoSep=(int)Prefs.get("ajs.joglcanvas.stereoSep", 5.0);
+	public static float stereoSep=(float)Prefs.get("ajs.joglcanvas.stereoSep", 0.5);
 	public static String version="";
 	public static String defaultVersion="";
 	public static String glslVersion="",glslDefVersion="";
@@ -537,7 +537,7 @@ public class JCP implements PlugIn {
 		class MyCanvas extends GLCanvas implements GLEventListener, MouseListener, MouseMotionListener{
 			private static final long serialVersionUID = 1L;
 			public Color left=leftAnaglyphColor, right=rightAnaglyphColor;
-			public int sep=stereoSep;
+			public float sep=stereoSep;
 			protected int sx,sy;
 			protected float dx=0f,dy=0f,dz=0f;
 			
@@ -647,7 +647,7 @@ public class JCP implements PlugIn {
 			sds[i].setPaintLabels(true);
 		}
 
-		JSlider sepsl=new JSlider(JSlider.HORIZONTAL, 0, 30, stereoSep);
+		JSlider sepsl=new JSlider(JSlider.HORIZONTAL, 0, 30, (int)stereoSep);
 		sepsl.setMajorTickSpacing(5);
 		sepsl.setPaintTicks(true);
 		sepsl.setPaintLabels(true);
@@ -704,6 +704,7 @@ public class JCP implements PlugIn {
 				Prefs.set("ajs.joglcanvas.leftAnaglyphColor",leftAnaglyphColor.getRGB());
 				Prefs.set("ajs.joglcanvas.rightAnaglyphColor",rightAnaglyphColor.getRGB());
 				Prefs.set("ajs.joglcanvas.dubois", dubois);
+				Prefs.set("ajs.joglcanvas.stereoSep", stereoSep);
 				fillAnaColors();
 				asettings.dispose();
 			}
@@ -755,5 +756,6 @@ public class JCP implements PlugIn {
 	}
 	
 	public static void setDebug(boolean b) {debug=b;}
+	public static void setStereoSep(float sep) {stereoSep=sep; Prefs.set("ajs.joglcanvas.stereoSep",stereoSep);}
 
 }

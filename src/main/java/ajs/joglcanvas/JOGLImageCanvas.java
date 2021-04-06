@@ -74,6 +74,7 @@ import com.jogamp.opengl.GLException;
 import com.jogamp.opengl.GLProfile;
 import com.jogamp.opengl.util.awt.AWTGLReadBufferUtil;
 import com.jogamp.opengl.math.FloatUtil;
+import com.jogamp.opengl.math.VectorUtil;
 import com.jogamp.opengl.util.GLBuffers;
 
 import ajs.joglcanvas.StackBuffer.MinMax;
@@ -686,7 +687,36 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				
 				//Rotate
 				float dxst=(float)dx;
-				if(stereoi>0) {dxst-=(float)JCP.stereoSep; if(dxst<0)dxst+=360f;}
+				//if(stereoi>0) {dxst-=(float)JCP.stereoSep; if(dxst<0)dxst+=360f;}
+				
+				if(JCP.doFrustum) {
+					/**TODO
+					 * copied properish eye movement instead of rotate
+					 */
+					float IOD=0.05f, depthZ=3f, g_initial_fov=(float)Math.toRadians(45);
+					int width=drawable.getSurfaceWidth(), height=drawable.getSurfaceHeight();
+					//up vector
+	
+					//mirror the parameters with the right eye
+					float left_right_direction = 1.0f;
+					if(stereoi==1) left_right_direction = 1.0f;
+					float aspect_ratio = (float)width/(float)height;
+					float nearZ = 1.0f, farZ = 100.0f;
+					double frustumshift = (IOD/2)*nearZ/depthZ;
+					float ftop = (float)Math.tan(g_initial_fov/2)*nearZ;
+					float fright =(float)(aspect_ratio*ftop+frustumshift*left_right_direction);
+					float fleft =-fright;
+					float fbottom = -ftop;
+					float[] g_projection_matrix = FloatUtil.makeFrustum(new float[16], 0, false, fleft, fright, fbottom, ftop, nearZ, farZ);
+				  // update the view matrix
+					float[] eye=new float[] {left_right_direction*IOD/2, 0, 1};
+					float[] center=new float[] {left_right_direction*IOD/2, 0, 0};
+					float[] up=new float[] {0,-1,0};
+					float[] g_view_matrix = FloatUtil.makeLookAt(new float[16], 0, eye, 0, center, 0, up, 0, null);
+					glos.getUniformBuffer("global").loadMatrix(g_projection_matrix, 0);
+					glos.getUniformBuffer("global").loadMatrix(g_view_matrix, 16*Buffers.SIZEOF_FLOAT);
+				}
+				
 				rotate=FloatUtil.makeRotationEuler(new float[16], 0, dy*FloatUtil.PI/180f, (float)dxst*FloatUtil.PI/180f, (float)dz*FloatUtil.PI/180f);
 				//IJ.log("\\Update0:X x"+Math.round(100.0*matrix[0])/100.0+" y"+Math.round(100.0*matrix[1])/100.0+" z"+Math.round(100.0*matrix[2])/100.0);
 				//IJ.log("\\Update1:Y x"+Math.round(100.0*matrix[4])/100.0+" y"+Math.round(100.0*matrix[5])/100.0+" z"+Math.round(100.0*matrix[6])/100.0);
@@ -928,6 +958,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					float[] orthocb = FloatUtil.makeOrtho(new float[16], 0, false, -CB_MAXSIZE, CB_MAXSIZE, -CB_MAXSIZE, CB_MAXSIZE, -CB_MAXSIZE, CB_MAXSIZE);
 					float[] translatecb=FloatUtil.makeTranslation(new float[16], 0, false, (stereoi==0?(-CB_MAXSIZE*CB_TRANSLATE):(CB_MAXSIZE*CB_TRANSLATE)), 0f, 0f);
 					FloatUtil.multMatrix(orthocb, translatecb);
+					glos.getUniformBuffer("global").loadIdentity(0);
 					glos.getUniformBuffer("global").loadMatrix(orthocb, 16 * Buffers.SIZEOF_FLOAT);
 					glos.bindUniformBuffer("global", 1);
 					gl.glUniformMatrix3fv(glos.getLocation("anaglyph", "ana"), 1, false, new float[] {1,0,0,0,1,0,0,0,1}, 0);

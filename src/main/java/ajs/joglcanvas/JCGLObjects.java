@@ -555,6 +555,7 @@ public class JCGLObjects {
 	class JCBuffer{
 
 		String name;
+		String bindName;
 		public int handle;
 		public ByteBuffer buffer=null;
 		public int gltype;
@@ -574,6 +575,7 @@ public class JCGLObjects {
 		public JCBuffer(int gltype, String name, long size, Buffer buffer, boolean define) {
 			this.gltype=gltype;
 			this.name=name;
+			this.bindName=name;
 			int[] bn=new int[1];
 			boolean write=(buffer==null);
 			if(glver==4) {gl4.glCreateBuffers(1, bn, 0);}
@@ -621,6 +623,8 @@ public class JCGLObjects {
 			return outbuffer;
 		}
 		
+		public void setBindName(String bn) {bindName=bn;}
+		
 		public void loadIdentity() {
 			loadIdentity(0);
 		}
@@ -657,15 +661,15 @@ public class JCGLObjects {
 					int[] pr=new int[1];gl.glGetIntegerv(GL_CURRENT_PROGRAM, pr,0);
 					//gl3.glUniform1i(gl3.glGetUniformLocation(pr[0], "mytex"),0);
 					JCProgram program=findProgram(pr[0]);
-					if(name.contentEquals("global") || name.contentEquals("globalidm")) {
+					if(bindName.contentEquals("global") || bindName.contentEquals("proj")) {
 						int loc=(program==null?gl2.glGetUniformLocation(pr[0], "proj"):program.getLocation("proj"));
 						gl2.glUniformMatrix4fv(loc, 2, false, buffer.asFloatBuffer());
 					}
-					if(name.contentEquals("model") || name.contentEquals("idm") || name.contentEquals("modelr")) {
+					if(bindName.contentEquals("model") || bindName.contentEquals("idm")) {
 						int loc=(program==null?gl2.glGetUniformLocation(pr[0], "model"):program.getLocation("model"));
 						gl2.glUniformMatrix4fv(loc, 1, false, buffer.asFloatBuffer());
 					}
-					if(name.contentEquals("lut")) {
+					if(bindName.contentEquals("lut")) {
 						int loc=(program==null?gl2.glGetUniformLocation(pr[0], "luts"):program.getLocation("luts"));
 						gl2.glUniform4fv(loc, 6, buffer.asFloatBuffer());
 					}

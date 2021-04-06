@@ -282,8 +282,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		
 		glos.newBuffer(GL_UNIFORM_BUFFER, "global", 16*2 * Buffers.SIZEOF_FLOAT, null);
 		glos.newBuffer(GL_UNIFORM_BUFFER, "globalidm", 16*2 * Buffers.SIZEOF_FLOAT, aid);
+		glos.getUniformBuffer("globalidm").setBindName("global");
 		glos.newBuffer(GL_UNIFORM_BUFFER, "model", 16 * Buffers.SIZEOF_FLOAT, null);
 		glos.newBuffer(GL_UNIFORM_BUFFER, "modelr", 16 * Buffers.SIZEOF_FLOAT, null);
+		glos.getUniformBuffer("modelr").setBindName("model");
 		glos.newBuffer(GL_UNIFORM_BUFFER, "lut", 6*4 * Buffers.SIZEOF_FLOAT, null);
 		glos.newBuffer(GL_UNIFORM_BUFFER, "idm", 16 * Buffers.SIZEOF_FLOAT, id);
 
@@ -344,6 +346,31 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		glos.newProgram("anaglyph", "shaders", "roiTexture", "anaglyph");
 		glos.addLocation("anaglyph", "ana");
 		glos.addLocation("anaglyph", "dubois");
+
+		glos.newBuffer(GL_UNIFORM_BUFFER, "stereo-frustum", 16*2 * Buffers.SIZEOF_FLOAT, null);
+		glos.newBuffer(GL_UNIFORM_BUFFER, "stereo-left-frustum", 16*2 * Buffers.SIZEOF_FLOAT, null);
+		glos.newBuffer(GL_UNIFORM_BUFFER, "stereo-right-frustum", 16*2 * Buffers.SIZEOF_FLOAT, null);
+
+		glos.getUniformBuffer("stereo-frustum").setBindName("global");
+		glos.getUniformBuffer("stereo-left-frustum").setBindName("global");
+		glos.getUniformBuffer("stereo-right-frustum").setBindName("global");
+		
+		glos.newBuffer(GL_UNIFORM_BUFFER, "CB-left", 16*2 * Buffers.SIZEOF_FLOAT, null);
+		glos.newBuffer(GL_UNIFORM_BUFFER, "CB-right", 16*2 * Buffers.SIZEOF_FLOAT, null);
+
+		glos.getUniformBuffer("CB-left").setBindName("global");
+		glos.getUniformBuffer("CB-right").setBindName("global");
+		
+		float[] orthocbl = FloatUtil.makeOrtho(new float[16], 0, false, -CB_MAXSIZE, CB_MAXSIZE, -CB_MAXSIZE, CB_MAXSIZE, -CB_MAXSIZE, CB_MAXSIZE);
+		float[] orthocbr = FloatUtil.makeOrtho(new float[16], 0, false, -CB_MAXSIZE, CB_MAXSIZE, -CB_MAXSIZE, CB_MAXSIZE, -CB_MAXSIZE, CB_MAXSIZE);
+		float[] translatecbl=FloatUtil.makeTranslation(new float[16], 0, false, -CB_MAXSIZE*CB_TRANSLATE, 0f, 0f);
+		float[] translatecbr=FloatUtil.makeTranslation(new float[16], 0, false, CB_MAXSIZE*CB_TRANSLATE, 0f, 0f);
+		FloatUtil.multMatrix(orthocbl, translatecbl);
+		FloatUtil.multMatrix(orthocbr, translatecbr);
+		glos.getUniformBuffer("CB-left").loadIdentity(0);
+		glos.getUniformBuffer("CB-left").loadMatrix(orthocbl, 16 * Buffers.SIZEOF_FLOAT);
+		glos.getUniformBuffer("CB-right").loadIdentity(0);
+		glos.getUniformBuffer("CB-right").loadMatrix(orthocbr, 16 * Buffers.SIZEOF_FLOAT);
 		
 	}
 	
@@ -394,6 +421,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(rat>1.0f) sx/=rat;  else sy*=rat;
 		//FloatUtil.makeOrtho(new float[16], 0, false, -1f/sx, 1f/sx, -1f/sy, 1f/sy, -1f/sx, 1f/sx);
 		
+		//clear "projection" matrix
+		glos.getUniformBuffer("global").loadIdentity();
 		//set the second, "view" matrix to the ratio scale
 		glos.getUniformBuffer("global").loadMatrix(new float[] {
 				sx, 0, 0, 0,
@@ -401,15 +430,41 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				0, 0, -sx, 0,
 				0, 0, 0, 1f
 			}, 16*Buffers.SIZEOF_FLOAT);
-		//if(go3d && JCP.doFrustum) {
-			//float[] clip=FloatUtil.makeFrustum(new float[16], 0, false, -1f, 1f, -1f, 1f, 1f, frustumD);
-			//IJ.log("cp clip ");
-			//IJ.log(""+FloatUtil.matrixToString(null, "", "%10.2f", clip, 0, 4, 4, false));
-			//glos.getUniformBuffer("global").loadMatrix(clip,0);
-			//must also translate model -1f;
-		//}else{
-			glos.getUniformBuffer("global").loadIdentity();
-		//}
+		if(JCP.doFrustum && go3d) {
+			/**TODO
+			 * copied properish eye movement instead of rotate
+			 */
+			float depthZ=3f, g_initial_fov=(float)Math.toRadians(45);
+			//up vector
+			//
+			//mirror the parameters with the right eye
+			float nearZ = 1.0f;
+			float ftop = -(float)Math.tan(g_initial_fov/2)*nearZ;
+			float fbottom = -ftop;
+			for(int i=0;i<3;i++) {
+				float IOD=JCP.stereoSep;
+				String bname="stereo-left-frustum";
+				float left_right_direction = -1.0f;
+				if(i==1) {
+					bname="stereo-right-frustum";
+					left_right_direction = 1.0f;
+				}else {
+					IOD=0;
+					bname="stereo-frustum";
+				}
+				double frustumshift = (IOD/2)*nearZ/depthZ;
+				float fright =(float)(rat*ftop+frustumshift*left_right_direction);
+				float fleft =-fright;
+				float[] g_projection_matrix = FloatUtil.makeFrustum(new float[16], 0, false, fleft, fright, fbottom, ftop, nearZ, frustumD);
+			  // update the view matrix
+				float[] eye=new float[] {left_right_direction*IOD/2, 0, 1};
+				float[] center=new float[] {left_right_direction*IOD/2, 0, 0};
+				float[] up=new float[] {0,-1,0};
+				float[] g_view_matrix = FloatUtil.makeLookAt(new float[16], 0, eye, 0, center, 0, up, 0, new float[16]);
+				glos.getUniformBuffer(bname).loadMatrix(g_projection_matrix, 0);
+				glos.getUniformBuffer(bname).loadMatrix(g_view_matrix, 16*Buffers.SIZEOF_FLOAT);
+			}
+		}
 	}
 	
 	private void resetGlobalMatrices(GLAutoDrawable drawable) {
@@ -663,9 +718,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					else
 						gl.glDrawBuffer(GL_RIGHT);
 				}else if(stereoType==StereoType.ANAGLYPH || stereoType==StereoType.CARDBOARD) {
-					resetGlobalMatrices(drawable);
-					//int[] vps=new int[4]; gl.glGetIntegerv(GL_VIEWPORT, vps, 0);
-					//int width=vps[2], height=vps[3];
 					int width=drawable.getSurfaceWidth(), height=drawable.getSurfaceHeight();
 					gl.glBindFramebuffer(GL_FRAMEBUFFER, stereoFramebuffers[0]);
 					gl.glBindRenderbuffer(GL_RENDERBUFFER, stereoFramebuffers[1]);
@@ -687,34 +739,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				//Rotate
 				float dxst=(float)dx;
 				//if(stereoi>0) {dxst-=(float)JCP.stereoSep; if(dxst<0)dxst+=360f;}
-				
-				if(JCP.doFrustum) {
-					/**TODO
-					 * copied properish eye movement instead of rotate
-					 */
-					float IOD=stereoType.ordinal()>0?JCP.stereoSep:0f, depthZ=3f, g_initial_fov=(float)Math.toRadians(45);
-					int width=drawable.getSurfaceWidth(), height=drawable.getSurfaceHeight();
-					//up vector
-	
-					//mirror the parameters with the right eye
-					float left_right_direction = -1.0f;
-					if(stereoi==1) left_right_direction = 1.0f;
-					float aspect_ratio = (float)width/(float)height;
-					float nearZ = 1.0f;
-					double frustumshift = (IOD/2)*nearZ/depthZ;
-					float ftop = -(float)Math.tan(g_initial_fov/2)*nearZ;
-					float fright =(float)(aspect_ratio*ftop+frustumshift*left_right_direction);
-					float fleft =-fright;
-					float fbottom = -ftop;
-					float[] g_projection_matrix = FloatUtil.makeFrustum(new float[16], 0, false, fleft, fright, fbottom, ftop, nearZ, frustumD);
-				  // update the view matrix
-					float[] eye=new float[] {left_right_direction*IOD/2, 0, 1};
-					float[] center=new float[] {left_right_direction*IOD/2, 0, 0};
-					float[] up=new float[] {0,-1,0};
-					float[] g_view_matrix = FloatUtil.makeLookAt(new float[16], 0, eye, 0, center, 0, up, 0, new float[16]);
-					glos.getUniformBuffer("global").loadMatrix(g_projection_matrix, 0);
-					glos.getUniformBuffer("global").loadMatrix(g_view_matrix, 16*Buffers.SIZEOF_FLOAT);
-				}
 				
 				rotate=FloatUtil.makeRotationEuler(new float[16], 0, dy*FloatUtil.PI/180f, (float)dxst*FloatUtil.PI/180f, (float)dz*FloatUtil.PI/180f);
 				//IJ.log("\\Update0:X x"+Math.round(100.0*matrix[0])/100.0+" y"+Math.round(100.0*matrix[1])/100.0+" z"+Math.round(100.0*matrix[2])/100.0);
@@ -863,8 +887,18 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			}
 			((Buffer)lutMatrixPointer).rewind();
 			
+			//Projection matrix binding
+			if(go3d && JCP.doFrustum){
+				String bname="stereo-frustum";
+				if(stereoType.ordinal()>0) {
+					if(stereoi==0)bname="stereo-left-frustum";
+					else bname="stereo-right-frustum";
+				}
+				glos.bindUniformBuffer(bname, 1);
+			}else {
+				glos.bindUniformBuffer("global", 1);
+			}
 			
-			glos.bindUniformBuffer("global", 1);
 			glos.bindUniformBuffer("model", 2);
 			glos.bindUniformBuffer("lut", 3);
 			if(go3d)
@@ -935,7 +969,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			}
 			//IJ.log("\\Update0:Display took: "+(System.nanoTime()-starttime)/1000000L+"ms");	 
 			gl.glDisable(GL_SCISSOR_TEST);
-			gl.glFinish();
+			//gl.glFinish();
 		} //stereoi
 		
 		if(go3d && stereoType==StereoType.ANAGLYPH || stereoType==StereoType.CARDBOARD) {
@@ -945,6 +979,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			gl.glBlendEquation(GL_MAX);
 			gl.glBlendFunc(GL_SRC_COLOR, GL_DST_COLOR);
 			glos.useProgram("anaglyph");
+			
 			for(int stereoi=0;stereoi<2;stereoi++) {
 				if(stereoType==StereoType.ANAGLYPH) {
 		
@@ -953,20 +988,16 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					glos.bindUniformBuffer("globalidm", 1);
 
 				}else if(stereoType==StereoType.CARDBOARD) {
-
-					float[] orthocb = FloatUtil.makeOrtho(new float[16], 0, false, -CB_MAXSIZE, CB_MAXSIZE, -CB_MAXSIZE, CB_MAXSIZE, -CB_MAXSIZE, CB_MAXSIZE);
-					float[] translatecb=FloatUtil.makeTranslation(new float[16], 0, false, (stereoi==0?(-CB_MAXSIZE*CB_TRANSLATE):(CB_MAXSIZE*CB_TRANSLATE)), 0f, 0f);
-					FloatUtil.multMatrix(orthocb, translatecb);
-					glos.getUniformBuffer("global").loadIdentity(0);
-					glos.getUniformBuffer("global").loadMatrix(orthocb, 16 * Buffers.SIZEOF_FLOAT);
-					glos.bindUniformBuffer("global", 1);
+					if(stereoi==0)glos.bindUniformBuffer("CB-left", 1);
+					else glos.bindUniformBuffer("CB-right", 1);
 					gl.glUniformMatrix3fv(glos.getLocation("anaglyph", "ana"), 1, false, new float[] {1,0,0,0,1,0,0,0,1}, 0);
 					gl.glUniform1f(glos.getLocation("anaglyph", "dubois"), 1f);
 				}
 				glos.bindUniformBuffer("idm", 2);
-				glos.drawTexVao("anaglyph",stereoi, GL_UNSIGNED_BYTE, 6, 1);
+				glos.drawTexVao("anaglyph",stereoi, GL_UNSIGNED_BYTE, 6, 1); 
 				glos.unBindBuffer(GL_UNIFORM_BUFFER,1);
 				glos.unBindBuffer(GL_UNIFORM_BUFFER,2);
+				gl.glFinish();
 			}
 			glos.stopProgram();
 		}

@@ -448,7 +448,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				if(i==1) {
 					bname="stereo-right-frustum";
 					left_right_direction = 1.0f;
-				}else {
+				}else if(i==2){
 					IOD=0;
 					bname="stereo-frustum";
 				}
@@ -738,7 +738,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				
 				//Rotate
 				float dxst=(float)dx;
-				//if(stereoi>0) {dxst-=(float)JCP.stereoSep; if(dxst<0)dxst+=360f;}
+				if(stereoi>0 && !JCP.doFrustum) {dxst-=(float)JCP.stereoSep; if(dxst<0)dxst+=360f;}
 				
 				rotate=FloatUtil.makeRotationEuler(new float[16], 0, dy*FloatUtil.PI/180f, (float)dxst*FloatUtil.PI/180f, (float)dz*FloatUtil.PI/180f);
 				//IJ.log("\\Update0:X x"+Math.round(100.0*matrix[0])/100.0+" y"+Math.round(100.0*matrix[1])/100.0+" z"+Math.round(100.0*matrix[2])/100.0);
@@ -931,13 +931,39 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				gl.glBlendEquation(GL_FUNC_ADD);
 				gl.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 				if(!JCP.openglroi) {
-					if(doRoi)drawGraphics(gl, z, "roiGraphic", 0, (go3d?"modelr":"idm"));
+					if(doRoi) {
+						glos.useProgram("roi");
+						if(go3d && JCP.doFrustum){
+							String bname="stereo-frustum";
+							if(stereoType.ordinal()>0) {
+								if(stereoi==0)bname="stereo-left-frustum";
+								else bname="stereo-right-frustum";
+							}
+							glos.bindUniformBuffer(bname, 1);
+						}else {
+							glos.bindUniformBuffer("global", 1);
+						}
+						drawGraphics(gl, z, "roiGraphic", 0, (go3d?"modelr":"idm"));
+						glos.stopProgram();
+					}
 					if(doOv!=null) {
+						glos.useProgram("roi");
+						if(go3d && JCP.doFrustum){
+							String bname="stereo-frustum";
+							if(stereoType.ordinal()>0) {
+								if(stereoi==0)bname="stereo-left-frustum";
+								else bname="stereo-right-frustum";
+							}
+							glos.bindUniformBuffer(bname, 1);
+						}else {
+							glos.bindUniformBuffer("global", 1);
+						}
 						for(int osl=0;osl<sls;osl++) {
 							if(doOv[osl] && (!cutPlanes.applyToRoi || (osl>=cutPlanes.z() && osl<cutPlanes.d())) ) {
 								drawGraphics(gl, ((float)sls-2f*(float)osl)*zf, "overlay", osl, (go3d?"modelr":"idm"));
 							}
 						}
+						glos.stopProgram();
 					}
 				}else {
 					Color anacolor=null;
@@ -948,7 +974,16 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					gl.glDisable(GL_BLEND);
 					if(rgldu==null) rgldu=new RoiGLDrawUtility(imp, drawable);
 					if(glos.glver==2)rgldu.startDrawing();
-					glos.bindUniformBuffer("global", 1);
+					if(go3d && JCP.doFrustum){
+						String bname="stereo-frustum";
+						if(stereoType.ordinal()>0) {
+							if(stereoi==0)bname="stereo-left-frustum";
+							else bname="stereo-right-frustum";
+						}
+						glos.bindUniformBuffer(bname, 1);
+					}else {
+						glos.bindUniformBuffer("global", 1);
+					}
 					glos.bindUniformBuffer(go3d?"modelr":"idm", 2);
 					
 					rgldu.drawRoiGL(drawable, roi, true, anacolor, go3d);
@@ -1235,16 +1270,16 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					-1,	 1,	z,	0, 0, 0.5f
 			});
 		}
-		glos.useProgram("roi");
+		//glos.useProgram("roi");
 		drawGraphics(gl, name, index, modelmatrix, vb);
-		glos.stopProgram();
+		//glos.stopProgram();
 	}
 	
 	private void drawGraphics(GL2GL3 gl, String name, int index, String modelmatrix, Buffer vb) {
 
 		ShortBuffer eb=GLBuffers.newDirectShortBuffer(new short[] {0,1,2,2,3,0});
 		gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		glos.bindUniformBuffer("global", 1);
+		//glos.bindUniformBuffer("global", 1);
 		glos.bindUniformBuffer(modelmatrix, 2);
 		glos.drawTexVaoWithEBOVBO(name, index, eb, vb);
 		glos.unBindBuffer(GL_UNIFORM_BUFFER,1);

@@ -2098,6 +2098,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		dpimag=dpi;
 	}
 	
+	public void setStereoUpdated() {
+		stereoUpdated=true;
+	}
+	
 	private void addAdjustmentListening() {
 		if(imp==null || imp.getWindow()==null) {IJ.log("JOGLCanvas was created but no ImagePlus Window was found"); return;}
 		if(imp.getWindow().getClass().getSimpleName().equals("ImageWindow"))return; //Don't need for ImageWindow

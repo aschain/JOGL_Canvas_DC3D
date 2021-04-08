@@ -73,7 +73,7 @@ public class JCP implements PlugIn {
 	public static Color leftAnaglyphColor=new Color((int) Prefs.get("ajs.joglcanvas.leftAnaglyphColor",Color.RED.getRGB()));
 	public static Color rightAnaglyphColor=new Color((int) Prefs.get("ajs.joglcanvas.rightAnaglyphColor",Color.CYAN.getRGB()));
 	public static boolean dubois=Prefs.get("ajs.joglcanvas.dubois", false);
-	public static float stereoSep=(float)Prefs.get("ajs.joglcanvas.stereoSep", 0.5);
+	public static float stereoSep=(float)Prefs.get("ajs.joglcanvas.stereoSep", 0.05);
 	public static String version="";
 	public static String defaultVersion="";
 	public static String glslVersion="",glslDefVersion="";
@@ -189,6 +189,7 @@ public class JCP implements PlugIn {
 	}
 	
 	public static JOGLImageCanvas getJOGLImageCanvas(ImagePlus imp) {
+		if(imp==null)return null;
 		ImageCanvas ic=imp.getCanvas();
 		if(ic instanceof JOGLImageCanvas)return (JOGLImageCanvas)ic;
 		Object jic=imp.getProperty("JOGLImageCanvas");
@@ -528,6 +529,7 @@ public class JCP implements PlugIn {
 	}
 	
 	public static void anaglyphSettings(){
+		JOGLImageCanvas jic=getJOGLImageCanvas(WindowManager.getCurrentImage());
 		JFrame asettings=new JFrame("JOGLCanvas Stereo Options");
 		asettings.setSize(500,750);
 		
@@ -646,7 +648,7 @@ public class JCP implements PlugIn {
 			sds[i].setPaintLabels(true);
 		}
 
-		JSlider sepsl=new JSlider(JSlider.HORIZONTAL, 0, 30, canvas.sep);
+		JSlider sepsl=new JSlider(JSlider.HORIZONTAL, 0, 30, canvas.sep>30?5:canvas.sep);
 		sepsl.setMajorTickSpacing(5);
 		sepsl.setPaintTicks(true);
 		sepsl.setPaintLabels(true);
@@ -685,12 +687,27 @@ public class JCP implements PlugIn {
 		cb.addItemListener(new ItemListener() {
 			@Override
 			public void itemStateChanged(ItemEvent e)  {
-				dubois=e.getStateChange()==1;
+				dubois=e.getStateChange()==ItemEvent.SELECTED;
+				if(jic!=null) {jic.setStereoUpdated(); jic.repaint();}
 			}
 		});
 		panel.add(cb,c);
-		c.gridx=1; c.gridwidth=2; c.anchor=GridBagConstraints.EAST; panel.add(new JLabel("Eye Seperation"),c);
+		c.gridx=1; c.gridwidth=2; c.anchor=GridBagConstraints.EAST; panel.add(new JLabel("Eye Separation"),c);
 		c.gridx=3; c.gridwidth=1; c.anchor=GridBagConstraints.CENTER; panel.add(sepsl,c);
+
+		c.gridy++; c.gridx=0; c.gridwidth=4; panel.add(new JLabel(" "),c);
+		cb=new JCheckBox("Perspective instead of orthogonal projection",doFrustum);
+		cb.addItemListener(new ItemListener() {
+			@Override
+			public void itemStateChanged(ItemEvent e)  {
+				doFrustum=e.getStateChange()==ItemEvent.SELECTED;
+				if(jic!=null) {jic.setStereoUpdated(); jic.repaint();}
+			}
+		});
+		c.gridy++; c.gridx=0; c.gridwidth=4; panel.add(cb,c);
+
+		c.gridy++; c.gridx=0; c.gridwidth=4; c.anchor=GridBagConstraints.CENTER;
+		panel.add(canvas, c);
 		
 		JPanel bpanel=new JPanel();
 		bpanel.setLayout(new GridLayout(1,2,10,2));
@@ -708,6 +725,7 @@ public class JCP implements PlugIn {
 				Prefs.set("ajs.joglcanvas.stereoSep", stereoSep);
 				fillAnaColors();
 				asettings.dispose();
+				if(jic!=null) {jic.setStereoUpdated(); jic.repaint();}
 			}
 		});
 		bpanel.add(button);
@@ -720,13 +738,7 @@ public class JCP implements PlugIn {
 			}
 		});
 		bpanel.add(button);
-		c.gridy++; c.gridx=0; c.gridwidth=4; c.anchor=GridBagConstraints.CENTER;
-		panel.add(canvas, c);
-		//JPanel bigpanel=new JPanel();
-		//bigpanel.setLayout(new BorderLayout());
-		//bigpanel.add(panel, BorderLayout.NORTH);
-		//bigpanel.add(canvas, BorderLayout.SOUTH);
-		//bigpanel.add(bpanel);
+		
 		asettings.setLayout(new BorderLayout());
 		asettings.add(panel, BorderLayout.NORTH);
 		asettings.add(bpanel,BorderLayout.SOUTH);

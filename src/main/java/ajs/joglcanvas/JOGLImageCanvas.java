@@ -434,7 +434,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			/**TODO
 			 * copied properish eye movement instead of rotate
 			 */
-			float depthZ=3f, g_initial_fov=(float)Math.toRadians(45);
+			float depthZ=frustumD, g_initial_fov=(float)Math.toRadians(45);
 			//up vector
 			//
 			//mirror the parameters with the right eye
@@ -455,7 +455,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				double frustumshift = (IOD/2)*nearZ/depthZ;
 				float fright =(float)(rat*ftop+frustumshift*left_right_direction);
 				float fleft =-fright;
-				float[] g_projection_matrix = FloatUtil.makeFrustum(new float[16], 0, false, fleft, fright, fbottom, ftop, nearZ, frustumD);
+				float[] g_projection_matrix = FloatUtil.makeFrustum(new float[16], 0, false, fleft, fright, fbottom, ftop, nearZ, depthZ);
 			  // update the view matrix
 				float[] eye=new float[] {left_right_direction*IOD/2, 0, 1};
 				float[] center=new float[] {left_right_direction*IOD/2, 0, 0};
@@ -512,7 +512,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		
 		if(go3d && stereoUpdated) {
 			if(JCP.debug)IJ.log("stereoUpdate reshape");
-			//reshape(drawable,0,0,drawable.getSurfaceWidth(),drawable.getSurfaceHeight());
 			//if(stereoType==StereoType.ANAGLYPH ) {
 			//	if(!glos.textures.containsKey("anaglyph"))initAnaglyph();
 			//}

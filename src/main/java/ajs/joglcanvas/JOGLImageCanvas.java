@@ -138,8 +138,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private boolean verbose=false;
 	private long dragtime;
 	private JOGLEventAdapter joglEventAdapter=null;
-	public float frustumZ=-1.6f;
-	public float frustumD=100f;
+	public float fov=45f;
+	public float frustumZshift;
+	public float depthZ=5f;
+	public float zmax=1f;
 	//private Button updateButton;
 	//private long starttime=0;
 
@@ -150,6 +152,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(!mirror) {setOverlay(imp.getCanvas().getOverlay());}
 		imageState=new ImageState(imp);
 		imageState.prevSrcRect=new Rectangle(0,0,0,0);
+		Calibration cal=imp.getCalibration();
+		zmax=(float)(cal.pixelDepth/cal.pixelWidth*(double)imp.getNSlices()/(double)imp.getWidth());
+		frustumZshift=-1.35f*(zmax+1f);//-1f-(3.33f*zmax);
 		cutPlanes=new CutPlanesCube(0,0,0,imp.getWidth(), imp.getHeight(), imp.getNSlices(), true);
 		GraphicsConfiguration gc=imp.getWindow().getGraphicsConfiguration();
 		AffineTransform t=gc.getDefaultTransform();
@@ -432,17 +437,15 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			}, 16*Buffers.SIZEOF_FLOAT);
 		if(JCP.doFrustum && go3d) {
 			/**TODO
-			 * copied properish eye movement instead of rotate
+			 * eye movement based on view matrix instead of rotated model matrix
 			 */
-			float depthZ=frustumD, g_initial_fov=(float)Math.toRadians(45);
+			float nearZ = 1f, IOD=JCP.stereoSep, g_initial_fov=(float)Math.toRadians(fov);
 			//up vector
-			//
+			// , depthZ=5f
 			//mirror the parameters with the right eye
-			float nearZ = 1.0f;
-			float ftop = -(float)Math.tan(g_initial_fov/2)*nearZ;
+			float ftop = (float)Math.tan(g_initial_fov/2)*nearZ;
 			float fbottom = -ftop;
 			for(int i=0;i<3;i++) {
-				float IOD=JCP.stereoSep;
 				String bname="stereo-left-frustum";
 				float left_right_direction = -1.0f;
 				if(i==1) {
@@ -458,8 +461,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				float[] g_projection_matrix = FloatUtil.makeFrustum(new float[16], 0, false, fleft, fright, fbottom, ftop, nearZ, depthZ);
 			  // update the view matrix
 				float[] eye=new float[] {left_right_direction*IOD/2, 0, 1};
-				float[] center=new float[] {left_right_direction*IOD/2, 0, 0};
-				float[] up=new float[] {0,-1,0};
+				float[] center=new float[] {0, 0, -1f};
+				float[] up=new float[] {0,1,0};
 				float[] g_view_matrix = FloatUtil.makeLookAt(new float[16], 0, eye, 0, center, 0, up, 0, new float[16]);
 				glos.getUniformBuffer(bname).loadMatrix(g_projection_matrix, 0);
 				glos.getUniformBuffer(bname).loadMatrix(g_view_matrix, 16*Buffers.SIZEOF_FLOAT);
@@ -703,7 +706,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		//drawing
 		gl.glDisable(GL_SCISSOR_TEST);
 		//gl.glDrawBuffers(1, new int[] {GL_BACK_LEFT},0);
-		//gl.glDrawBuffer(GL_BACK_LEFT);
+		gl.glDrawBuffer(GL_BACK);
 		glos.clearColorDepth();
 		
 		int views=1;
@@ -713,9 +716,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			if(go3d) {
 				if(stereoType==StereoType.QUADBUFFER) {
 					if(stereoi==0)
-						gl.glDrawBuffer(GL_LEFT);
+						gl.glDrawBuffer(GL_BACK_LEFT);
 					else
-						gl.glDrawBuffer(GL_RIGHT);
+						gl.glDrawBuffer(GL_BACK_RIGHT);
+					glos.clearColorDepth();
 				}else if(stereoType==StereoType.ANAGLYPH || stereoType==StereoType.CARDBOARD) {
 					int width=drawable.getSurfaceWidth(), height=drawable.getSurfaceHeight();
 					gl.glBindFramebuffer(GL_FRAMEBUFFER, stereoFramebuffers[0]);
@@ -763,17 +767,15 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					modelTransform=FloatUtil.multMatrix(scale, modelTransform, new float[16]);
 				}else
 					FloatUtil.multMatrix(scale, FloatUtil.multMatrix(rotate, translate, new float[16]), modelTransform);
-				if(JCP.doFrustum)modelTransform=FloatUtil.multMatrix(FloatUtil.makeTranslation(new float[16], false, 0, 0, frustumZ), modelTransform);
+				if(JCP.doFrustum)modelTransform=FloatUtil.multMatrix(FloatUtil.makeTranslation(new float[16], false, 0, 0, frustumZshift), modelTransform);
 				glos.getUniformBuffer("model").loadMatrix(modelTransform);
 				
 				if(ltr==null || !(ltr[0]==left && ltr[1]==top && ltr[2]==reverse) || cutPlanes.changed /*|| imageState.isChanged.srcRect*/) {
 					cutPlanes.changed=false;
 					double zrat=cal.pixelDepth/cal.pixelWidth;
 					int zmaxsls=(int)(zrat*(double)sls);
-					float zmax=(float)(zmaxsls)/(float)imageWidth;
-					float 	tw=(2*imageWidth-tex4div(imageWidth))/(float)imageWidth,
-							th=(2*imageHeight-tex4div(imageHeight))/(float)imageHeight;
-					final float[] initVerts=cutPlanes.getInitCoords(zmax, tw, th);
+					zmax=(float)(zmaxsls)/(float)imageWidth;
+					final float[] initVerts=cutPlanes.getInitCoords();
 					//For display of the square, there are 3 space verts and 3 texture verts
 					//for each of the 4 points of the square.
 					ByteBuffer vertb=glos.getDirectBuffer(GL_ARRAY_BUFFER, "image3d");
@@ -784,7 +786,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 							float xt,xv, pn;
 							if(reverse) pn=p;
 							else pn=cutPlanes.w()-(p-cutPlanes.x()+1.0f);
-							xt=(pn+0.5f)/imageWidth*tw;
+							xt=(pn+0.5f)/imageWidth*cutPlanes.tw;
 							xv=xt*2f-1f;
 							for(int i=0;i<4;i++) {
 								vertb.putFloat(xv); vertb.putFloat(initVerts[i*6+1]); vertb.putFloat(initVerts[i*6+2]);
@@ -798,7 +800,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 							float yt,yv,pn;
 							if(!reverse) pn=p;
 							else pn=cutPlanes.h()-(p-cutPlanes.y()+1.0f);
-							yt=(pn+0.5f)/imageHeight*th;
+							yt=(pn+0.5f)/imageHeight*cutPlanes.th;
 							yv=1f-yt*2f;
 							for(int i=0;i<4;i++) {
 								float zv=initVerts[i*6+2];
@@ -919,7 +921,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						float tsm=(scX+supermag)/scX;
 						rotate=FloatUtil.multMatrix(FloatUtil.makeScale(new float[16], false, tsm, tsm, tsm), rotate);
 					}
-					if(JCP.doFrustum)rotate=FloatUtil.multMatrix(FloatUtil.makeTranslation(new float[16], false, 0, 0, frustumZ), rotate);
+					if(JCP.doFrustum)rotate=FloatUtil.multMatrix(FloatUtil.makeTranslation(new float[16], false, 0, 0, frustumZshift), rotate);
 					glos.getUniformBuffer("modelr").loadMatrix(rotate);
 				}
 				//if(go3d)IJ.log(FloatUtil.matrixToString(null, "rot2: ", "%10.4f", rotate, 0, 4, 4, false).toString());
@@ -1083,12 +1085,15 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		public boolean applyToRoi=true;
 		public boolean changed=true;
 		private float[] initCoords=null, screenCoords=null;
-		private float vx,vy,vz,vw,vh,vd,tx,ty,tz,tw,th,td;
+		private float vx,vy,vz,vw,vh,vd,tx,ty,tz,td;
+		public float tw, th;
 		
 		public CutPlanesCube(int x, int y, int z, int width, int height, int depth, boolean applyToRoi) {
 			this.x=x; this.y=y; this.z=z;
 			this.w=width; this.h=height; this.d=depth;
 			this.applyToRoi=applyToRoi;
+			tw=(2*imageWidth-tex4div(imageWidth))/(float)imageWidth;
+			th=(2*imageHeight-tex4div(imageHeight))/(float)imageHeight;
 			updateCoords();
 		}
 
@@ -1120,12 +1125,12 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			return new float[] {vx,vy,vz,vw,vh,vd};
 		}
 		
-		public float[] getInitCoords(float zmax, float dtw, float dth) {
+		public float[] getInitCoords() {
 			if(initCoords!=null) {return initCoords;}
 			initCoords=new float[] {
-					vx, -vh, vd*zmax,   tx,     th*dth, td,
-					vw, -vh, vz*zmax,   tw*dtw, th*dth, tz,
-					vw, -vy, vz*zmax,   tw*dtw, ty,     tz,
+					vx, -vh, vd*zmax,   tx,     th*th, td,
+					vw, -vh, vz*zmax,   tw*tw, th*th, tz,
+					vw, -vy, vz*zmax,   tw*tw, ty,     tz,
 					vx, -vy, vd*zmax,   tx,     ty,     td
 			};
 			return initCoords;
@@ -1318,6 +1323,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		stereoType=stereoTypeChoice;
 		stereoUpdated=true;
 		myImageUpdated=true;
+		if(JCP.qbfullscreen && stereoType==StereoType.QUADBUFFER)setFullscreen(true);
 		repaint();
 	}
 	
@@ -1400,11 +1406,14 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	}
 	
 	public boolean toggleFullscreen() {
-		boolean dofs=!glw.isFullscreen();
+		return setFullscreen(!glw.isFullscreen());
+	}
+	
+	public boolean setFullscreen(boolean dofs) {
 		glw.setUndecorated(dofs);
 		if(dofs) {
 			ArrayList<MonitorDevice> ml=new ArrayList<MonitorDevice>();
-			for(MonitorDevice md : glw.getScreen().getMonitorDevices())IJ.log("MD:"+md);
+			if(JCP.debug) for(MonitorDevice md : glw.getScreen().getMonitorDevices())IJ.log("MD:"+md);
 			java.util.List<MonitorDevice> mds=glw.getScreen().getMonitorDevices();
 			if(mds.size()==1) {
 				ml.add(mds.get(0));

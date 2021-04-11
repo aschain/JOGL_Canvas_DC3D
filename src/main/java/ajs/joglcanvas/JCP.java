@@ -81,6 +81,7 @@ public class JCP implements PlugIn {
 	public static boolean go3d=Prefs.get("ajs.joglcanvas.go3d", false);;
 	public static boolean wrappedBuffers=Prefs.get("ajs.joglcanvas.wrappedBuffers", true);
 	public static boolean doFrustum=Prefs.get("ajs.joglcanvas.doFrustum", false);
+	public static boolean qbfullscreen=Prefs.get("ajs.joglcanvas.qbfullscreen", false);
 	public static boolean debug=false;
 	private static final float[][] duboisColors = new float[][] {
 		 {0.456f, -0.04f, -0.015f,
@@ -701,7 +702,19 @@ public class JCP implements PlugIn {
 			@Override
 			public void itemStateChanged(ItemEvent e)  {
 				doFrustum=e.getStateChange()==ItemEvent.SELECTED;
+				Prefs.set("ajs.joglcanvas.doFrustum",doFrustum);
 				if(jic!=null) {jic.setStereoUpdated(); jic.repaint();}
+			}
+		});
+		
+		c.gridy++; c.gridx=0; c.gridwidth=4; panel.add(cb,c);
+		c.gridy++; c.gridx=0; c.gridwidth=4; panel.add(new JLabel(" "),c);
+		cb=new JCheckBox("Auto fullscreen on OpenGL Quad buffer stereo",qbfullscreen);
+		cb.addItemListener(new ItemListener() {
+			@Override
+			public void itemStateChanged(ItemEvent e)  {
+				qbfullscreen=e.getStateChange()==ItemEvent.SELECTED;
+				Prefs.set("ajs.joglcanvas.qbfullscreen",doFrustum);
 			}
 		});
 		c.gridy++; c.gridx=0; c.gridwidth=4; panel.add(cb,c);

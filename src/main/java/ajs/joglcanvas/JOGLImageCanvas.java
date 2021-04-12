@@ -310,25 +310,55 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private void init3dTex() {
 		Calibration cal=imp.getCalibration();
 		long zmaxsls=(long)((double)imp.getNSlices()*cal.pixelDepth/cal.pixelWidth);
-		long maxsize=Math.max((long)imp.getWidth(), Math.max((long)imp.getHeight(), zmaxsls));
+		long width=(long)imp.getWidth();
+		long height=(long)imp.getHeight();
 
-		ByteBuffer vertb=glos.getDirectBuffer(GL_ARRAY_BUFFER, "image3d");
-		int floatsPerVertex=6;
-		long vertbSize=maxsize*floatsPerVertex*4*Buffers.SIZEOF_FLOAT;
-		if(vertb==null || ((Buffer)vertb).capacity()!=(int)vertbSize) {
-			int elementsPerSlice=6;
-			short[] e=new short[(int)maxsize*elementsPerSlice];
-			for(int i=0; i<(maxsize);i++) {
-				e[i*6+0]=(short)(i*4+0); e[i*6+1]=(short)(i*4+1); e[i*6+2]=(short)(i*4+2);
-				e[i*6+3]=(short)(i*4+2); e[i*6+4]=(short)(i*4+3); e[i*6+5]=(short)(i*4+0);
+		glos.newTexture("image3d", imp.getNChannels());
+
+		for(int s=0;s<6;s++) {
+			String name="image3d";
+			long size=width;
+			switch(s) { //left/top/front : forward/reverse
+			case 0:
+				name+="lf";
+				break;
+			case 1:
+				name+="lr";
+				break;
+			case 2:
+				name+="tf";
+				size=height;
+				break;
+			case 3:
+				name+="tr";
+				size=height;
+				break;
+			case 4:
+				name+="ff";
+				size=zmaxsls;
+				break;
+			case 5:
+				name+="fr";
+				size=zmaxsls;
+				break;
 			}
-			ShortBuffer elementBuffer=GLBuffers.newDirectShortBuffer(e);
-			((Buffer)elementBuffer).rewind();
-	
-			glos.newTexture("image3d", imp.getNChannels());
-			glos.newBuffer(GL_ARRAY_BUFFER, "image3d", maxsize*floatsPerVertex*4*Buffers.SIZEOF_FLOAT, null);
-			glos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "image3d", ((Buffer)elementBuffer).capacity()*Buffers.SIZEOF_SHORT, elementBuffer);
-			glos.newVao("image3d", 3, GL_FLOAT, 3, GL_FLOAT);
+			ByteBuffer vertb=glos.getDirectBuffer(GL_ARRAY_BUFFER, name);
+			int floatsPerVertex=6;
+			long vertbSize=size*floatsPerVertex*4*Buffers.SIZEOF_FLOAT;
+			if(vertb==null || ((Buffer)vertb).capacity()!=(int)vertbSize) {
+				int elementsPerSlice=6;
+				short[] e=new short[(int)size*elementsPerSlice];
+				for(int i=0; i<(size);i++) {
+					e[i*6+0]=(short)(i*4+0); e[i*6+1]=(short)(i*4+1); e[i*6+2]=(short)(i*4+2);
+					e[i*6+3]=(short)(i*4+2); e[i*6+4]=(short)(i*4+3); e[i*6+5]=(short)(i*4+0);
+				}
+				ShortBuffer elementBuffer=GLBuffers.newDirectShortBuffer(e);
+				((Buffer)elementBuffer).rewind();
+		
+				glos.newBuffer(GL_ARRAY_BUFFER, name, size*floatsPerVertex*4*Buffers.SIZEOF_FLOAT, null);
+				glos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, name, ((Buffer)elementBuffer).capacity()*Buffers.SIZEOF_SHORT, elementBuffer);
+				glos.newVao(name, 3, GL_FLOAT, 3, GL_FLOAT, "image3d");
+			}
 		}
 	}
 	
@@ -712,6 +742,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		int views=1;
 		if(go3d && stereoType.ordinal()>0)views=2;
 		for(int stereoi=0;stereoi<views;stereoi++) {
+			String vaoName="image2d";
 			glos.useProgram("image");
 			if(go3d) {
 				if(stereoType==StereoType.QUADBUFFER) {
@@ -770,62 +801,20 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				if(JCP.doFrustum)modelTransform=FloatUtil.multMatrix(FloatUtil.makeTranslation(new float[16], false, 0, 0, frustumZshift), modelTransform);
 				glos.getUniformBuffer("model").loadMatrix(modelTransform);
 				
-				if(ltr==null || !(ltr[0]==left && ltr[1]==top && ltr[2]==reverse) || cutPlanes.changed /*|| imageState.isChanged.srcRect*/) {
+				vaoName="image3df";
+				if(top)vaoName="image3dt"; else if(left)vaoName="image3dl";
+				if(reverse)vaoName+="r";
+				else vaoName+="f";
+				
+				if(ltr==null || cutPlanes.changed /*|| !(ltr[0]==left && ltr[1]==top && ltr[2]==reverse) || imageState.isChanged.srcRect*/) {
 					cutPlanes.changed=false;
-					double zrat=cal.pixelDepth/cal.pixelWidth;
-					int zmaxsls=(int)(zrat*(double)sls);
-					zmax=(float)(zmaxsls)/(float)imageWidth;
-					final float[] initVerts=cutPlanes.getInitCoords();
-					//For display of the square, there are 3 space verts and 3 texture verts
-					//for each of the 4 points of the square.
-					ByteBuffer vertb=glos.getDirectBuffer(GL_ARRAY_BUFFER, "image3d");
-					((Buffer)vertb).clear();
-					lim=0;
-					if(left) { //left or right
-						for(float p=cutPlanes.x();p<cutPlanes.w();p+=1.0f) {
-							float xt,xv, pn;
-							if(reverse) pn=p;
-							else pn=cutPlanes.w()-(p-cutPlanes.x()+1.0f);
-							xt=(pn+0.5f)/imageWidth*cutPlanes.tw;
-							xv=xt*2f-1f;
-							for(int i=0;i<4;i++) {
-								vertb.putFloat(xv); vertb.putFloat(initVerts[i*6+1]); vertb.putFloat(initVerts[i*6+2]);
-								vertb.putFloat(xt); vertb.putFloat(initVerts[i*6+4]); vertb.putFloat(initVerts[i*6+5]);
-							}
-							lim++;
-						}
-						lim*=24;
-					} else if(top) { //top or bottom
-						for(float p=cutPlanes.y();p<cutPlanes.h();p+=1.0f) {
-							float yt,yv,pn;
-							if(!reverse) pn=p;
-							else pn=cutPlanes.h()-(p-cutPlanes.y()+1.0f);
-							yt=(pn+0.5f)/imageHeight*cutPlanes.th;
-							yv=1f-yt*2f;
-							for(int i=0;i<4;i++) {
-								float zv=initVerts[i*6+2];
-								float zt=initVerts[i*6+5];
-								if(i==1) {zv=initVerts[2]; zt=initVerts[5];}
-								else if(i==3) {zv=initVerts[8]; zt=initVerts[11];}
-								vertb.putFloat(initVerts[i*6]); vertb.putFloat(yv); vertb.putFloat(zv);
-								vertb.putFloat(initVerts[i*6+3]); vertb.putFloat(yt); vertb.putFloat(zt);
-							}
-							lim++;
-						}
-						lim*=24;
-					}else { //front or back
-						for(float csl=(int)(cutPlanes.z()*zrat);csl<(int)(cutPlanes.d()*zrat);csl+=1.0f) {
-							float z=csl;
-							if(reverse) z=(cutPlanes.d()*(float)zrat)-(csl-(int)(cutPlanes.z()*(float)zrat));//z=((float)zmaxsls-csl-1f);
-							for(int i=0;i<4;i++) {
-								vertb.putFloat(initVerts[i*6]); vertb.putFloat(initVerts[i*6+1]); vertb.putFloat(((float)zmaxsls-2f*z)/imageWidth); 
-								vertb.putFloat(initVerts[i*6+3]); vertb.putFloat(initVerts[i*6+4]); vertb.putFloat((z+0.5f)/zmaxsls); 
-							}
-							lim++;
-						}
-						lim*=24;
-					}
-					((Buffer)vertb).limit(lim*4);
+					cutPlanes.populateVertb(glos.getDirectBuffer(GL_ARRAY_BUFFER, "image3dff"), false, false, false);
+					cutPlanes.populateVertb(glos.getDirectBuffer(GL_ARRAY_BUFFER, "image3dfr"), false, false, true);
+					cutPlanes.populateVertb(glos.getDirectBuffer(GL_ARRAY_BUFFER, "image3dtf"), false, true, false);
+					cutPlanes.populateVertb(glos.getDirectBuffer(GL_ARRAY_BUFFER, "image3dtr"), false, true, true);
+					cutPlanes.populateVertb(glos.getDirectBuffer(GL_ARRAY_BUFFER, "image3dlf"), true, false, false);
+					cutPlanes.populateVertb(glos.getDirectBuffer(GL_ARRAY_BUFFER, "image3dlr"), true, false, true);
+					
 				}
 				ltr=new boolean[] {left,top,reverse};
 				
@@ -902,10 +891,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			
 			glos.bindUniformBuffer("model", 2);
 			glos.bindUniformBuffer("lut", 3);
-			if(go3d)
-				glos.drawTexVao("image3d",GL_UNSIGNED_SHORT, lim/4, chs);
-			else
-				glos.drawTexVao("image2d",GL_UNSIGNED_BYTE, lim/4, chs);
+			glos.drawTexVao(vaoName,GL_UNSIGNED_SHORT, lim/4, chs);
 			glos.unBindBuffer(GL_UNIFORM_BUFFER, 1);
 			glos.unBindBuffer(GL_UNIFORM_BUFFER, 2);
 			glos.unBindBuffer(GL_UNIFORM_BUFFER, 3);
@@ -1154,6 +1140,63 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					glx, glh, 0f, tx, th, 0.5f,
 			};
 			return screenCoords;
+		}
+		
+		public void populateVertb(ByteBuffer vertb, boolean left, boolean top, boolean reverse) {
+			Calibration cal=imp.getCalibration();
+			double zrat=cal.pixelDepth/cal.pixelWidth;
+			int zmaxsls=(int)(zrat*(double)imp.getNSlices());
+			zmax=(float)(zmaxsls)/(float)imageWidth;
+			final float[] initVerts=cutPlanes.getInitCoords();
+			//For display of the square, there are 3 space verts and 3 texture verts
+			//for each of the 4 points of the square.
+			((Buffer)vertb).clear();
+			lim=0;
+			if(left) { //left or right
+				for(float p=cutPlanes.x();p<cutPlanes.w();p+=1.0f) {
+					float xt,xv, pn;
+					if(reverse) pn=p;
+					else pn=cutPlanes.w()-(p-cutPlanes.x()+1.0f);
+					xt=(pn+0.5f)/imageWidth*cutPlanes.tw;
+					xv=xt*2f-1f;
+					for(int i=0;i<4;i++) {
+						vertb.putFloat(xv); vertb.putFloat(initVerts[i*6+1]); vertb.putFloat(initVerts[i*6+2]);
+						vertb.putFloat(xt); vertb.putFloat(initVerts[i*6+4]); vertb.putFloat(initVerts[i*6+5]);
+					}
+					lim++;
+				}
+				lim*=24;
+			} else if(top) { //top or bottom
+				for(float p=cutPlanes.y();p<cutPlanes.h();p+=1.0f) {
+					float yt,yv,pn;
+					if(!reverse) pn=p;
+					else pn=cutPlanes.h()-(p-cutPlanes.y()+1.0f);
+					yt=(pn+0.5f)/imageHeight*cutPlanes.th;
+					yv=1f-yt*2f;
+					for(int i=0;i<4;i++) {
+						float zv=initVerts[i*6+2];
+						float zt=initVerts[i*6+5];
+						if(i==1) {zv=initVerts[2]; zt=initVerts[5];}
+						else if(i==3) {zv=initVerts[8]; zt=initVerts[11];}
+						vertb.putFloat(initVerts[i*6]); vertb.putFloat(yv); vertb.putFloat(zv);
+						vertb.putFloat(initVerts[i*6+3]); vertb.putFloat(yt); vertb.putFloat(zt);
+					}
+					lim++;
+				}
+				lim*=24;
+			}else { //front or back
+				for(float csl=(int)(cutPlanes.z()*zrat);csl<(int)(cutPlanes.d()*zrat);csl+=1.0f) {
+					float z=csl;
+					if(reverse) z=(cutPlanes.d()*(float)zrat)-(csl-(int)(cutPlanes.z()*(float)zrat));//z=((float)zmaxsls-csl-1f);
+					for(int i=0;i<4;i++) {
+						vertb.putFloat(initVerts[i*6]); vertb.putFloat(initVerts[i*6+1]); vertb.putFloat(((float)zmaxsls-2f*z)/imageWidth); 
+						vertb.putFloat(initVerts[i*6+3]); vertb.putFloat(initVerts[i*6+4]); vertb.putFloat((z+0.5f)/zmaxsls); 
+					}
+					lim++;
+				}
+				lim*=24;
+			}
+			((Buffer)vertb).limit(lim*4);
 		}
 	}
 	

@@ -262,7 +262,7 @@ public class JCGLObjects {
 		for(int i=0;i<chs;i++) {
 			gl.glActiveTexture(GL_TEXTURE0+i);
 			//if(glver==2)gl2.glEnable(gltype);
-			gl.glBindTexture(gltype, getTexture(name, texIndex+i));
+			gl.glBindTexture(gltype, getTexture(vaos.get(name).texName, texIndex+i));
 			tns[i]=i;
 		}
 		gl.glActiveTexture(GL_TEXTURE0);
@@ -694,9 +694,13 @@ public class JCGLObjects {
 	 * VAO functions
 	 */
 	
-	public void newVao(String name, int size1, int gltype1, int size2, int gltype2) {
-		JCVao oldvao=vaos.put(name, new JCVao(name, size1, gltype1, size2, gltype2));
+	public void newVao(String name, int size1, int gltype1, int size2, int gltype2, String texName) {
+		JCVao oldvao=vaos.put(name, new JCVao(name, size1, gltype1, size2, gltype2, texName));
 		if(oldvao!=null)oldvao.dispose();
+	}
+	
+	public void newVao(String name, int size1, int gltype1, int size2, int gltype2) {
+		newVao(name, size1, gltype1, size2, gltype2, name);
 	}
 	
 	class JCVao{
@@ -704,10 +708,12 @@ public class JCGLObjects {
 		public String name;
 		public int handle;
 		public int[] vsizes;
+		public String texName;
 		
-		public JCVao(String name, int size1, int gltype1, int size2, int gltype2) {
+		public JCVao(String name, int size1, int gltype1, int size2, int gltype2, String texName) {
 			
 			this.name=name;
+			this.texName=texName;
 			int[] vhs=new int[1];
 			int sizeoftype1=getSizeofType(gltype1)*size1;
 			int sizeoftype2=getSizeofType(gltype2)*size2;

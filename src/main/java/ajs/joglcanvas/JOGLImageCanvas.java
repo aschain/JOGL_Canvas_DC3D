@@ -786,7 +786,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 							float xt,xv, pn;
 							if(reverse) pn=p;
 							else pn=cutPlanes.w()-(p-cutPlanes.x()+1.0f);
-							xt=(pn+0.5f)/imageWidth*cutPlanes.tw;
+							xt=(pn+0.5f)/imageWidth*cutPlanes.twm;
 							xv=xt*2f-1f;
 							for(int i=0;i<4;i++) {
 								vertb.putFloat(xv); vertb.putFloat(initVerts[i*6+1]); vertb.putFloat(initVerts[i*6+2]);
@@ -800,7 +800,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 							float yt,yv,pn;
 							if(!reverse) pn=p;
 							else pn=cutPlanes.h()-(p-cutPlanes.y()+1.0f);
-							yt=(pn+0.5f)/imageHeight*cutPlanes.th;
+							yt=(pn+0.5f)/imageHeight*cutPlanes.thm;
 							yv=1f-yt*2f;
 							for(int i=0;i<4;i++) {
 								float zv=initVerts[i*6+2];
@@ -1085,15 +1085,15 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		public boolean applyToRoi=true;
 		public boolean changed=true;
 		private float[] initCoords=null, screenCoords=null;
-		private float vx,vy,vz,vw,vh,vd,tx,ty,tz,td;
-		public float tw, th;
+		private float vx,vy,vz,vw,vh,vd,tx,ty,tz,tw,th,td;
+		public float twm, thm;
 		
 		public CutPlanesCube(int x, int y, int z, int width, int height, int depth, boolean applyToRoi) {
 			this.x=x; this.y=y; this.z=z;
 			this.w=width; this.h=height; this.d=depth;
 			this.applyToRoi=applyToRoi;
-			tw=(2*imageWidth-tex4div(imageWidth))/(float)imageWidth;
-			th=(2*imageHeight-tex4div(imageHeight))/(float)imageHeight;
+			twm=(2*imageWidth-tex4div(imageWidth))/(float)imageWidth;
+			thm=(2*imageHeight-tex4div(imageHeight))/(float)imageHeight;
 			updateCoords();
 		}
 
@@ -1128,9 +1128,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		public float[] getInitCoords() {
 			if(initCoords!=null) {return initCoords;}
 			initCoords=new float[] {
-					vx, -vh, vd*zmax,   tx,     th*th, td,
-					vw, -vh, vz*zmax,   tw*tw, th*th, tz,
-					vw, -vy, vz*zmax,   tw*tw, ty,     tz,
+					vx, -vh, vd*zmax,   tx,     th*thm, td,
+					vw, -vh, vz*zmax,   tw*twm, th*thm, tz,
+					vw, -vy, vz*zmax,   tw*twm, ty,     tz,
 					vx, -vy, vd*zmax,   tx,     ty,     td
 			};
 			return initCoords;

@@ -115,7 +115,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	final private FloatBuffer zoomIndVerts=GLBuffers.newDirectFloatBuffer(4*3+4*4);
 	private int lim;
 	private int undersample=JCP.undersample;
-	enum StereoType{OFF, CARDBOARD, ANAGLYPH, QUADBUFFER};
+	enum StereoType{OFF, CARDBOARD, ANAGLYPH, HSBS, QUADBUFFER};
 	private final static String[] stereoTypeStrings=new String[] {"Stereo off", "Google Cardboard-SBS","Anaglyph (red-cyan)","OpenGL Quad Buffers"};
 	private static final float CB_MAXSIZE=4f;
 	private static final float CB_TRANSLATE=0.5f;
@@ -376,6 +376,22 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		glos.getUniformBuffer("CB-left").loadMatrix(orthocbl, 16 * Buffers.SIZEOF_FLOAT);
 		glos.getUniformBuffer("CB-right").loadIdentity(0);
 		glos.getUniformBuffer("CB-right").loadMatrix(orthocbr, 16 * Buffers.SIZEOF_FLOAT);
+		
+		glos.newBuffer(GL_UNIFORM_BUFFER, "HSBS-left", 16*2 * Buffers.SIZEOF_FLOAT, null);
+		glos.newBuffer(GL_UNIFORM_BUFFER, "HSBS-right", 16*2 * Buffers.SIZEOF_FLOAT, null);
+
+		glos.getUniformBuffer("HSBS-left").setBindName("global");
+		glos.getUniformBuffer("HSBS-right").setBindName("global");
+		orthocbl = FloatUtil.makeOrtho(new float[16], 0, false, -2f, 2f, -1f, 1f, -1f, 1f);
+		orthocbr = FloatUtil.makeOrtho(new float[16], 0, false, -2f, 2f, -1f, 1f, -1f, 1f);
+		translatecbl=FloatUtil.makeTranslation(new float[16], 0, false, -1f, 0f, 0f);
+		translatecbr=FloatUtil.makeTranslation(new float[16], 0, false, 1f, 0f, 0f);
+		FloatUtil.multMatrix(orthocbl, translatecbl);
+		FloatUtil.multMatrix(orthocbr, translatecbr);
+		glos.getUniformBuffer("HSBS-left").loadIdentity(0);
+		glos.getUniformBuffer("HSBS-left").loadMatrix(orthocbl, 16 * Buffers.SIZEOF_FLOAT);
+		glos.getUniformBuffer("HSBS-right").loadIdentity(0);
+		glos.getUniformBuffer("HSBS-right").loadMatrix(orthocbr, 16 * Buffers.SIZEOF_FLOAT);
 		
 	}
 	
@@ -720,7 +736,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					else
 						gl.glDrawBuffer(GL_BACK_RIGHT);
 					glos.clearColorDepth();
-				}else if(stereoType==StereoType.ANAGLYPH || stereoType==StereoType.CARDBOARD) {
+				}else if(stereoType!=StereoType.OFF) {
 					int width=drawable.getSurfaceWidth(), height=drawable.getSurfaceHeight();
 					gl.glBindFramebuffer(GL_FRAMEBUFFER, stereoFramebuffers[0]);
 					gl.glBindRenderbuffer(GL_RENDERBUFFER, stereoFramebuffers[1]);
@@ -1008,7 +1024,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			gl.glFinish();
 		} //stereoi
 		
-		if(go3d && stereoType==StereoType.ANAGLYPH || stereoType==StereoType.CARDBOARD) {
+		if(go3d && stereoType!=StereoType.OFF && stereoType!=StereoType.QUADBUFFER) {
 			gl.glBindFramebuffer(GL_FRAMEBUFFER, 0);
 			gl.glBindRenderbuffer(GL_RENDERBUFFER, 0);
 			gl.glEnable(GL_BLEND);
@@ -1023,9 +1039,14 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					gl.glUniform1f(glos.getLocation("anaglyph", "dubois"), JCP.dubois?1f:0f);
 					glos.bindUniformBuffer("globalidm", 1);
 
-				}else if(stereoType==StereoType.CARDBOARD) {
-					if(stereoi==0)glos.bindUniformBuffer("CB-left", 1);
-					else glos.bindUniformBuffer("CB-right", 1);
+				}else {
+					if(stereoType==StereoType.CARDBOARD) {
+						if(stereoi==0)glos.bindUniformBuffer("CB-left", 1);
+						else glos.bindUniformBuffer("CB-right", 1);
+					}else if(stereoType==StereoType.HSBS) {
+						if(stereoi==0)glos.bindUniformBuffer("HSBS-left", 1);
+						else glos.bindUniformBuffer("HSBS-right", 1);
+					}
 					gl.glUniformMatrix3fv(glos.getLocation("anaglyph", "ana"), 1, false, new float[] {1,0,0,0,1,0,0,0,1}, 0);
 					gl.glUniform1f(glos.getLocation("anaglyph", "dubois"), 1f);
 				}

@@ -116,7 +116,19 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private int lim;
 	private int undersample=JCP.undersample;
 	enum StereoType{OFF, CARDBOARD, ANAGLYPH, HSBS, QUADBUFFER};
-	private final static String[] stereoTypeStrings=new String[] {"Stereo off", "Google Cardboard-SBS","Anaglyph (red-cyan)","OpenGL Quad Buffers"};
+	private static String[] stereoTypeStrings;
+	static {
+		StereoType[] sts=StereoType.values();
+		stereoTypeStrings=new String[sts.length];
+		for(int i=0;i<sts.length;i++) {
+			String str=sts[i].name();
+			if(i==0) str="Stereo off";
+			else if(sts[i]==StereoType.CARDBOARD)str="Google Cardboard-SBS";
+			else if(sts[i]==StereoType.ANAGLYPH)str="Anaglyph";
+			else if (sts[i]==StereoType.QUADBUFFER)str="OpenGL Quad Buffers";
+			stereoTypeStrings[i]=str;
+		}
+	}
 	private static final float CB_MAXSIZE=4f;
 	private static final float CB_TRANSLATE=0.5f;
 	private StereoType stereoType=StereoType.OFF;

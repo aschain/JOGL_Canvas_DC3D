@@ -814,7 +814,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					cutPlanes.populateVertb(glos.getDirectBuffer(GL_ARRAY_BUFFER, "image3dtr"), false, true, true);
 					cutPlanes.populateVertb(glos.getDirectBuffer(GL_ARRAY_BUFFER, "image3dlf"), true, false, false);
 					cutPlanes.populateVertb(glos.getDirectBuffer(GL_ARRAY_BUFFER, "image3dlr"), true, false, true);
-					
 				}
 				ltr=new boolean[] {left,top,reverse};
 				
@@ -1071,15 +1070,15 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		public boolean applyToRoi=true;
 		public boolean changed=true;
 		private float[] initCoords=null, screenCoords=null;
-		private float vx,vy,vz,vw,vh,vd,tx,ty,tz,td;
-		public float tw, th;
+		private float vx,vy,vz,vw,vh,vd,tx,ty,tz,tw,th,td;
+		public float twm, thm;
 		
 		public CutPlanesCube(int x, int y, int z, int width, int height, int depth, boolean applyToRoi) {
 			this.x=x; this.y=y; this.z=z;
 			this.w=width; this.h=height; this.d=depth;
 			this.applyToRoi=applyToRoi;
-			tw=(2*imageWidth-tex4div(imageWidth))/(float)imageWidth;
-			th=(2*imageHeight-tex4div(imageHeight))/(float)imageHeight;
+			twm=(2*imageWidth-tex4div(imageWidth))/(float)imageWidth;
+			thm=(2*imageHeight-tex4div(imageHeight))/(float)imageHeight;
 			updateCoords();
 		}
 
@@ -1114,9 +1113,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		public float[] getInitCoords() {
 			if(initCoords!=null) {return initCoords;}
 			initCoords=new float[] {
-					vx, -vh, vd*zmax,   tx,     th*th, td,
-					vw, -vh, vz*zmax,   tw*tw, th*th, tz,
-					vw, -vy, vz*zmax,   tw*tw, ty,     tz,
+					vx, -vh, vd*zmax,   tx,     th*thm, td,
+					vw, -vh, vz*zmax,   tw*twm, th*thm, tz,
+					vw, -vy, vz*zmax,   tw*twm, ty,     tz,
 					vx, -vy, vd*zmax,   tx,     ty,     td
 			};
 			return initCoords;
@@ -1153,11 +1152,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			((Buffer)vertb).clear();
 			lim=0;
 			if(left) { //left or right
-				for(float p=cutPlanes.x();p<cutPlanes.w();p+=1.0f) {
+				for(float p=x();p<w();p+=1.0f) {
 					float xt,xv, pn;
 					if(reverse) pn=p;
-					else pn=cutPlanes.w()-(p-cutPlanes.x()+1.0f);
-					xt=(pn+0.5f)/imageWidth*cutPlanes.tw;
+					else pn=w()-(p-x()+1.0f);
+					xt=(pn+0.5f)/imageWidth*twm;
 					xv=xt*2f-1f;
 					for(int i=0;i<4;i++) {
 						vertb.putFloat(xv); vertb.putFloat(initVerts[i*6+1]); vertb.putFloat(initVerts[i*6+2]);
@@ -1167,11 +1166,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				}
 				lim*=24;
 			} else if(top) { //top or bottom
-				for(float p=cutPlanes.y();p<cutPlanes.h();p+=1.0f) {
+				for(float p=y();p<h();p+=1.0f) {
 					float yt,yv,pn;
 					if(!reverse) pn=p;
-					else pn=cutPlanes.h()-(p-cutPlanes.y()+1.0f);
-					yt=(pn+0.5f)/imageHeight*cutPlanes.th;
+					else pn=h()-(p-y()+1.0f);
+					yt=(pn+0.5f)/imageHeight*thm;
 					yv=1f-yt*2f;
 					for(int i=0;i<4;i++) {
 						float zv=initVerts[i*6+2];
@@ -1185,9 +1184,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				}
 				lim*=24;
 			}else { //front or back
-				for(float csl=(int)(cutPlanes.z()*zrat);csl<(int)(cutPlanes.d()*zrat);csl+=1.0f) {
+				for(float csl=(int)(z()*zrat);csl<(int)(d()*zrat);csl+=1.0f) {
 					float z=csl;
-					if(reverse) z=(cutPlanes.d()*(float)zrat)-(csl-(int)(cutPlanes.z()*(float)zrat));//z=((float)zmaxsls-csl-1f);
+					if(reverse) z=(d()*(float)zrat)-(csl-(int)(z()*(float)zrat));//z=((float)zmaxsls-csl-1f);
 					for(int i=0;i<4;i++) {
 						vertb.putFloat(initVerts[i*6]); vertb.putFloat(initVerts[i*6+1]); vertb.putFloat(((float)zmaxsls-2f*z)/imageWidth); 
 						vertb.putFloat(initVerts[i*6+3]); vertb.putFloat(initVerts[i*6+4]); vertb.putFloat((z+0.5f)/zmaxsls); 

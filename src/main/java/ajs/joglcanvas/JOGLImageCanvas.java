@@ -52,6 +52,8 @@ import java.nio.Buffer;
 import java.nio.FloatBuffer;
 import java.nio.ShortBuffer;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Hashtable;
 
 import javax.swing.JPopupMenu;
 
@@ -150,6 +152,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private boolean verbose=false;
 	private long dragtime;
 	private JOGLEventAdapter joglEventAdapter=null;
+	private Keypresses kps;
 	public float fov=45f;
 	public float frustumZshift;
 	public float depthZ=5f;
@@ -168,6 +171,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		zmax=(float)(cal.pixelDepth/cal.pixelWidth*(double)imp.getNSlices()/(double)imp.getWidth());
 		frustumZshift=-1.35f*(zmax+1f);//-1f-(3.33f*zmax);
 		cutPlanes=new CutPlanesCube(0,0,0,imp.getWidth(), imp.getHeight(), imp.getNSlices(), true);
+		kps=new Keypresses();
 		GraphicsConfiguration gc=imp.getWindow().getGraphicsConfiguration();
 		AffineTransform t=gc.getDefaultTransform();
 		dpimag=t.getScaleX();
@@ -769,7 +773,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				
 				//Rotate
 				float dxst=(float)dx;
-				if(stereoi>0 && !JCP.doFrustum) {dxst-=(float)JCP.stereoSep; if(dxst<0)dxst+=360f;}
+				if(stereoi>0 && !JCP.doFrustum) {dxst-=JCP.stereoSep*100; if(dxst<0)dxst+=360f;}
 				
 				rotate=FloatUtil.makeRotationEuler(new float[16], 0, dy*FloatUtil.PI/180f, (float)dxst*FloatUtil.PI/180f, (float)dz*FloatUtil.PI/180f);
 				//IJ.log("\\Update0:X x"+Math.round(100.0*matrix[0])/100.0+" y"+Math.round(100.0*matrix[1])/100.0+" z"+Math.round(100.0*matrix[2])/100.0);
@@ -1978,10 +1982,22 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	@Override
 	public void keyPressed(KeyEvent e) {
 		if(JCP.debug) System.out.println("AJS- JIC-keyPressed"+Character.toString(e.getKeyChar()));
+		//if(glw.isFullscreen()) {
+			for(char key : kps.okchars)if(key==e.getKeyChar()) {
+				kps.set(e.getKeyChar()); 
+				if(JCP.debug)IJ.log("Keypress "+e.getKeyChar());
+				return;
+			}
+			if(kps.keyIsPressed)return;
+		//}
 		if(!(e.getKeyChar()=='='||e.getKeyChar()=='-')) ij.keyPressed(e);}
 	@Override
 	public void keyReleased(KeyEvent e) {
 		if(JCP.debug) System.out.println("AJS- JIC-keyReleased"+Character.toString(e.getKeyChar())); 
+		//if(glw.isFullscreen()) {
+			for(char key : kps.okchars)if(key==e.getKeyChar()) {kps.unset(e.getKeyChar()); if(JCP.debug) IJ.log("Keypress off: "+e.getKeyChar()); return;}
+			if(kps.keyIsPressed)return;
+		//}
 		ij.keyReleased(e);
 	}
 	@Override
@@ -1989,6 +2005,63 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		//System.out.println("AJS- JIC-keyTyped"+Character.toString(e.getKeyChar()));
 		char key=e.getKeyChar();
 		int code=e.getKeyCode();
+		//if(glw.isFullscreen()) {
+			if(kps.keyIsPressed) {
+				if(code==KeyEvent.VK_UP || code==KeyEvent.VK_DOWN || code==KeyEvent.VK_LEFT || code==KeyEvent.VK_RIGHT) {
+					int a=1;
+					int b=1;
+					if(code==KeyEvent.VK_DOWN)a=-1;
+					if(code==KeyEvent.VK_LEFT)b=-1;
+					int x=cutPlanes.x(), y=cutPlanes.y(), z=cutPlanes.z(), w=cutPlanes.w(), h=cutPlanes.h(), d=cutPlanes.d();
+					switch(kps.key) {
+					case 'z':
+						z+=a;
+						if(z==d)d++;
+						break;
+					case 'x':
+						x+=a;
+						if(x==w)w++;
+						break;
+					case 'y':
+						y+=a;
+						if(y==h)h++;
+						break;
+					case 'w':
+						w+=a;
+						if(w==x)x--;
+						break;
+					case 'h':
+						h+=a;
+						if(h==y)y--;
+						break;
+					case 'd':
+						d+=a;
+						if(d==z)z--;
+						break;
+					case 'c':
+						if(code==KeyEvent.VK_LEFT || code==KeyEvent.VK_RIGHT) {
+							imp.setC(imp.getC()+b);
+						}else {
+							double max=imp.getDisplayRangeMax();
+							int c=max>100?100:max>10?10:1;
+							imp.setDisplayRange(imp.getDisplayRangeMin(), max+a*c);
+						}
+						break;
+					case 'm':
+						double min=imp.getDisplayRangeMax();
+						int c=min>100?100:min>10?10:1;
+						imp.setDisplayRange(min+a*c, imp.getDisplayRangeMax());
+						break;
+					}
+					if(z<0)z=0; if(y<0)y=0; if(z<0)z=0;
+					if(z==imp.getNSlices())z--; if(x==imp.getWidth())x--; if(y==imp.getHeight())y--;
+					if(w<1)w=1; if(h<1)h=1; if(d<1)d=1;
+					if(w>imp.getWidth())w--; if(h>imp.getHeight())h--; if(d>imp.getNSlices())d--;
+					cutPlanes.updateCube(new int[] {x,y,z,w,h,d});
+				}
+				return;
+			}
+		//}
 		if(key=='u') {
 			if(go3d) {
 				myImageUpdated=true;
@@ -2014,6 +2087,30 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		ij.keyTyped(e);
 	}
 	
+	class Keypresses{
+		public char key;
+		public boolean keyIsPressed=false;
+		public char[] okchars=new char[] {'z','d','x','w','y','h','c'};
+		
+		public Keypresses() {
+		}
+		
+		public void set(char key) {
+			if(Character.isAlphabetic(key)) {
+				this.key=key;
+				keyIsPressed=true;
+			}
+		}
+		
+		public void unset(char key) {
+			if(this.key==key)keyIsPressed=false;
+		}
+		
+		public void reset() {
+			keyIsPressed=false;
+		}
+	}
+	
 	/**
 	 * Test to keep right click or send to super
 	 * Adapted from https://stackoverflow.com/questions/2972512/how-to-detect-right-click-event-for-mac-os
@@ -2028,7 +2125,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	}
 	
 	private boolean shouldKeep(MouseEvent e) {
-		return ((!isRightClick(e) && isMirror) || (!isRightClick(e) && (go3d && ((IJ.getToolName()=="hand" && !IJ.spaceBarDown()) || IJ.controlKeyDown()))));
+		return ((!isRightClick(e) && !IJ.controlKeyDown() && isMirror) || (!isRightClick(e) && (go3d && ((IJ.getToolName()=="hand" && !IJ.spaceBarDown()) || IJ.controlKeyDown()))));
 	}
 	
 	@Override

@@ -158,16 +158,16 @@ public class JOGLEventAdapter implements MouseListener, KeyListener {
 	 */
 	@Override
 	public void keyPressed(KeyEvent e) {
-		if(keyListeners.size()==0) return; 
+		if(keyListeners.size()==0 || e.isAutoRepeat()) return; 
 		final java.awt.event.KeyEvent ake=convertKE(e);
 		java.awt.EventQueue.invokeLater(new Runnable() { public void run() {
 			for(java.awt.event.KeyListener kl : keyListeners) kl.keyPressed(ake);}});
 	}
 	@Override
 	public void keyReleased(KeyEvent e) {
-		if(keyListeners.size()==0) return; 
+		if(keyListeners.size()==0 || e.isAutoRepeat()) return; 
 		final java.awt.event.KeyEvent ake=convertKE(e);
-		if(!e.isAutoRepeat()) java.awt.EventQueue.invokeLater(new Runnable() { public void run() {
+		java.awt.EventQueue.invokeLater(new Runnable() { public void run() {
 			for(java.awt.event.KeyListener kl : keyListeners) {kl.keyReleased(ake); kl.keyTyped(ake);}}});
 	}
 	

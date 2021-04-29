@@ -567,25 +567,52 @@ public class JCP implements PlugIn {
 				gl2.glLoadIdentity();
 				gl2.glOrtho(-1, 1, -1, 1, -1, 1);
 				gl2.glMatrixMode(GL2.GL_MODELVIEW);
+				float rat=((float)drawable.getSurfaceWidth()/drawable.getSurfaceHeight());
+				float frustumZshift=-1.35f*(1.5f);
 				
 				for(int i=0;i<2;i++) {
-				gl2.glLoadIdentity();
-				
-				//Rotate
-				gl2.glRotatef((float)dx-(float)(i*sep), 0f, 1.0f, 0f);
-				gl2.glRotatef((float)dy, 1.0f, 0f, 0f);
-				gl2.glRotatef((float)dz, 0f, 0f, 1.0f);
-				
-				Color color=((i==0)?left:right);
-				//if(dubois) {
-				//	float[] cs=multiplyMatrix(new float[] {1f, 1f,1f},duboisColors[i]);
-				//	color=new Color(cs[0]*255f,cs[1]*255f,cs[2]*255f);
-				//}
-				gl2.glColor3f((float)color.getRed()/255f, (float)color.getGreen()/255f, (float)color.getBlue()/255f);
-				
-				
-				GLUT glut=new GLUT();
-				glut.glutWireTeapot(0.5);
+					gl2.glLoadIdentity();
+					
+					//Rotate
+					float dxc=dx;
+					if(doFrustum) {
+						gl2.glMatrixMode(GL2.GL_PROJECTION);
+						float nearZ=1f, IOD=(float)sep/100f, g_initial_fov=(float)Math.toRadians(45), depthZ=5f;
+						float ftop=(float)Math.tan(g_initial_fov/2)*nearZ;
+						float fbottom = -ftop;
+						float left_right_direction = (i==0)?-1.0f:1.0f;
+						double frustumshift = (IOD/2)*nearZ/depthZ;
+						float fright =(float)(ftop+frustumshift*left_right_direction);
+						float fleft =-fright;
+						float[] g_projection_matrix = FloatUtil.makeFrustum(new float[16], 0, false, fleft, fright, fbottom, ftop, nearZ, depthZ);
+						// update the view matrix
+						float[] eye=new float[] {left_right_direction*IOD/2, 0, 1};
+						float[] center=new float[] {0, 0, -1f};
+						float[] up=new float[] {0,1,0};
+						float[] g_view_matrix = FloatUtil.makeLookAt(new float[16], 0, eye, 0, center, 0, up, 0, new float[16]);
+						gl2.glLoadMatrixf(FloatUtil.multMatrix(g_projection_matrix, g_view_matrix), 0);
+						gl2.glMatrixMode(GL2.GL_MODELVIEW);
+						gl2.glTranslatef(0f, 0f, -1.5f);
+						
+					}else {
+						dxc+=sep/2f;
+						dxc=dx-(float)(i*sep);
+					}
+					gl2.glRotatef(dxc, 0f, 1.0f, 0f);
+					gl2.glRotatef(dy, 1.0f, 0f, 0f);
+					gl2.glRotatef(dz, 0f, 0f, 1.0f);
+					
+					
+					Color color=((i==0)?left:right);
+					//if(dubois) {
+					//	float[] cs=multiplyMatrix(new float[] {1f, 1f,1f},duboisColors[i]);
+					//	color=new Color(cs[0]*255f,cs[1]*255f,cs[2]*255f);
+					//}
+					gl2.glColor3f((float)color.getRed()/255f, (float)color.getGreen()/255f, (float)color.getBlue()/255f);
+					
+					
+					GLUT glut=new GLUT();
+					glut.glutWireTeapot(0.5);
 				}
 			}
 			@Override
@@ -703,6 +730,7 @@ public class JCP implements PlugIn {
 			public void itemStateChanged(ItemEvent e)  {
 				doFrustum=e.getStateChange()==ItemEvent.SELECTED;
 				Prefs.set("ajs.joglcanvas.doFrustum",doFrustum);
+				canvas.repaint();
 				if(jic!=null) {jic.setStereoUpdated(); jic.repaint();}
 			}
 		});

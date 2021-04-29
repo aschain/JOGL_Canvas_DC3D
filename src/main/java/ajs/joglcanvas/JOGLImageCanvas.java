@@ -2019,19 +2019,19 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						if(z==d)d++;
 						break;
 					case 'x':
-						x+=a;
+						x+=a*10;
 						if(x==w)w++;
 						break;
 					case 'y':
-						y+=a;
+						y+=a*10;
 						if(y==h)h++;
 						break;
 					case 'w':
-						w+=a;
+						w+=a*10;
 						if(w==x)x--;
 						break;
 					case 'h':
-						h+=a;
+						h+=a*10;
 						if(h==y)y--;
 						break;
 					case 'd':
@@ -2048,7 +2048,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						}
 						break;
 					case 'm':
-						double min=imp.getDisplayRangeMax();
+						double min=imp.getDisplayRangeMin();
 						int c=min>100?100:min>10?10:1;
 						imp.setDisplayRange(min+a*c, imp.getDisplayRangeMax());
 						break;
@@ -2090,7 +2090,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	class Keypresses{
 		public char key;
 		public boolean keyIsPressed=false;
-		public char[] okchars=new char[] {'z','d','x','w','y','h','c'};
+		public char[] okchars=new char[] {'z','d','x','w','y','h','c','m'};
 		
 		public Keypresses() {
 		}

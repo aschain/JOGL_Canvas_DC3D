@@ -2334,11 +2334,19 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	 * Returns an int array of GL PBO handles.  I use one PBO for
 	 * every channel and frame, indexed as:
 	 * currentFrame*channels+currentChannel
+	 * 
+	 * Pixels within the pbo are byte, short, float, or int (rgb24), depending on 
+	 * the original image, and include all slices.
 	 * @return
 	 */
 	public int[] getPBOnames() {
 		return glos.getPbo("image").pbos;
 	}
+	
+	public int getPBOSize() {
+		return sb.bufferBytes;
+	}
+	
 	public GLContext getContext() {
 		return context;
 	}

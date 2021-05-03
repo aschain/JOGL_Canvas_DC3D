@@ -897,7 +897,7 @@ public class JCGLObjects {
 	 * GL_FLOAT is 4 bytes, for example
 	 * 
 	 */
-	private int getSizeofType(int gltype) {
+	public static int getSizeofType(int gltype) {
 		switch(gltype) {
 		case GL_UNSIGNED_BYTE : return Buffers.SIZEOF_BYTE;
 		case GL_UNSIGNED_SHORT : return Buffers.SIZEOF_SHORT;

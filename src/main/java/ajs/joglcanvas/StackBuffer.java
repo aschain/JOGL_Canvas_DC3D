@@ -6,11 +6,18 @@ import ij.ImageStack;
 import ij.process.ImageProcessor;
 import ij.process.LUT;
 
+import static com.jogamp.opengl.GL.GL_FLOAT;
+import static com.jogamp.opengl.GL.GL_UNSIGNED_BYTE;
+import static com.jogamp.opengl.GL.GL_UNSIGNED_INT;
+import static com.jogamp.opengl.GL.GL_UNSIGNED_SHORT;
+import static com.jogamp.opengl.GL2GL3.GL_DOUBLE;
+
 import java.nio.Buffer;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.nio.ShortBuffer;
 
+import com.jogamp.common.nio.Buffers;
 import com.jogamp.opengl.util.GLBuffers;
 
 import ajs.joglcanvas.JOGLImageCanvas.PixelType;
@@ -24,7 +31,7 @@ public class StackBuffer {
 	private PixelType pixelType=PixelType.BYTE;
 	private int undersample=1;
 	public boolean isFrameStack=false, okDirect=false;
-	public int sliceSize,bufferSize,bufferWidth,bufferHeight;
+	public int sliceSize,bufferSize,bufferWidth,bufferHeight, bufferBytes;
 	public double floatMin, floatMax;
 	public MinMax[] minmaxs;
 	
@@ -44,8 +51,21 @@ public class StackBuffer {
 		okDirect=imp.getWidth()==bufferWidth;
 		sliceSize=bufferWidth*bufferHeight;
 		bufferSize=sliceSize*sls;
+		bufferBytes=bufferSize*(getSizeOfType(pixelType));
 		if(bufferSize!=oldbsize) {resetSlices(); return true;}
 		return false;
+	}
+	
+	public static int getSizeOfType(PixelType pt) {
+		switch(pt) {
+		case BYTE : return Buffers.SIZEOF_BYTE;
+		case SHORT : return Buffers.SIZEOF_SHORT;
+		case INT_RGBA8 : return Buffers.SIZEOF_INT;
+		case FLOAT : return Buffers.SIZEOF_FLOAT;
+		default:
+			break;
+		}
+		return 0;
 	}
 	
 	public void setPixelType(PixelType pt, int us) {

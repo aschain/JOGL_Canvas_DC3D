@@ -70,6 +70,7 @@ import com.jogamp.opengl.GL2GL3;
 import static com.jogamp.opengl.GL2.*;
 import com.jogamp.opengl.GLAutoDrawable;
 import com.jogamp.opengl.GLCapabilities;
+import com.jogamp.opengl.GLContext;
 import com.jogamp.opengl.util.texture.awt.AWTTextureIO;
 import com.jogamp.opengl.GLEventListener;
 import com.jogamp.opengl.GLException;
@@ -157,6 +158,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	public float frustumZshift;
 	public float depthZ=5f;
 	public float zmax=1f;
+	public GLContext context;
 	//private Button updateButton;
 	//private long starttime=0;
 
@@ -240,6 +242,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		JCP.version=drawable.getGL().glGetString(GL_VERSION);
 		glos=new JCGLObjects(drawable);
 		setGL(drawable);
+		context=drawable.getContext();
 		
 		if(dpimag!=1.0) {
 			double pd=dpimag;
@@ -2335,6 +2338,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	 */
 	public int[] getPBOnames() {
 		return glos.getPbo("image").pbos;
+	}
+	public GLContext getContext() {
+		return context;
 	}
 
 }

@@ -1,5 +1,5 @@
 # JOGL_Canvas_DC3D
-This is a plugin for ImageJ/Fiji (ImageJ1) that uses OpenGL and with graphics card accelleration to display images rather than java's AWT canvas. It replaces the ImageCanvas's java Canvas with a [JOGL](http://jogamp.org/jogl/www/) opengl GLCanvas instead.
+This is a plugin for ImageJ/Fiji (ImageJ1) that uses OpenGL with its graphics card accelleration to display images rather than java's AWT canvas. It replaces the ImageCanvas's java Canvas with a [JOGL](http://jogamp.org/jogl/www/) opengl GLCanvas instead.
 
 This has two major benefits:
 

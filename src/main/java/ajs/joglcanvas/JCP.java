@@ -78,7 +78,8 @@ public class JCP implements PlugIn {
 	public static String defaultVersion="";
 	public static String glslVersion="",glslDefVersion="";
 	public static float[][] anaColors;
-	public static boolean go3d=Prefs.get("ajs.joglcanvas.go3d", false);;
+	public static boolean go3d=Prefs.get("ajs.joglcanvas.go3d", false);
+	public static boolean preferStereo=Prefs.get("ajs.joglcanvas.preferStereo", false);
 	public static boolean wrappedBuffers=Prefs.get("ajs.joglcanvas.wrappedBuffers", true);
 	public static boolean doFrustum=Prefs.get("ajs.joglcanvas.doFrustum", false);
 	public static boolean qbfullscreen=Prefs.get("ajs.joglcanvas.qbfullscreen", false);
@@ -356,7 +357,7 @@ public class JCP implements PlugIn {
 		glCapabilities.setStencilBits(1);
 		glCapabilities.setSampleBuffers(true);
 		glCapabilities.setNumSamples(4);
-		glCapabilities.setStereo(true);
+		//glCapabilities.setStereo(true);
 	}
 
 	
@@ -472,6 +473,7 @@ public class JCP implements PlugIn {
 		gd.addChoice("Default 3d Render Type", new String[] {"MAX","ALPHA"}, renderFunction);
 		gd.addChoice("Default Undersampling for 3D", new String[] {"None","2","4","6"},undersample==1?"None":(""+undersample));
 		gd.addCheckbox("Stereoscopic settings", false);
+		gd.addCheckbox("Prefer active stereo over high dynamic range", preferStereo);
 		gd.addCheckbox("Open 10-bit test image", false);
 		gd.addMessage("Advanced Settings:");
 		gd.addCheckbox("Draw ROI with OpenGL (in progress)", openglroi);
@@ -515,6 +517,8 @@ public class JCP implements PlugIn {
 		undersample=newus.equals("None")?1:Integer.parseInt(newus);
 		Prefs.set("ajs.joglcanvas.undersample", (double)undersample);
 		boolean doana=gd.getNextBoolean();
+		preferStereo=gd.getNextBoolean();
+		Prefs.set("ajs.joglcanvas.preferStereo", preferStereo);
 		boolean dotest=gd.getNextBoolean();
 		openglroi=gd.getNextBoolean();
 		Prefs.set("ajs.joglcanvas.openglroi", openglroi);
@@ -527,6 +531,8 @@ public class JCP implements PlugIn {
 		if(doana) anaglyphSettings();
 		if(dotest) openTestImage();
 
+
+		Prefs.savePreferences();
 	}
 	
 	public static void anaglyphSettings(){
@@ -567,8 +573,8 @@ public class JCP implements PlugIn {
 				gl2.glLoadIdentity();
 				gl2.glOrtho(-1, 1, -1, 1, -1, 1);
 				gl2.glMatrixMode(GL2.GL_MODELVIEW);
-				float rat=((float)drawable.getSurfaceWidth()/drawable.getSurfaceHeight());
-				float frustumZshift=-1.35f*(1.5f);
+				//float rat=((float)drawable.getSurfaceWidth()/drawable.getSurfaceHeight());
+				//float frustumZshift=-1.35f*(1.5f);
 				
 				for(int i=0;i<2;i++) {
 					gl2.glLoadIdentity();

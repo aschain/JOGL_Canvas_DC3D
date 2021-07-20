@@ -348,16 +348,18 @@ public class JCP implements PlugIn {
 		if(bitdepths.length!=4)return;
 
 		if(glCapabilities==null)return;
-		glCapabilities.setBlueBits(Integer.parseInt(bitdepths[2]));
-		glCapabilities.setGreenBits(Integer.parseInt(bitdepths[1]));
-		glCapabilities.setRedBits(Integer.parseInt(bitdepths[0]));
-		glCapabilities.setAlphaBits(Integer.parseInt(bitdepths[3]));
+		int b=Integer.parseInt(bitdepths[2]), g=Integer.parseInt(bitdepths[1]), r=Integer.parseInt(bitdepths[0]), a=Integer.parseInt(bitdepths[3]);
+		glCapabilities.setBlueBits(b);
+		glCapabilities.setGreenBits(g);
+		glCapabilities.setRedBits(r);
+		glCapabilities.setAlphaBits(a);
 		glCapabilities.setHardwareAccelerated(true);
 		glCapabilities.setDoubleBuffered(true);
 		glCapabilities.setStencilBits(1);
 		glCapabilities.setSampleBuffers(true);
 		glCapabilities.setNumSamples(4);
-		//glCapabilities.setStereo(true);
+		glCapabilities.setStereo(preferStereo);
+		if(preferStereo && ((g+r+b)>26))IJ.log("JOGLImageCanvas Warning: Active stereo disables HDR 10-bit, disable it in prefs if you prefer HDR");
 	}
 
 	

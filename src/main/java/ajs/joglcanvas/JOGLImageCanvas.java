@@ -52,8 +52,6 @@ import java.nio.Buffer;
 import java.nio.FloatBuffer;
 import java.nio.ShortBuffer;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Hashtable;
 
 import javax.swing.JPopupMenu;
 
@@ -471,9 +469,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				0, 0, 0, 1f
 			}, 16*Buffers.SIZEOF_FLOAT);
 		if(JCP.doFrustum && go3d) {
-			/**TODO
-			 * eye movement based on view matrix instead of rotated model matrix
-			 */
 			float nearZ = 1f, IOD=JCP.stereoSep, g_initial_fov=(float)Math.toRadians(fov);
 			//up vector
 			// , depthZ=5f

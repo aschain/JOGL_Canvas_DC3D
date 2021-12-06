@@ -157,6 +157,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	public float depthZ=5f;
 	public float zmax=1f;
 	public GLContext context;
+	private boolean drawMirrorCursor=true;
+	private Point oicp=null;
 	//private Button updateButton;
 	//private long starttime=0;
 
@@ -942,7 +944,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			glos.stopProgram();
 
 			
-			if(roi!=null || overlay!=null) { 
+			if(roi!=null || overlay!=null || drawMirrorCursor) { 
 				if(go3d) {
 					scX=(float)imageWidth/srcRect.width;
 					scY=(float)imageHeight/srcRect.height;
@@ -1016,12 +1018,19 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						glos.bindUniformBuffer("global", 1);
 					}
 					glos.bindUniformBuffer(go3d?"modelr":"idm", 2);
-					
-					rgldu.drawRoiGL(drawable, roi, true, anacolor, go3d);
+					if(roi!=null)
+						rgldu.drawRoiGL(drawable, roi, true, anacolor, go3d);
 					if(overlay!=null) {
 						for(int i=0;i<overlay.size();i++) {
 							rgldu.drawRoiGL(drawable, overlay.get(i), false, anacolor, go3d);
 						}
+					}
+					
+					if(drawMirrorCursor && oicp!=null) {
+						Roi line1=new ij.gui.Line(0,oicp.y,imp.getWidth(),oicp.y);
+						Roi line2=new ij.gui.Line(oicp.x,0,oicp.x,getHeight());
+						rgldu.drawRoiGL(drawable, line1, false, anacolor!=null?anacolor:Color.white, go3d);
+						rgldu.drawRoiGL(drawable, line2, false, anacolor!=null?anacolor:Color.white, go3d);
 					}
 					
 					gl.glBindBufferBase(GL_UNIFORM_BUFFER, 1, 0);
@@ -1401,6 +1410,22 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					public void paint(Graphics g){
 						jic.repaint();
 						super.paint(g);
+					}
+					@Override
+					public void mouseMoved(MouseEvent e) {
+						oicp=offScreen(e.getPoint());
+						jic.repaint();
+						super.mouseMoved(e);
+					}
+					@Override
+					public void mouseExited(MouseEvent e) {
+						oicp=null;
+						super.mouseExited(e);
+					}
+					@Override
+					public void mouseDragged(MouseEvent e) {
+						oicp=offScreen(e.getPoint());
+						super.mouseDragged(e);
 					}
 				});
 				imp.getWindow().addWindowListener(new WindowAdapter() {
@@ -2109,6 +2134,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}
 	}
 	
+	public Point offScreen(Point p) {
+		return new Point(offScreenX(p.x),offScreenY(p.y));
+	}
+	
 	/**
 	 * Test to keep right click or send to super
 	 * Adapted from https://stackoverflow.com/questions/2972512/how-to-detect-right-click-event-for-mac-os
@@ -2176,7 +2205,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			}
 			if(isMirror)updateMirror();
 			repaint();
-		}else super.mouseDragged(e);
+		}else {
+			if(isMirror)imp.getCanvas().mouseDragged(e); else super.mouseDragged(e);
+		}
 	}
 	
 	@Override
@@ -2185,7 +2216,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			//if((IJ.shiftKeyDown())) {
 			//	resetAngles();
 			//}
-		}else super.mouseReleased(e);
+		}else {
+			if(isMirror)imp.getCanvas().mouseReleased(e); else super.mouseReleased(e);
+		}
 	}
 	
 	public void resetAngles() {
@@ -2195,22 +2228,31 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	
 	@Override
 	public void mouseMoved(MouseEvent e) {
-		if(!shouldKeep(e) || isMirror)super.mouseMoved(e);
+		if(!shouldKeep(e) /* \\ isMirror */){
+			if(isMirror)imp.getCanvas().mouseMoved(e); else super.mouseMoved(e);
+		}
 	}
 	
 	@Override
 	public void mouseEntered(MouseEvent e) {
-		if(!shouldKeep(e))super.mouseEntered(e);
+		if(!shouldKeep(e)){
+			if(isMirror)imp.getCanvas().mouseEntered(e); else super.mouseEntered(e);
+		}
 	}
 	
 	@Override
 	public void mouseExited(MouseEvent e) {
-		if(!shouldKeep(e))super.mouseExited(e);
+		oicp=null;
+		if(!shouldKeep(e)){
+			if(isMirror)imp.getCanvas().mouseExited(e); else super.mouseExited(e);
+		}
 	}
 	
 	@Override
 	public void mouseClicked(MouseEvent e) {
-		if(!shouldKeep(e))super.mouseClicked(e);
+		if(!shouldKeep(e)){
+			if(isMirror)imp.getCanvas().mouseClicked(e); else super.mouseClicked(e);
+		}
 	}
 	
 	/**

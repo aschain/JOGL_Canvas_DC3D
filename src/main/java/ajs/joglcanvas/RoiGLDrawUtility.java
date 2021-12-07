@@ -290,6 +290,19 @@ public class RoiGLDrawUtility {
 		return width;
 	}
 	
+	public float[] ijToGLCoords(int[] ijcoords, boolean screen) {
+		float[] glcoords=new float[ijcoords.length];
+		Calibration cal=imp.getCalibration();
+		float zf=(float)(cal.pixelDepth/cal.pixelWidth)/w;
+		int sls=imp.getNSlices();
+		for(int i=0; i<ijcoords.length; i++) {
+			if(i%3==0)glcoords[i]=screen?(sglx(ijcoords[i])):(glX(ijcoords[i]));
+			else if(i%3==1)glcoords[i]=screen?(sgly(ijcoords[i])):(glY(ijcoords[i]));
+			else if(i%3==2)glcoords[i]=((float)sls-2f*(ijcoords[i]-1))*zf;
+		}
+		return glcoords;
+	}
+	
 	private float[] getSubGLCoords(FloatPolygon fp, int start, int end, float z, boolean screen) {
 
 		int length=end-start;
@@ -311,6 +324,10 @@ public class RoiGLDrawUtility {
 	private float[] getGLCoords(FloatPolygon fp, float z, boolean screen) {
 
 		return getSubGLCoords(fp,0,fp.npoints,z,screen);
+	}
+	
+	public void drawGLij(int[] coords, Color color, int toDraw) {
+		drawGL(ijToGLCoords(coords, false), color, toDraw);
 	}
 	
 	public void drawGL(float[] coords, Color color, int toDraw) {

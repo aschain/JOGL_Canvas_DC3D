@@ -32,6 +32,7 @@ import java.awt.MenuItem;
 import java.awt.Point;
 import java.awt.PopupMenu;
 import java.awt.Rectangle;
+import java.awt.Button;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.AdjustmentEvent;
@@ -64,6 +65,7 @@ import com.jogamp.newt.Display;
 import com.jogamp.newt.MonitorDevice;
 import com.jogamp.newt.NewtFactory;
 import com.jogamp.newt.Screen;
+import com.jogamp.opengl.GL;
 import com.jogamp.opengl.GL2GL3;
 import static com.jogamp.opengl.GL2.*;
 import com.jogamp.opengl.GLAutoDrawable;
@@ -104,7 +106,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 
 	protected boolean go3d=JCP.go3d;
 	public String renderFunction=JCP.renderFunction;
-	protected int sx,sy;
+	protected int sx,sy, osx, osy;
 	protected float dx=0f,dy=0f,dz=0f, tx=0f, ty=0f, tz=0f, supermag=0f;
 	private float[] gamma=null;
 	
@@ -158,7 +160,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	public float zmax=1f;
 	public GLContext context;
 	private Point oicp=null;
-	//private Button updateButton;
+	private boolean toggle3dControl=false;
+	private Button menuButton;
 	//private long starttime=0;
 
 	public JOGLImageCanvas(ImagePlus imp, boolean mirror) {
@@ -228,6 +231,14 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		
 		if(mirror)createMirror();
 		addAdjustmentListening();
+		java.awt.EventQueue.invokeLater(new Runnable() {
+			@Override
+			public void run() {
+				showMenuButton(true);
+			}
+		});
+		disablePopupMenu(true);
+		toggle3dControl=false; 
 	}
 	
 	private void setGL(GLAutoDrawable drawable) {
@@ -509,6 +520,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	public void dispose(GLAutoDrawable drawable) {
 		IJ.log("Disposing GL Canvas");
 		System.out.println("Disposing ajs-----------------------");
+		glw.setPointerVisible(true);
 		java.awt.EventQueue.invokeLater(new Runnable() {
 			public void run() {
 					if(jccpDialog!=null)jccpDialog.dispose();
@@ -1025,11 +1037,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						}
 					}
 					
-					if(JCP.drawCrosshairs && oicp!=null) {
-						Roi line1=new ij.gui.Line(0,oicp.y,imp.getWidth(),oicp.y);
-						Roi line2=new ij.gui.Line(oicp.x,0,oicp.x,getHeight());
-						rgldu.drawRoiGL(drawable, line1, false, anacolor!=null?anacolor:Color.white, go3d);
-						rgldu.drawRoiGL(drawable, line2, false, anacolor!=null?anacolor:Color.white, go3d);
+					if(JCP.drawCrosshairs && oicp!=null  && (isMirror || go3d)) {
+						Color c=anacolor!=null?anacolor:Color.white;
+						rgldu.drawGLij(new int[] {0,oicp.y, sl+1, imp.getWidth(),oicp.y,sl+1}, c, GL.GL_LINE_STRIP);
+						rgldu.drawGLij(new int[] {oicp.x,0, sl+1, oicp.x, getHeight(), sl+1}, c, GL.GL_LINE_STRIP);
+						rgldu.drawGLij(new int[] {oicp.x, oicp.y, 1, oicp.x, oicp.y, sls}, c, GL.GL_LINE_STRIP);
 					}
 					
 					gl.glBindBufferBase(GL_UNIFORM_BUFFER, 1, 0);
@@ -1359,6 +1371,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		threeDupdated=true;
 		myImageUpdated=true;
 		go3d=newboo;
+		if(!go3d)disablePopupMenu=false;
+		else {
+			disablePopupMenu=true;
+		}
 		repaint();
 	}
 	
@@ -1372,6 +1388,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	
 	private void createMirror() {
 		isMirror=true;
+		toggle3dControl=true;
 		mirror=new Frame("JOGL-DC3D Mirror of "+imp.getTitle());
 		mirror.add(icc);
 		mirror.addWindowListener(new WindowAdapter() {
@@ -1740,6 +1757,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(icc==null)super.handlePopupMenu(e);
 		else {
 			if (disablePopupMenu) return;
+			glw.setPointerVisible(true);
 			if (IJ.debugMode) IJ.log("show popup: " + (e.isPopupTrigger()?"true":"false"));
 			int x = e.getX();
 			int y = e.getY();
@@ -1819,6 +1837,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			menu=new Menu("Other Options");
 			if(isMirror)addCMI(menu, "Resizable Mirror", mirrorMagUnlock);
 			addCMI(menu, "Fullscreen", !(glw==null || !glw.isFullscreen()));
+			addMI(menu, "Toggle Right Click 3d Control", "rightclick");
 			addMI(menu, "JOGL Canvas Preferences", "prefs");
 			addMI(menu, "Revert to Normal Window", "revert");
 			dcpopup.add(menu);
@@ -1870,6 +1889,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}else if(cmd.equals("rottrans")){
 			if(jcrDialog==null || !jcrDialog.isVisible()) {jcrDialog=new JCRotator(this); positionDialog(jcrDialog);}
 			else jcrDialog.requestFocus();
+		}else if(cmd.equals("rightclick")){
+			disablePopupMenu(!disablePopupMenu);
+			toggle3dControl=false;
 		}else if(cmd.equals("prefs")){JCP.preferences();}
 		else if(cmd.equals("Recorder")){
 			IJ.run("JOGL Canvas Recorder",imp.getTitle());
@@ -2027,6 +2049,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		//System.out.println("AJS- JIC-keyTyped"+Character.toString(e.getKeyChar()));
 		char key=e.getKeyChar();
 		int code=e.getKeyCode();
+		if(code==KeyEvent.VK_ENTER){toggle3dControl=!toggle3dControl;}
 		//if(glw.isFullscreen()) {
 			if(kps.keyIsPressed) {
 				if(code==KeyEvent.VK_UP || code==KeyEvent.VK_DOWN || code==KeyEvent.VK_LEFT || code==KeyEvent.VK_RIGHT) {
@@ -2151,19 +2174,24 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	}
 	
 	private boolean shouldKeep(MouseEvent e) {
-		return ((!isRightClick(e) && !IJ.controlKeyDown() && isMirror) || (!isRightClick(e) && (go3d && ((IJ.getToolName()=="hand" && !IJ.spaceBarDown()) || IJ.controlKeyDown()))));
+		if(isRightClick(e) && !disablePopupMenu) return false;
+		if(isMirror) return (toggle3dControl ||isRightClick(e));
+		return (go3d && ((IJ.getToolName()=="hand" && !IJ.spaceBarDown()) || toggle3dControl || isRightClick(e)));
 	}
 	
 	@Override
 	public void mousePressed(MouseEvent e) {
 		//if(go3d && ((e.getModifiersEx() & (MouseEvent.BUTTON1_DOWN_MASK | MouseEvent.BUTTON3_DOWN_MASK))>0))resetAngles();
+		if(IJ.spaceBarDown()) {
+			setupScroll(offScreenX(sx),offScreenY(sy));
+		} 
 		if(shouldKeep(e)) {
 			sx = e.getX();
 			sy = e.getY();
-			if(IJ.spaceBarDown()) {
-				setupScroll(offScreenX(sx),offScreenY(sy));
-			} 
-		}else super.mousePressed(e);
+			osx=sx; osy=sy;
+		}else {
+			super.mousePressed(e);
+		}
 	}
 	
 	public void setSuperMag(float m) { supermag=m;}
@@ -2205,16 +2233,21 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			if(isMirror)updateMirror();
 			repaint();
 		}else {
-			if(isMirror)imp.getCanvas().mouseDragged(e); else super.mouseDragged(e);
+			if(isMirror)imp.getCanvas().mouseDragged(e);
+			else {
+				if(JCP.drawCrosshairs) {oicp=new Point(offScreenX(e.getX()),offScreenY(e.getY()));repaint();}
+				super.mouseDragged(e);
+			}
 		}
 	}
 	
 	@Override
 	public void mouseReleased(MouseEvent e) {
 		if(shouldKeep(e)) {
-			//if((IJ.shiftKeyDown())) {
-			//	resetAngles();
-			//}
+			if(JCP.drawCrosshairs) {
+				glw.warpPointer(osx, osy);
+			}
+			if(JCP.debug)IJ.log("Pointer warped "+sx+" "+sy);
 		}else {
 			if(isMirror)imp.getCanvas().mouseReleased(e); else super.mouseReleased(e);
 		}
@@ -2227,21 +2260,30 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	
 	@Override
 	public void mouseMoved(MouseEvent e) {
-		if(!shouldKeep(e) /* \\ isMirror */){
+		//if(JCP.debug)IJ.log("\\Update:MouseMoved "+e.getX()+" "+e.getY());
+		if(shouldKeep(e)){
+			if(JCP.drawCrosshairs) {oicp=new Point(offScreenX(e.getX()),offScreenY(e.getY())); repaint();}
+		}else {
 			if(isMirror)imp.getCanvas().mouseMoved(e); else super.mouseMoved(e);
 		}
 	}
 	
 	@Override
 	public void mouseEntered(MouseEvent e) {
-		if(!shouldKeep(e)){
-			if(isMirror)imp.getCanvas().mouseEntered(e); else super.mouseEntered(e);
+		if(JCP.drawCrosshairs && (isMirror || go3d)) {glw.setPointerVisible(false);}else glw.setPointerVisible(true);
+		if(shouldKeep(e)){
+			//if(JCP.drawCrosshairs) {glw.setPointerVisible(false);}else glw.setPointerVisible(true);
+		}else {
+			if(isMirror) {
+				imp.getCanvas().mouseEntered(e); 
+			}else super.mouseEntered(e);
 		}
 	}
 	
 	@Override
 	public void mouseExited(MouseEvent e) {
 		oicp=null;
+		glw.setPointerVisible(true);
 		if(!shouldKeep(e)){
 			if(isMirror)imp.getCanvas().mouseExited(e); else super.mouseExited(e);
 		}
@@ -2294,6 +2336,63 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					}
 				});
 			}
+		}
+	}
+	
+	/**
+	 * Adds an update button the the window.
+	 * The 3D image takes some time to load into memory,
+	 * So it is not updated on every draw.  In case the user
+	 * changes the image (cut, paste, draw, fill, process),
+	 * The user can then press the update button (or type
+	 * u) to update the 3d image.
+	 * @param show
+	 */
+	public void showMenuButton(boolean show) {
+		boolean nowin=(imp==null || imp.getWindow()==null || !(imp.getWindow() instanceof StackWindow));
+		if(menuButton!=null && (!show || nowin)) {
+			Container parent=menuButton.getParent();
+			if(parent!=null) {parent.remove(menuButton);}
+			menuButton=null;
+		}
+		if(nowin)return;
+		StackWindow stwin=(StackWindow) imp.getWindow();
+		if(show && menuButton!=null) {
+			if(menuButton.getParent()!=null && menuButton.getParent().getParent()==stwin && menuButton.isEnabled())return;
+		}
+		ScrollbarWithLabel scr=null;
+		Component[] comps=stwin.getComponents();
+		for(int i=0;i<comps.length;i++) {
+			if(comps[i] instanceof ij.gui.ScrollbarWithLabel) {
+				scr=(ScrollbarWithLabel)comps[i];
+			}
+		}
+		if(scr!=null) {
+			//Remove any orphaned updateButtons, like with a crashed JOGLImageCanvas
+			comps=scr.getComponents();
+			for(int i=0;i<comps.length;i++) {
+				if(comps[i] instanceof Button) {
+					String label=((Button)comps[i]).getLabel();
+					if(label.equals("GL")) {
+						scr.remove(comps[i]);
+					}
+				}
+			}
+			
+			if(show) {
+				menuButton= new Button("GL");
+				menuButton.addActionListener(new ActionListener() {
+					public void actionPerformed(ActionEvent e) {
+						if (dcpopup!=null) {
+							menuButton.add(dcpopup);
+							dcpopup.show(menuButton,10,10);
+						}
+					}
+				});
+				menuButton.setFocusable(false);
+				scr.add(menuButton,java.awt.BorderLayout.EAST);
+			}
+			stwin.pack();
 		}
 	}
 	

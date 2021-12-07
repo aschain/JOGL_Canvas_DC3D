@@ -159,8 +159,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	public float depthZ=5f;
 	public float zmax=1f;
 	public GLContext context;
-	private Point oicp=null;
-	private boolean toggle3dControl=false;
+	public Point oicp=null;
 	private Button menuButton;
 	//private long starttime=0;
 
@@ -238,7 +237,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			}
 		});
 		disablePopupMenu(true);
-		toggle3dControl=false; 
 	}
 	
 	private void setGL(GLAutoDrawable drawable) {
@@ -1388,7 +1386,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	
 	private void createMirror() {
 		isMirror=true;
-		toggle3dControl=true;
 		mirror=new Frame("JOGL-DC3D Mirror of "+imp.getTitle());
 		mirror.add(icc);
 		mirror.addWindowListener(new WindowAdapter() {
@@ -1420,30 +1417,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		java.awt.EventQueue.invokeLater(new Runnable() {
 			@Override
 			public void run() {
-				new StackWindow(imp,new ImageCanvas(imp) {
-					private static final long serialVersionUID = 1L;
-					@Override
-					public void paint(Graphics g){
-						jic.repaint();
-						super.paint(g);
-					}
-					@Override
-					public void mouseMoved(MouseEvent e) {
-						oicp=offScreen(e.getPoint());
-						if(JCP.drawCrosshairs)jic.repaint();
-						super.mouseMoved(e);
-					}
-					@Override
-					public void mouseExited(MouseEvent e) {
-						oicp=null;
-						super.mouseExited(e);
-					}
-					@Override
-					public void mouseDragged(MouseEvent e) {
-						oicp=offScreen(e.getPoint());
-						super.mouseDragged(e);
-					}
-				});
+				new StackWindow(imp,new MirrorCanvas(jic,imp));
 				imp.getWindow().addWindowListener(new WindowAdapter() {
 					public void windowClosing(WindowEvent e) {
 						glw.destroy();mirror.dispose();mirror=null;
@@ -1891,7 +1865,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			else jcrDialog.requestFocus();
 		}else if(cmd.equals("rightclick")){
 			disablePopupMenu(!disablePopupMenu);
-			toggle3dControl=false;
 		}else if(cmd.equals("prefs")){JCP.preferences();}
 		else if(cmd.equals("Recorder")){
 			IJ.run("JOGL Canvas Recorder",imp.getTitle());
@@ -2049,7 +2022,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		//System.out.println("AJS- JIC-keyTyped"+Character.toString(e.getKeyChar()));
 		char key=e.getKeyChar();
 		int code=e.getKeyCode();
-		if(code==KeyEvent.VK_ENTER){toggle3dControl=!toggle3dControl;}
 		//if(glw.isFullscreen()) {
 			if(kps.keyIsPressed) {
 				if(code==KeyEvent.VK_UP || code==KeyEvent.VK_DOWN || code==KeyEvent.VK_LEFT || code==KeyEvent.VK_RIGHT) {
@@ -2175,22 +2147,19 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	
 	private boolean shouldKeep(MouseEvent e) {
 		if(isRightClick(e) && !disablePopupMenu) return false;
-		if(isMirror) return (toggle3dControl ||isRightClick(e));
-		return (go3d && ((IJ.getToolName()=="hand" && !IJ.spaceBarDown()) || toggle3dControl || isRightClick(e)));
+		if(isMirror) return (isRightClick(e) || !disablePopupMenu);
+		return (go3d && ((IJ.getToolName()=="hand" && !IJ.spaceBarDown()) || isRightClick(e)));
 	}
 	
 	@Override
 	public void mousePressed(MouseEvent e) {
 		//if(go3d && ((e.getModifiersEx() & (MouseEvent.BUTTON1_DOWN_MASK | MouseEvent.BUTTON3_DOWN_MASK))>0))resetAngles();
-		if(IJ.spaceBarDown()) {
-			setupScroll(offScreenX(sx),offScreenY(sy));
-		} 
 		if(shouldKeep(e)) {
 			sx = e.getX();
 			sy = e.getY();
 			osx=sx; osy=sy;
 		}else {
-			super.mousePressed(e);
+			if(isMirror && !isRightClick(e)) imp.getCanvas().mousePressed(e); else super.mousePressed(e); 
 		}
 	}
 	
@@ -2204,10 +2173,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			boolean ctrl=(e.getModifiersEx() & (MouseEvent.CTRL_DOWN_MASK | MouseEvent.META_DOWN_MASK))!=0;
 			boolean shift=(e.getModifiersEx() & MouseEvent.SHIFT_DOWN_MASK)!=0;
 			//if(JCP.debug) {IJ.log("\\Update2:   Drag took: "+String.format("%5.1f", (float)(System.nanoTime()-dragtime)/1000000f)+"ms"); dragtime=System.nanoTime();}
-			if(IJ.spaceBarDown()&&isMirror) {
-				scroll(e.getX(),e.getY());
-				imp.getCanvas().setSourceRect(srcRect);
-			}else if(go3d){
+			if(go3d){
 				float xd=(float)(e.getX()-sx)/(float)srcRect.width;
 				float yd=(float)(e.getY()-sy)/(float)srcRect.height;
 				sx=e.getX(); sy=e.getY();
@@ -2230,15 +2196,18 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				if(dx<0)dx+=360; if(dx>360)dx-=360;
 				if(dy<0)dy+=360; if(dy>360)dy-=360;
 			}
-			if(isMirror)updateMirror();
-			repaint();
+			if(!isMirror) repaint();
 		}else {
-			if(isMirror)imp.getCanvas().mouseDragged(e);
+			if(isMirror) {
+				imp.getCanvas().mouseDragged(e);
+				((MirrorCanvas)imp.getCanvas()).drawCursorPoint(true);
+			}
 			else {
 				if(JCP.drawCrosshairs) {oicp=new Point(offScreenX(e.getX()),offScreenY(e.getY()));repaint();}
 				super.mouseDragged(e);
 			}
 		}
+		if(isMirror) {updateMirror(); repaint();}		
 	}
 	
 	@Override
@@ -2264,7 +2233,14 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(shouldKeep(e)){
 			if(JCP.drawCrosshairs) {oicp=new Point(offScreenX(e.getX()),offScreenY(e.getY())); repaint();}
 		}else {
-			if(isMirror)imp.getCanvas().mouseMoved(e); else super.mouseMoved(e);
+			if(isMirror) {
+				imp.getCanvas().mouseMoved(e);
+				((MirrorCanvas)imp.getCanvas()).drawCursorPoint(true);
+			}
+			else {
+				if(JCP.drawCrosshairs) {oicp=new Point(offScreenX(e.getX()),offScreenY(e.getY())); repaint();}
+				super.mouseMoved(e);
+			}
 		}
 	}
 	
@@ -2285,7 +2261,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		oicp=null;
 		glw.setPointerVisible(true);
 		if(!shouldKeep(e)){
-			if(isMirror)imp.getCanvas().mouseExited(e); else super.mouseExited(e);
+			if(isMirror) {
+				imp.getCanvas().mouseExited(e);
+				((MirrorCanvas)imp.getCanvas()).drawCursorPoint(false);
+			}else super.mouseExited(e);
 		}
 	}
 	

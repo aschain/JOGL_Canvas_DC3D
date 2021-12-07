@@ -157,7 +157,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	public float depthZ=5f;
 	public float zmax=1f;
 	public GLContext context;
-	private boolean drawMirrorCursor=true;
 	private Point oicp=null;
 	//private Button updateButton;
 	//private long starttime=0;
@@ -944,7 +943,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			glos.stopProgram();
 
 			
-			if(roi!=null || overlay!=null || drawMirrorCursor) { 
+			if(roi!=null || overlay!=null || JCP.drawCrosshairs) { 
 				if(go3d) {
 					scX=(float)imageWidth/srcRect.width;
 					scY=(float)imageHeight/srcRect.height;
@@ -1026,7 +1025,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						}
 					}
 					
-					if(drawMirrorCursor && oicp!=null) {
+					if(JCP.drawCrosshairs && oicp!=null) {
 						Roi line1=new ij.gui.Line(0,oicp.y,imp.getWidth(),oicp.y);
 						Roi line2=new ij.gui.Line(oicp.x,0,oicp.x,getHeight());
 						rgldu.drawRoiGL(drawable, line1, false, anacolor!=null?anacolor:Color.white, go3d);
@@ -1414,7 +1413,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					@Override
 					public void mouseMoved(MouseEvent e) {
 						oicp=offScreen(e.getPoint());
-						jic.repaint();
+						if(JCP.drawCrosshairs)jic.repaint();
 						super.mouseMoved(e);
 					}
 					@Override

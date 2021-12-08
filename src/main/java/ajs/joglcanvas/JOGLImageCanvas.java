@@ -1417,7 +1417,17 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		java.awt.EventQueue.invokeLater(new Runnable() {
 			@Override
 			public void run() {
+				boolean changes=imp.changes;
+				boolean prompt=false;
+				ij.gui.Roi roi=imp.getRoi();
+				if(roi!=null && roi instanceof ij.gui.PointRoi) {
+					prompt=((ij.gui.PointRoi)roi).promptBeforeDeleting();
+					((ij.gui.PointRoi)roi).promptBeforeDeleting(false);
+				}
+				imp.changes=false;
 				new StackWindow(imp,new MirrorCanvas(jic,imp));
+				imp.changes=changes;
+				if(prompt)((ij.gui.PointRoi)roi).promptBeforeDeleting(true);
 				imp.getWindow().addWindowListener(new WindowAdapter() {
 					public void windowClosing(WindowEvent e) {
 						glw.destroy();mirror.dispose();mirror=null;
@@ -1484,11 +1494,21 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	
 	public void revert() {
 		//showUpdateButton(false);
+		boolean changes=imp.changes;
+		boolean prompt=false;
+		ij.gui.Roi roi=imp.getRoi();
+		if(roi!=null && roi instanceof ij.gui.PointRoi) {
+			prompt=((ij.gui.PointRoi)roi).promptBeforeDeleting();
+			((ij.gui.PointRoi)roi).promptBeforeDeleting(false);
+		}
+		final boolean fprompt=prompt;
 		if(isMirror){
+			joglEventAdapter.removeMouseMotionListener(this);
+			joglEventAdapter.removeMouseListener(this);
 			if(imp!=null) {
 				java.awt.EventQueue.invokeLater(new Runnable() {
 					public void run() {
-						new StackWindow(imp,new ImageCanvas(imp));
+						new StackWindow(imp);
 						imp.setProperty("JOGLImageCanvas", null);
 						if(JCP.debug)IJ.log("post new stackwindow, before GLW destroy");
 						glw.destroy();
@@ -1496,6 +1516,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						mirror.dispose();
 						if(JCP.debug)IJ.log("after mirror dispose");
 						mirror=null;
+
+						imp.changes=changes;
+						if(fprompt)((ij.gui.PointRoi)roi).promptBeforeDeleting(true);
 					}
 				});
 			}
@@ -1508,6 +1531,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					imp.getCanvas().setMagnification(magnification);
 					imp.getCanvas().setSourceRect(srcRect);
 					imp.setDisplayMode(mode);
+
+					imp.changes=changes;
+					if(fprompt)((ij.gui.PointRoi)roi).promptBeforeDeleting(true);
 				}
 			});
 		}

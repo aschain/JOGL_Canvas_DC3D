@@ -28,6 +28,7 @@ import ajs.joglcanvas.JCGLObjects.JCProgram;
 import ajs.joglcanvas.JOGLImageCanvas.CutPlanesCube;
 import ij.IJ;
 import ij.ImagePlus;
+import ij.Prefs;
 import ij.gui.Arrow;
 import ij.gui.Line;
 import ij.gui.OvalRoi;
@@ -158,16 +159,19 @@ public class RoiGLDrawUtility {
 				if(pos==0)pos=imp.getCurrentSlice();
 				int[] hpos=imp.convertIndexToPosition(pos);
 				int rc=hpos[0], rz=hpos[1], rf=hpos[2];
-				if(!go3d && (imp.getCurrentSlice()==pos || pos==0))
-					drawPoint(proi, fp.xpoints[i], fp.ypoints[i], 0f,i);
-				if(go3d && rf==imp.getT() && rc==imp.getC()) {
-					CutPlanesCube fc=JCP.getJOGLImageCanvas(imp).getCutPlanesCube();
-					if( !fc.applyToRoi || ( rz>fc.z() && rz<=fc.d() 
-							&& fp.xpoints[i]>fc.x() && fp.xpoints[i]<=fc.w()
-							&& fp.ypoints[i]>fc.y() && fp.ypoints[i]<=fc.h())
-							) {
-						float pz=((float)sls-2f*(float)hpos[1])*zf;
-						drawPoint(proi, fp.xpoints[i], fp.ypoints[i], pz, i);
+				if(!go3d) {
+					if(imp.getCurrentSlice()==pos || pos==0 || Prefs.showAllPoints)
+						drawPoint(proi, fp.xpoints[i], fp.ypoints[i], 0f,i);
+				}else {
+					if(rf==imp.getT() && (rc==imp.getC()||Prefs.showAllPoints)) {
+						CutPlanesCube fc=JCP.getJOGLImageCanvas(imp).getCutPlanesCube();
+						if( !fc.applyToRoi || ( rz>fc.z() && rz<=fc.d() 
+								&& fp.xpoints[i]>fc.x() && fp.xpoints[i]<=fc.w()
+								&& fp.ypoints[i]>fc.y() && fp.ypoints[i]<=fc.h())
+								) {
+							float pz=((float)sls-2f*(float)hpos[1])*zf;
+							drawPoint(proi, fp.xpoints[i], fp.ypoints[i], pz, i);
+						}
 					}
 				}
 			}

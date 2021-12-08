@@ -2101,6 +2101,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					if(w<1)w=1; if(h<1)h=1; if(d<1)d=1;
 					if(w>imp.getWidth())w--; if(h>imp.getHeight())h--; if(d>imp.getNSlices())d--;
 					cutPlanes.updateCube(new int[] {x,y,z,w,h,d});
+					repaint();
 				}
 				return;
 			}
@@ -2226,6 +2227,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}else {
 			if(isMirror) {
 				imp.getCanvas().mouseDragged(e);
+				((MirrorCanvas)imp.getCanvas()).setSourceRect(srcRect);
 				((MirrorCanvas)imp.getCanvas()).drawCursorPoint(true);
 			}
 			else {

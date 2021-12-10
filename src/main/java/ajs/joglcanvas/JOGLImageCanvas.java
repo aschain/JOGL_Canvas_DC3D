@@ -161,6 +161,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	public GLContext context;
 	public Point oicp=null;
 	private Button menuButton;
+	enum ThreeDCursorType{SHORT, LONG, ORIGINAL}
+	private ThreeDCursorType threeDCursorType=ThreeDCursorType.LONG;
 	//private long starttime=0;
 
 	public JOGLImageCanvas(ImagePlus imp, boolean mirror) {
@@ -1036,10 +1038,18 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					}
 					
 					if(JCP.drawCrosshairs && oicp!=null  && (isMirror || go3d)) {
+						int left=0, right=imp.getWidth(), top=imp.getHeight(), bottom=0, front=1, back=sls;
+						//int opx=Math.max(1,(int)(1.0/magnification));
+						if(threeDCursorType==ThreeDCursorType.SHORT) {
+							int fpx=(int)(13.0/magnification), slfpx=(int)((double)fpx/cal.pixelDepth*cal.pixelWidth);
+							left=oicp.x-fpx; right=oicp.x+fpx; top=oicp.y+fpx; bottom=oicp.y-fpx; front=sl+1-slfpx; back=sl+1+slfpx;
+							if(left<0)left=0; if(right>imp.getWidth())right=imp.getWidth(); if(top>imp.getHeight())top=imp.getHeight();
+							if(bottom<0)bottom=0; if(front<1)front=1; if(back>sls)back=sls;
+						}
 						Color c=anacolor!=null?anacolor:Color.white;
-						rgldu.drawGLij(new int[] {0,oicp.y, sl+1, imp.getWidth(),oicp.y,sl+1}, c, GL.GL_LINE_STRIP);
-						rgldu.drawGLij(new int[] {oicp.x,0, sl+1, oicp.x, getHeight(), sl+1}, c, GL.GL_LINE_STRIP);
-						rgldu.drawGLij(new int[] {oicp.x, oicp.y, 1, oicp.x, oicp.y, sls}, c, GL.GL_LINE_STRIP);
+						rgldu.drawGLij(new int[] {left,oicp.y, sl+1, right,oicp.y,sl+1}, c, GL.GL_LINE_STRIP);
+						rgldu.drawGLij(new int[] {oicp.x,bottom, sl+1, oicp.x, top, sl+1}, c, GL.GL_LINE_STRIP);
+						rgldu.drawGLij(new int[] {oicp.x, oicp.y, front, oicp.x, oicp.y, back}, c, GL.GL_LINE_STRIP);
 					}
 					
 					gl.glBindBufferBase(GL_UNIFORM_BUFFER, 1, 0);

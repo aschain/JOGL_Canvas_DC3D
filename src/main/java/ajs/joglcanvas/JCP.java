@@ -175,7 +175,17 @@ public class JCP implements PlugIn {
 				java.awt.EventQueue.invokeLater(new Runnable() {
 				    @Override
 				    public void run() {
+				    	boolean changes=imp.changes;
+						boolean prompt=false;
+						ij.gui.Roi roi=imp.getRoi();
+						if(roi!=null && roi instanceof ij.gui.PointRoi) {
+							prompt=((ij.gui.PointRoi)roi).promptBeforeDeleting();
+							((ij.gui.PointRoi)roi).promptBeforeDeleting(false);
+						}
+						imp.changes=false;
 						new JCStackWindow(imp);
+						imp.changes=changes;
+						if(prompt)((ij.gui.PointRoi)roi).promptBeforeDeleting(true);
 				    }
 				});
 			}

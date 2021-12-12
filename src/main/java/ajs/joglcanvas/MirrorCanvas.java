@@ -29,7 +29,7 @@ public class MirrorCanvas extends ImageCanvas {
 		super.paint(g);
 		if(onScreenMirrorCursor && jic.oicp!=null) {
 			g.setColor(Color.red);
-			g.drawRect(jic.oicp.x-1,jic.oicp.y-1,3,3);
+			g.drawRect(screenX(jic.oicp.x)-1,screenY(jic.oicp.y)-1,3,3);
 		}
 	}
 	@Override

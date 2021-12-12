@@ -144,7 +144,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	protected PixelType pixelType3d=PixelType.BYTE;
 	private static final int COMPS=1;
 	
-	private BIScreenGrabber myscreengrabber=null;
+	private BIScreenGrabber screengrabber=null;
 	private AWTGLReadBufferUtil ss=null;
 	private RoiGLDrawUtility rgldu=null;
 	private boolean scbrAdjusting=false;
@@ -718,17 +718,16 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			//showUpdateButton(false);
 			//if(needImageUpdate) {needImageUpdate=false;}
 		}
+		
 		if(go3d) {
 			for(int i=0;i<chs;i++) {
 				int ccfr=fr*chs+i;
 				glos.loadTexFromPbo("image", ccfr, "image3d", i, sb.bufferWidth, sb.bufferHeight, sls, 0, pixelType3d, COMPS, false, Prefs.interpolateScaledImages);
 			}
-		}
-		
-		if(go3d) {
 			if((supermag+magnification)<=0)supermag=0f-(float)magnification;
 			if((supermag+magnification)>24)supermag=24f-(float)magnification;
 		}
+		
 		float 	trX=-((float)(srcRect.x*2+srcRect.width)/imageWidth-1f),
 				trY=((float)(srcRect.y*2+srcRect.height)/imageHeight-1f),
 				scX=(float)imageWidth/srcRect.width+(go3d?supermag:0f),
@@ -1098,10 +1097,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(imageUpdated) {imageUpdated=false;} //ImageCanvas imageupdated only for single ImagePlus
 		imageState.update();
 		
-		if(myscreengrabber!=null) {
-			if(myscreengrabber.isReadyForUpdate()) {
+		if(screengrabber!=null) {
+			if(screengrabber.isReadyForUpdate()) {
 				BufferedImage bi=grabScreen(drawable);
-				myscreengrabber.screenUpdated(bi);
+				screengrabber.screenUpdated(bi);
 			}
 		}
 		mylock=false;
@@ -1986,7 +1985,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	 * @param sg
 	 */
 	public void setBIScreenGrabber(BIScreenGrabber sg) {
-		myscreengrabber=sg;
+		screengrabber=sg;
 	}
 
 	/*

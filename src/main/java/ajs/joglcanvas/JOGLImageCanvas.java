@@ -137,6 +137,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private StereoType stereoType=StereoType.OFF;
 	private boolean stereoUpdated=true,threeDupdated=true;
 	private int[] stereoFramebuffers=new int[2];
+	private int[] tempFramebuffers=new int[2];
 	private boolean mylock=false;
 
 	enum PixelType{BYTE, SHORT, FLOAT, INT_RGB10A2, INT_RGBA8};
@@ -370,9 +371,18 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				1,	1,	0, 	1,1,0.5f,
 				-1,	1,	0,	0,1,0.5f
 		});
+		byte[] eb=new byte[] {0,1,2,2,3,0};
+		
+		glos.newTexture("temp",2);
+		glos.newBuffer(GL_ARRAY_BUFFER, "temp", avb);
+		glos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "temp", GLBuffers.newDirectByteBuffer(eb));
+		glos.newVao("temp", 3, GL_FLOAT, 3, GL_FLOAT);
+		gl.glGenFramebuffers(1, tempFramebuffers, 0);
+		gl.glGenRenderbuffers(1, tempFramebuffers, 1);
+		
 		glos.newTexture("anaglyph",2);
 		glos.newBuffer(GL_ARRAY_BUFFER, "anaglyph", avb);
-		glos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "anaglyph", GLBuffers.newDirectByteBuffer(new byte[] {0,1,2,2,3,0}));
+		glos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "anaglyph", GLBuffers.newDirectByteBuffer(eb));
 		glos.newVao("anaglyph", 3, GL_FLOAT, 3, GL_FLOAT);
 		gl.glGenFramebuffers(1, stereoFramebuffers, 0);
 		gl.glGenRenderbuffers(1, stereoFramebuffers, 1);
@@ -1372,6 +1382,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		mirror.addWindowListener(new WindowAdapter() {
 			public void windowClosing(WindowEvent e) { revert(); }
 		});
+		//normally the StackWindow is the MouseWheelListener, 
+		//so the mirror frame will need one.
 		joglEventAdapter.addMouseWheelListener(new MouseAdapter() {
 			@Override
 			public void mouseWheelMoved(MouseWheelEvent e) {
@@ -2258,7 +2270,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			//if(JCP.drawCrosshairs) {glw.setPointerVisible(false);}else glw.setPointerVisible(true);
 		}else {
 			if(isMirror) {
-				imp.getCanvas().mouseEntered(e); 
+				//imp.getCanvas().mouseEntered(e); 
 			}else super.mouseEntered(e);
 		}
 	}

@@ -115,7 +115,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	protected boolean myHZI=false;
 
 	private GL2GL3 gl=null;
-	final private FloatBuffer zoomIndVerts=GLBuffers.newDirectFloatBuffer(4*3+4*4);
+	final private FloatBuffer[] zoomIndVerts=new FloatBuffer[] {GLBuffers.newDirectFloatBuffer(4*3+4*4),GLBuffers.newDirectFloatBuffer(4*3+4*4)};
 	private int lim;
 	private int undersample=JCP.undersample;
 	enum StereoType{OFF, CARDBOARD, ANAGLYPH, HSBS, QUADBUFFER};
@@ -745,46 +745,20 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				glos.getUniformBuffer("model").loadMatrix(FloatUtil.multMatrix(scale, translate));//note this modifies scale
 		}
 		
-		//drawing
+		//drawing--------------
+		
+		//inital global gl
 		gl.glDisable(GL_SCISSOR_TEST);
-		//gl.glDrawBuffers(1, new int[] {GL_BACK_LEFT},0);
 		gl.glDrawBuffer(GL_BACK);
 		glos.clearColorDepth();
 		
 		int views=1;
 		if(go3d && stereoType.ordinal()>0)views=2;
 		for(int stereoi=0;stereoi<views;stereoi++) {
-			glos.useProgram("image");
 			if(go3d) {
-				if(stereoType==StereoType.QUADBUFFER) {
-					if(stereoi==0)
-						gl.glDrawBuffer(GL_BACK_LEFT);
-					else
-						gl.glDrawBuffer(GL_BACK_RIGHT);
-					glos.clearColorDepth();
-				}else if(stereoType!=StereoType.OFF) {
-					int width=drawable.getSurfaceWidth(), height=drawable.getSurfaceHeight();
-					gl.glBindFramebuffer(GL_FRAMEBUFFER, stereoFramebuffers[0]);
-					gl.glBindRenderbuffer(GL_RENDERBUFFER, stereoFramebuffers[1]);
-					
-					JCGLObjects.PixelTypeInfo info=new JCGLObjects.PixelTypeInfo(pixelType3d,4);
-					gl.glBindTexture(GL_TEXTURE_3D, glos.getTexture("anaglyph",stereoi));
-					gl.glTexImage3D(GL_TEXTURE_3D, 0, info.glInternalFormat, width, height, 1, 0, GL_RGBA, info.glPixelSize, null);
-					gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-					gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-					gl.glFramebufferTexture3D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_3D, glos.getTexture("anaglyph",stereoi), 0, 0);
-					gl.glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, width, height);
-					gl.glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, stereoFramebuffers[1]);
-					gl.glBindTexture(GL_TEXTURE_3D, 0);
-					
-					gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-					if(gl.glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)IJ.error("not ready");
-				}
-				
-				//Rotate
+				//Set up matricie
 				float dxst=(float)dx;
 				if(stereoi>0 && !JCP.doFrustum) {dxst-=JCP.stereoSep*100; if(dxst<0)dxst+=360f;}
-				
 				rotate=FloatUtil.makeRotationEuler(new float[16], 0, dy*FloatUtil.PI/180f, (float)dxst*FloatUtil.PI/180f, (float)dz*FloatUtil.PI/180f);
 				//IJ.log("\\Update0:X x"+Math.round(100.0*matrix[0])/100.0+" y"+Math.round(100.0*matrix[1])/100.0+" z"+Math.round(100.0*matrix[2])/100.0);
 				//IJ.log("\\Update1:Y x"+Math.round(100.0*matrix[4])/100.0+" y"+Math.round(100.0*matrix[5])/100.0+" z"+Math.round(100.0*matrix[6])/100.0);
@@ -869,20 +843,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					}
 					((Buffer)vertb).limit(lim*4);
 				}
-				ltr=new boolean[] {left,top,reverse};
-				
-				//Blend
-				gl.glEnable(GL_BLEND);
-				if(renderFunction.equals("MAX")) {
-					gl.glBlendEquation(GL_MAX);
-					gl.glBlendFunc(GL_SRC_COLOR, GL_DST_COLOR);
-				}else if(renderFunction.equals("ALPHA")) {
-					gl.glBlendEquation(GL_FUNC_ADD);
-					gl.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-				}
-			}else {
-				gl.glDisable(GL_BLEND);
-				lim=24;
+				ltr=new boolean[] {left,top,reverse};	
 			}
 			
 			//setluts
@@ -930,24 +891,64 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			}
 			((Buffer)lutMatrixPointer).rewind();
 			
+			//GL drawbuffers
+			glos.useProgram("image");
+			if(go3d) {
+				if(stereoType==StereoType.QUADBUFFER) {
+					if(stereoi==0)
+						gl.glDrawBuffer(GL_BACK_LEFT);
+					else
+						gl.glDrawBuffer(GL_BACK_RIGHT);
+					glos.clearColorDepth();
+				}else if(stereoType!=StereoType.OFF) {
+					int width=drawable.getSurfaceWidth(), height=drawable.getSurfaceHeight();
+					gl.glBindFramebuffer(GL_FRAMEBUFFER, stereoFramebuffers[0]);
+					gl.glBindRenderbuffer(GL_RENDERBUFFER, stereoFramebuffers[1]);
+					
+					JCGLObjects.PixelTypeInfo info=new JCGLObjects.PixelTypeInfo(pixelType3d,4);
+					gl.glBindTexture(GL_TEXTURE_3D, glos.getTexture("anaglyph",stereoi));
+					gl.glTexImage3D(GL_TEXTURE_3D, 0, info.glInternalFormat, width, height, 1, 0, GL_RGBA, info.glPixelSize, null);
+					gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+					gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+					gl.glFramebufferTexture3D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_3D, glos.getTexture("anaglyph",stereoi), 0, 0);
+					gl.glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, width, height);
+					gl.glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, stereoFramebuffers[1]);
+					gl.glBindTexture(GL_TEXTURE_3D, 0);
+					
+					gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+					if(gl.glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)IJ.error("not ready");
+				}
+				//Blend
+				gl.glEnable(GL_BLEND);
+				if(renderFunction.equals("MAX")) {
+					gl.glBlendEquation(GL_MAX);
+					gl.glBlendFunc(GL_SRC_COLOR, GL_DST_COLOR);
+				}else if(renderFunction.equals("ALPHA")) {
+					gl.glBlendEquation(GL_FUNC_ADD);
+					gl.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+				}
+			}else {
+				gl.glDisable(GL_BLEND);
+				lim=24;
+			}
 			//Projection matrix binding
-			if(go3d && JCP.doFrustum){
-				String bname="stereo-frustum";
+			//drawing the 3d volume or 2d image
+			String bname="global";
+			if(JCP.doFrustum && go3d) {
+				bname="stereo-frustum";
 				if(stereoType.ordinal()>0) {
 					if(stereoi==0)bname="stereo-left-frustum";
 					else bname="stereo-right-frustum";
 				}
-				glos.bindUniformBuffer(bname, 1);
-			}else {
-				glos.bindUniformBuffer("global", 1);
 			}
-			
+			glos.bindUniformBuffer(bname, 1);
 			glos.bindUniformBuffer("model", 2);
 			glos.bindUniformBuffer("lut", 3);
-			if(go3d)
+			if(go3d) {
 				glos.drawTexVao("image3d",GL_UNSIGNED_SHORT, lim/4, chs);
-			else
+			}else {
 				glos.drawTexVao("image2d",GL_UNSIGNED_BYTE, lim/4, chs);
+			}
 			glos.unBindBuffer(GL_UNIFORM_BUFFER, 1);
 			glos.unBindBuffer(GL_UNIFORM_BUFFER, 2);
 			glos.unBindBuffer(GL_UNIFORM_BUFFER, 3);
@@ -974,36 +975,16 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				gl.glBlendEquation(GL_FUNC_ADD);
 				gl.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 				if(!JCP.openglroi) {
-					if(doRoi) {
+					if(doRoi || doOv!=null) {
 						glos.useProgram("roi");
-						if(go3d && JCP.doFrustum){
-							String bname="stereo-frustum";
-							if(stereoType.ordinal()>0) {
-								if(stereoi==0)bname="stereo-left-frustum";
-								else bname="stereo-right-frustum";
-							}
-							glos.bindUniformBuffer(bname, 1);
-						}else {
-							glos.bindUniformBuffer("global", 1);
-						}
-						drawGraphics(gl, z, "roiGraphic", 0, (go3d?"modelr":"idm"));
-						glos.stopProgram();
-					}
-					if(doOv!=null) {
-						glos.useProgram("roi");
-						if(go3d && JCP.doFrustum){
-							String bname="stereo-frustum";
-							if(stereoType.ordinal()>0) {
-								if(stereoi==0)bname="stereo-left-frustum";
-								else bname="stereo-right-frustum";
-							}
-							glos.bindUniformBuffer(bname, 1);
-						}else {
-							glos.bindUniformBuffer("global", 1);
-						}
-						for(int osl=0;osl<sls;osl++) {
-							if(doOv[osl] && (!cutPlanes.applyToRoi || (osl>=cutPlanes.z() && osl<cutPlanes.d())) ) {
-								drawGraphics(gl, ((float)sls-2f*(float)osl)*zf, "overlay", osl, (go3d?"modelr":"idm"));
+						glos.bindUniformBuffer(bname, 1);
+						if(doRoi)
+							drawGraphics(gl, z, "roiGraphic", 0, (go3d?"modelr":"idm"));
+						if(doOv!=null) {
+							for(int osl=0;osl<sls;osl++) {
+								if(doOv[osl] && (!cutPlanes.applyToRoi || (osl>=cutPlanes.z() && osl<cutPlanes.d())) ) {
+									drawGraphics(gl, ((float)sls-2f*(float)osl)*zf, "overlay", osl, (go3d?"modelr":"idm"));
+								}
 							}
 						}
 						glos.stopProgram();
@@ -1017,16 +998,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					gl.glDisable(GL_BLEND);
 					if(rgldu==null) rgldu=new RoiGLDrawUtility(imp, drawable);
 					if(glos.glver==2)rgldu.startDrawing();
-					if(go3d && JCP.doFrustum){
-						String bname="stereo-frustum";
-						if(stereoType.ordinal()>0) {
-							if(stereoi==0)bname="stereo-left-frustum";
-							else bname="stereo-right-frustum";
-						}
-						glos.bindUniformBuffer(bname, 1);
-					}else {
-						glos.bindUniformBuffer("global", 1);
-					}
+					glos.bindUniformBuffer(bname, 1);
 					glos.bindUniformBuffer(go3d?"modelr":"idm", 2);
 					if(roi!=null)
 						rgldu.drawRoiGL(drawable, roi, true, anacolor, go3d);
@@ -1577,36 +1549,34 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		float y2 = (float)(h1*((double)srcRect.y/imageHeight));
 		float w=(float)(srcRect.width*magnification);
 		float h=(float)(srcRect.height*magnification);
-		float yrat=1;//(float)srcRect.height/srcRect.width;
-		x1=x1/w*2f-1f; y1=((h-y1)/h*2f-1f)*yrat;
-		w1=w1/w*2f; h1=h1/h*2f*yrat;
-		x2=x2/w*2f; y2=y2/h*2f*yrat;
-		w2=w2/w*2f; h2=h2/h*2f*yrat;
+		x1=x1/w*2f-1f; y1=((h-y1)/h*2f-1f);
+		w1=w1/w*2f; h1=h1/h*2f;
+		x2=x2/w*2f; y2=y2/h*2f;
+		w2=w2/w*2f; h2=h2/h*2f;
 		
+		((Buffer)zoomIndVerts[0]).rewind();
+		float[] color=new float[] {(float)128/255, (float)128/255, 1f, 1f};
+		zoomIndVerts[0].put(x1).put(y1).put(0f).put(color);
+		zoomIndVerts[0].put(x1+w1).put(y1).put(0f).put(color);
+		zoomIndVerts[0].put(x1+w1).put(y1-h1).put(0f).put(color);
+		zoomIndVerts[0].put(x1).put(y1-h1).put(0f).put(color);
+		((Buffer)zoomIndVerts[0]).rewind();
+		
+		((Buffer)zoomIndVerts[1]).rewind();
+		zoomIndVerts[1].put(x1+x2).put(y1-y2).put(0f).put(color);
+		zoomIndVerts[1].put(x1+x2+w2).put(y1-y2).put(0f).put(color);
+		zoomIndVerts[1].put(x1+x2+w2).put(y1-y2-h2).put(0f).put(color);
+		zoomIndVerts[1].put(x1+x2).put(y1-y2-h2).put(0f).put(color);
+		((Buffer)zoomIndVerts[1]).rewind();
+
 		gl.glDisable(GL_BLEND);
 		gl.glLineWidth((float)dpimag);
-		((Buffer)zoomIndVerts).rewind();
-		float[] color=new float[] {(float)128/255, (float)128/255, 1f, 1f};
-		zoomIndVerts.put(x1).put(y1).put(0f).put(color);
-		zoomIndVerts.put(x1+w1).put(y1).put(0f).put(color);
-		zoomIndVerts.put(x1+w1).put(y1-h1).put(0f).put(color);
-		zoomIndVerts.put(x1).put(y1-h1).put(0f).put(color);
-		((Buffer)zoomIndVerts).rewind();
-		
 		if(rgldu==null) rgldu=new RoiGLDrawUtility(imp, drawable);
 		if(glos.glver==2)rgldu.startDrawing();
 		glos.bindUniformBuffer("global", 1);
 		glos.bindUniformBuffer("idm", 2);
-		rgldu.drawGLfb(drawable, zoomIndVerts, GL_LINE_LOOP);
-		//zoomIndVerts.rewind();
-		zoomIndVerts.put(x1+x2).put(y1-y2).put(0f).put(color);
-		zoomIndVerts.put(x1+x2+w2).put(y1-y2).put(0f).put(color);
-		zoomIndVerts.put(x1+x2+w2).put(y1-y2-h2).put(0f).put(color);
-		zoomIndVerts.put(x1+x2).put(y1-y2-h2).put(0f).put(color);
-		((Buffer)zoomIndVerts).rewind();
-		
-		rgldu.drawGLfb(drawable, zoomIndVerts, GL_LINE_LOOP);
-
+		rgldu.drawGLfb(drawable, zoomIndVerts[0], GL_LINE_LOOP);
+		rgldu.drawGLfb(drawable, zoomIndVerts[1], GL_LINE_LOOP);
 		glos.unBindBuffer(GL_UNIFORM_BUFFER, 1);
 		glos.unBindBuffer(GL_UNIFORM_BUFFER, 2);
 		gl.glLineWidth(1f);

@@ -588,7 +588,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			threeDupdated=false;
 		}
 		
-		//Roi and Overlay
+		//Roi and Overlay if not drawn with gl (create roi textures from imageplus)
 		Roi roi=imp.getRoi();
 		ij.gui.Overlay overlay=imp.getCanvas().getOverlay();
 		boolean doRoi=false;
@@ -666,16 +666,15 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			}
 		}
 		
+		//make sure image PBO is set up
 		if(glos.getPboLength("image")!=(chs*frms) || deletePBOs) {
 			glos.newPbo("image", chs*(sb.isFrameStack?1:frms));
 			sb.resetSlices();
 			deletePBOs=false;
 		}
 		
-		//if(needImageUpdate) {
-		//	if(imageState.isChanged.slice || imageState.isChanged.minmax)needImageUpdate=false;
-		//	else showUpdateButton(true);
-		//}
+		
+		//Update Image PBO and texture if init or image changed----
 		
 		//IJ.log("miu:"+myImageUpdated+" sb.r:"+(myImageUpdated&& !imageState.isChanged.czt && !imageState.isChanged.minmax && !scbrAdjusting)+" "+imageState);
 		if(myImageUpdated) {
@@ -726,20 +725,21 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					}
 				}
 			}
-			myImageUpdated=false;
-			//showUpdateButton(false);
-			//if(needImageUpdate) {needImageUpdate=false;}
 		}
 		
 		if(go3d) {
-			for(int i=0;i<chs;i++) {
-				int ccfr=fr*chs+i;
-				glos.loadTexFromPbo("image", ccfr, "image3d", i, sb.bufferWidth, sb.bufferHeight, sls, 0, pixelType3d, COMPS, false, Prefs.interpolateScaledImages);
+			if(imageState.isChanged.t || myImageUpdated) {
+				for(int i=0;i<chs;i++) {
+					int ccfr=fr*chs+i;
+					glos.loadTexFromPbo("image", ccfr, "image3d", i, sb.bufferWidth, sb.bufferHeight, sls, 0, pixelType3d, COMPS, false, Prefs.interpolateScaledImages);
+				}
 			}
 			if((supermag+magnification)<=0)supermag=0f-(float)magnification;
 			if((supermag+magnification)>24)supermag=24f-(float)magnification;
 		}
+		myImageUpdated=false;
 		
+		//Set up model matrix
 		float 	trX=-((float)(srcRect.x*2+srcRect.width)/imageWidth-1f),
 				trY=((float)(srcRect.y*2+srcRect.height)/imageHeight-1f),
 				scX=(float)imageWidth/srcRect.width+(go3d?supermag:0f),
@@ -755,18 +755,58 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				glos.getUniformBuffer("model").loadMatrix(FloatUtil.multMatrix(scale, translate));//note this modifies scale
 		}
 		
-		//drawing--------------
+
+		//setluts
+		ByteBuffer lutMatrixPointer=glos.getDirectBuffer(GL_UNIFORM_BUFFER, "lut");
+		((Buffer)lutMatrixPointer).rewind();
+		LUT[] luts=imp.getLuts();
+		boolean[] active=new boolean[chs];
+		for(int i=0;i<chs;i++)active[i]=true;
+		if(imp.isComposite())active=((CompositeImage)imp).getActiveChannels();
+		int cmode=imp.getCompositeMode();
+		int bitd=imp.getBitDepth();
+		double topmax=Math.pow(2, bitd==24?8:bitd)-1.0;
+		for(int i=0;i<6;i++) {
+			float min=0,max=0,color=0;
+			if(luts==null || luts.length==0 ||bitd==24) {
+				max=1f;
+				color=i==0?8:0;//(i==0?1:i==1?2:i==2?4:0);
+			}else {
+				if(i<luts.length) {
+					int rgb=luts[i].getRGB(255);
+					if(active[i] && !(cmode!=IJ.COMPOSITE && imp.getC()!=(i+1))) {
+						if(cmode==IJ.GRAYSCALE)color=7;
+						else color=(((rgb & 0x00ff0000)==0x00ff0000)?1:0) + (((rgb & 0x0000ff00)==0x0000ff00)?2:0) + (((rgb & 0x000000ff)==0x000000ff)?4:0);
+					}
+					if(bitd<32) {
+						min=(float)(Math.round(luts[i].min)/topmax);
+						max=(float)(Math.round(luts[i].max)/topmax);
+					}else {
+						if(sb.minmaxs==null) { 
+							min=(float)luts[i].min;
+							max=(float)luts[i].max;
+						}else{
+							double or=sb.minmaxs[i].max-sb.minmaxs[i].min;
+							max=(float)((luts[i].max-sb.minmaxs[i].min)/or);
+							min=(float)((luts[i].min-sb.minmaxs[i].min)/or);
+						}
+					}
+					if(min==max) {if(min==0){max+=(1/topmax);}else{min-=(1/topmax);}}
+				}
+			}
+			lutMatrixPointer.putFloat(min);
+			lutMatrixPointer.putFloat(max);
+			lutMatrixPointer.putFloat(color);
+			lutMatrixPointer.putFloat((gamma==null || gamma.length<=i)?0f:gamma[i]); //padding for vec3 std140
+		}
+		((Buffer)lutMatrixPointer).rewind();
 		
-		//inital global gl
-		gl.glDisable(GL_SCISSOR_TEST);
-		gl.glDrawBuffer(GL_BACK);
-		glos.clearColorDepth();
-		
+		//Potential stereo diffs
 		int views=1;
 		if(go3d && stereoType.ordinal()>0)views=2;
 		for(int stereoi=0;stereoi<views;stereoi++) {
 			if(go3d) {
-				//Set up matricie
+				//Set up matricies
 				float dxst=(float)dx;
 				if(stereoi>0 && !JCP.doFrustum) {dxst-=JCP.stereoSep*100; if(dxst<0)dxst+=360f;}
 				rotate=FloatUtil.makeRotationEuler(new float[16], 0, dy*FloatUtil.PI/180f, (float)dxst*FloatUtil.PI/180f, (float)dz*FloatUtil.PI/180f);
@@ -856,53 +896,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				ltr=new boolean[] {left,top,reverse};	
 			}
 			
-			//setluts
-			ByteBuffer lutMatrixPointer=glos.getDirectBuffer(GL_UNIFORM_BUFFER, "lut");
-			((Buffer)lutMatrixPointer).rewind();
-			LUT[] luts=imp.getLuts();
-			boolean[] active=new boolean[chs];
-			for(int i=0;i<chs;i++)active[i]=true;
-			if(imp.isComposite())active=((CompositeImage)imp).getActiveChannels();
-			int cmode=imp.getCompositeMode();
-			int bitd=imp.getBitDepth();
-			double topmax=Math.pow(2, bitd==24?8:bitd)-1.0;
-			for(int i=0;i<6;i++) {
-				float min=0,max=0,color=0;
-				if(luts==null || luts.length==0 ||bitd==24) {
-					max=1f;
-					color=i==0?8:0;//(i==0?1:i==1?2:i==2?4:0);
-				}else {
-					if(i<luts.length) {
-						int rgb=luts[i].getRGB(255);
-						if(active[i] && !(cmode!=IJ.COMPOSITE && imp.getC()!=(i+1))) {
-							if(cmode==IJ.GRAYSCALE)color=7;
-							else color=(((rgb & 0x00ff0000)==0x00ff0000)?1:0) + (((rgb & 0x0000ff00)==0x0000ff00)?2:0) + (((rgb & 0x000000ff)==0x000000ff)?4:0);
-						}
-						if(bitd<32) {
-							min=(float)(Math.round(luts[i].min)/topmax);
-							max=(float)(Math.round(luts[i].max)/topmax);
-						}else {
-							if(sb.minmaxs==null) { 
-								min=(float)luts[i].min;
-								max=(float)luts[i].max;
-							}else{
-								double or=sb.minmaxs[i].max-sb.minmaxs[i].min;
-								max=(float)((luts[i].max-sb.minmaxs[i].min)/or);
-								min=(float)((luts[i].min-sb.minmaxs[i].min)/or);
-							}
-						}
-						if(min==max) {if(min==0){max+=(1/topmax);}else{min-=(1/topmax);}}
-					}
-				}
-				lutMatrixPointer.putFloat(min);
-				lutMatrixPointer.putFloat(max);
-				lutMatrixPointer.putFloat(color);
-				lutMatrixPointer.putFloat((gamma==null || gamma.length<=i)?0f:gamma[i]); //padding for vec3 std140
-			}
-			((Buffer)lutMatrixPointer).rewind();
 			
-			//GL drawbuffers
+			//GL draw----
 			glos.useProgram("image");
+			gl.glDrawBuffer(GL_BACK);
+			glos.clearColorDepth();
 			if(go3d) {
 				if(stereoType==StereoType.QUADBUFFER) {
 					if(stereoi==0)

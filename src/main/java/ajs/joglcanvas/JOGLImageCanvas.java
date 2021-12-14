@@ -175,7 +175,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		imageState.prevSrcRect=new Rectangle(0,0,0,0);
 		Calibration cal=imp.getCalibration();
 		zmax=(float)(cal.pixelDepth/cal.pixelWidth*(double)imp.getNSlices()/(double)imp.getWidth());
-		frustumZshift=-1.35f*(zmax+1f);//-1f-(3.33f*zmax);
 		cutPlanes=new CutPlanesCube(0,0,0,imp.getWidth(), imp.getHeight(), imp.getNSlices(), true);
 		kps=new Keypresses();
 		GraphicsConfiguration gc=imp.getWindow().getGraphicsConfiguration();
@@ -391,13 +390,13 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		glos.addLocation("anaglyph", "ana");
 		glos.addLocation("anaglyph", "dubois");
 
-		glos.newBuffer(GL_UNIFORM_BUFFER, "stereo-frustum", 16*2 * Buffers.SIZEOF_FLOAT, null);
-		glos.newBuffer(GL_UNIFORM_BUFFER, "stereo-left-frustum", 16*2 * Buffers.SIZEOF_FLOAT, null);
-		glos.newBuffer(GL_UNIFORM_BUFFER, "stereo-right-frustum", 16*2 * Buffers.SIZEOF_FLOAT, null);
+		glos.newBuffer(GL_UNIFORM_BUFFER, "3d-view", 16*2 * Buffers.SIZEOF_FLOAT, null);
+		glos.newBuffer(GL_UNIFORM_BUFFER, "stereo-left-view", 16*2 * Buffers.SIZEOF_FLOAT, null);
+		glos.newBuffer(GL_UNIFORM_BUFFER, "stereo-right-view", 16*2 * Buffers.SIZEOF_FLOAT, null);
 
-		glos.getUniformBuffer("stereo-frustum").setBindName("global");
-		glos.getUniformBuffer("stereo-left-frustum").setBindName("global");
-		glos.getUniformBuffer("stereo-right-frustum").setBindName("global");
+		glos.getUniformBuffer("3d-view").setBindName("global");
+		glos.getUniformBuffer("stereo-left-view").setBindName("global");
+		glos.getUniformBuffer("stereo-right-view").setBindName("global");
 		
 		glos.newBuffer(GL_UNIFORM_BUFFER, "CB-left", 16*2 * Buffers.SIZEOF_FLOAT, null);
 		glos.newBuffer(GL_UNIFORM_BUFFER, "CB-right", 16*2 * Buffers.SIZEOF_FLOAT, null);
@@ -490,7 +489,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				0, 0, -sx, 0,
 				0, 0, 0, 1f
 			}, 16*Buffers.SIZEOF_FLOAT);
-		if(JCP.doFrustum && go3d) {
+		if(go3d) {
 			float nearZ = 1f, IOD=JCP.stereoSep, g_initial_fov=(float)Math.toRadians(fov);
 			//up vector
 			// , depthZ=5f
@@ -498,19 +497,26 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			float ftop = (float)Math.tan(g_initial_fov/2)*nearZ;
 			float fbottom = -ftop;
 			for(int i=0;i<3;i++) {
-				String bname="stereo-left-frustum";
+				String bname="stereo-left-view";
 				float left_right_direction = -1.0f;
 				if(i==1) {
-					bname="stereo-right-frustum";
+					bname="stereo-right-view";
 					left_right_direction = 1.0f;
 				}else if(i==2){
 					IOD=0;
-					bname="stereo-frustum";
+					bname="3d-view";
 				}
 				double frustumshift = (IOD/2)*nearZ/depthZ;
 				float fright =(float)(rat*ftop+frustumshift*left_right_direction);
 				float fleft =-fright;
-				float[] g_projection_matrix = FloatUtil.makeFrustum(new float[16], 0, false, fleft, fright, fbottom, ftop, nearZ, depthZ);
+				float[] g_projection_matrix=null;
+				if(JCP.doFrustum) {
+					g_projection_matrix = FloatUtil.makeFrustum(new float[16], 0, false, fleft, fright, fbottom, ftop, nearZ, depthZ);
+					frustumZshift=-1.35f*(zmax+1f);//-1f-(3.33f*zmax);
+				} else {
+					g_projection_matrix=FloatUtil.makeIdentity(new float[16]);
+					frustumZshift=1f+zmax;
+				}
 			  // update the view matrix
 				float[] eye=new float[] {left_right_direction*IOD/2, 0, 1};
 				float[] center=new float[] {0, 0, -1f};
@@ -801,106 +807,117 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}
 		((Buffer)lutMatrixPointer).rewind();
 		
+		//Rotation-Translation-Scale Model Matrix
+		//and order of drawing slices depending on rotation
+		if(go3d) {
+			//Set up matricies
+			rotate=FloatUtil.makeRotationEuler(new float[16], 0, dy*FloatUtil.PI/180f, (float)dx*FloatUtil.PI/180f, (float)dz*FloatUtil.PI/180f);
+			//IJ.log("\\Update0:X x"+Math.round(100.0*matrix[0])/100.0+" y"+Math.round(100.0*matrix[1])/100.0+" z"+Math.round(100.0*matrix[2])/100.0);
+			//IJ.log("\\Update1:Y x"+Math.round(100.0*matrix[4])/100.0+" y"+Math.round(100.0*matrix[5])/100.0+" z"+Math.round(100.0*matrix[6])/100.0);
+			//IJ.log("\\Update2:Z x"+Math.round(100.0*matrix[8])/100.0+" y"+Math.round(100.0*matrix[9])/100.0+" z"+Math.round(100.0*matrix[10])/100.0);
+			//IJ.log(FloatUtil.matrixToString(null, "rot: ", "%10.4f", rotate, 0, 4, 4, false).toString());
+			
+			boolean left,top,reverse;
+			float Xza=Math.abs(rotate[2]), Yza=Math.abs(rotate[6]), Zza=Math.abs(rotate[10]);
+			float maxZvec=Math.max(Xza, Math.max(Yza, Zza));
+			left=(maxZvec==Xza);
+			top=(maxZvec==Yza);
+			reverse=(Zza==rotate[10]);
+			if(left)reverse=Xza==rotate[2];
+			if(top)reverse=Yza==rotate[6];
+			float[] modelTransform=new float[16];
+			if(imageWidth!=imageHeight) {
+				float ratio=(float)imageWidth/(float)imageHeight;
+				modelTransform=FloatUtil.makeScale(modelTransform, false, ((imageWidth>imageHeight)?1.0f:ratio), ((imageWidth>imageHeight)?1.0f/ratio:1.0f), 1.0f); //scale aspect ratio
+				float[] temptrans=FloatUtil.multMatrix(modelTransform, translate, new float[16]);
+				float[] temprot=FloatUtil.multMatrix(rotate, temptrans, new float[16]);
+				modelTransform=FloatUtil.multMatrix(FloatUtil.makeScale(new float[16], false, ((imageWidth>imageHeight)?1.0f:1.f/ratio), ((imageWidth>imageHeight)?ratio:1.0f), 1.0f), temprot, new float[16]);
+				modelTransform=FloatUtil.multMatrix(scale, modelTransform, new float[16]);
+			}else
+				FloatUtil.multMatrix(scale, FloatUtil.multMatrix(rotate, translate, new float[16]), modelTransform);
+			modelTransform=FloatUtil.multMatrix(FloatUtil.makeTranslation(new float[16], false, 0, 0, frustumZshift), modelTransform);
+			glos.getUniformBuffer("model").loadMatrix(modelTransform);
+			
+			//roi model matrix
+			scX=(float)imageWidth/srcRect.width;
+			scY=(float)imageHeight/srcRect.height;
+			FloatUtil.multMatrix(rotate,FloatUtil.makeTranslation(new float[16], false, tx*scX, ty*scY, tz*scX));
+			if(supermag!=0f) {
+				float tsm=(scX+supermag)/scX;
+				rotate=FloatUtil.multMatrix(FloatUtil.makeScale(new float[16], false, tsm, tsm, tsm), rotate);
+			}
+			rotate=FloatUtil.multMatrix(FloatUtil.makeTranslation(new float[16], false, 0, 0, frustumZshift), rotate);
+			glos.getUniformBuffer("modelr").loadMatrix(rotate);
+			
+			if(ltr==null || !(ltr[0]==left && ltr[1]==top && ltr[2]==reverse) || cutPlanes.changed /*|| imageState.isChanged.srcRect*/) {
+				cutPlanes.changed=false;
+				double zrat=cal.pixelDepth/cal.pixelWidth;
+				int zmaxsls=(int)(zrat*(double)sls);
+				zmax=(float)(zmaxsls)/(float)imageWidth;
+				final float[] initVerts=cutPlanes.getInitCoords();
+				//For display of the square, there are 3 space verts and 3 texture verts
+				//for each of the 4 points of the square.
+				ByteBuffer vertb=glos.getDirectBuffer(GL_ARRAY_BUFFER, "image3d");
+				((Buffer)vertb).clear();
+				lim=0;
+				if(left) { //left or right
+					for(float p=cutPlanes.x();p<cutPlanes.w();p+=1.0f) {
+						float xt,xv, pn;
+						if(reverse) pn=p;
+						else pn=cutPlanes.w()-(p-cutPlanes.x()+1.0f);
+						xt=(pn+0.5f)/imageWidth*cutPlanes.twm;
+						xv=xt*2f-1f;
+						for(int i=0;i<4;i++) {
+							vertb.putFloat(xv); vertb.putFloat(initVerts[i*6+1]); vertb.putFloat(initVerts[i*6+2]);
+							vertb.putFloat(xt); vertb.putFloat(initVerts[i*6+4]); vertb.putFloat(initVerts[i*6+5]);
+						}
+						lim++;
+					}
+					lim*=24;
+				} else if(top) { //top or bottom
+					for(float p=cutPlanes.y();p<cutPlanes.h();p+=1.0f) {
+						float yt,yv,pn;
+						if(!reverse) pn=p;
+						else pn=cutPlanes.h()-(p-cutPlanes.y()+1.0f);
+						yt=(pn+0.5f)/imageHeight*cutPlanes.thm;
+						yv=1f-yt*2f;
+						for(int i=0;i<4;i++) {
+							float zv=initVerts[i*6+2];
+							float zt=initVerts[i*6+5];
+							if(i==1) {zv=initVerts[2]; zt=initVerts[5];}
+							else if(i==3) {zv=initVerts[8]; zt=initVerts[11];}
+							vertb.putFloat(initVerts[i*6]); vertb.putFloat(yv); vertb.putFloat(zv);
+							vertb.putFloat(initVerts[i*6+3]); vertb.putFloat(yt); vertb.putFloat(zt);
+						}
+						lim++;
+					}
+					lim*=24;
+				}else { //front or back
+					for(float csl=(int)(cutPlanes.z()*zrat);csl<(int)(cutPlanes.d()*zrat);csl+=1.0f) {
+						float z=csl;
+						if(reverse) z=(cutPlanes.d()*(float)zrat)-(csl-(int)(cutPlanes.z()*(float)zrat));//z=((float)zmaxsls-csl-1f);
+						for(int i=0;i<4;i++) {
+							vertb.putFloat(initVerts[i*6]); vertb.putFloat(initVerts[i*6+1]); vertb.putFloat(((float)zmaxsls-2f*z)/imageWidth); 
+							vertb.putFloat(initVerts[i*6+3]); vertb.putFloat(initVerts[i*6+4]); vertb.putFloat((z+0.5f)/zmaxsls); 
+						}
+						lim++;
+					}
+					lim*=24;
+				}
+				((Buffer)vertb).limit(lim*4);
+			}
+			ltr=new boolean[] {left,top,reverse};	
+		}else 
+			lim=24;
+
+		// GL draw init----
+		gl.glDrawBuffer(GL_BACK);
+		glos.clearColorDepth();
 		//Potential stereo diffs
 		int views=1;
 		if(go3d && stereoType.ordinal()>0)views=2;
 		for(int stereoi=0;stereoi<views;stereoi++) {
-			if(go3d) {
-				//Set up matricies
-				float dxst=(float)dx;
-				if(stereoi>0 && !JCP.doFrustum) {dxst-=JCP.stereoSep*100; if(dxst<0)dxst+=360f;}
-				rotate=FloatUtil.makeRotationEuler(new float[16], 0, dy*FloatUtil.PI/180f, (float)dxst*FloatUtil.PI/180f, (float)dz*FloatUtil.PI/180f);
-				//IJ.log("\\Update0:X x"+Math.round(100.0*matrix[0])/100.0+" y"+Math.round(100.0*matrix[1])/100.0+" z"+Math.round(100.0*matrix[2])/100.0);
-				//IJ.log("\\Update1:Y x"+Math.round(100.0*matrix[4])/100.0+" y"+Math.round(100.0*matrix[5])/100.0+" z"+Math.round(100.0*matrix[6])/100.0);
-				//IJ.log("\\Update2:Z x"+Math.round(100.0*matrix[8])/100.0+" y"+Math.round(100.0*matrix[9])/100.0+" z"+Math.round(100.0*matrix[10])/100.0);
-				//IJ.log(FloatUtil.matrixToString(null, "rot: ", "%10.4f", rotate, 0, 4, 4, false).toString());
-				
-				boolean left,top,reverse;
-				float Xza=Math.abs(rotate[2]), Yza=Math.abs(rotate[6]), Zza=Math.abs(rotate[10]);
-				float maxZvec=Math.max(Xza, Math.max(Yza, Zza));
-				left=(maxZvec==Xza);
-				top=(maxZvec==Yza);
-				reverse=(Zza==rotate[10]);
-				if(left)reverse=Xza==rotate[2];
-				if(top)reverse=Yza==rotate[6];
-				float[] modelTransform=new float[16];
-				if(imageWidth!=imageHeight) {
-					float ratio=(float)imageWidth/(float)imageHeight;
-					modelTransform=FloatUtil.makeScale(modelTransform, false, ((imageWidth>imageHeight)?1.0f:ratio), ((imageWidth>imageHeight)?1.0f/ratio:1.0f), 1.0f); //scale aspect ratio
-					float[] temptrans=FloatUtil.multMatrix(modelTransform, translate, new float[16]);
-					float[] temprot=FloatUtil.multMatrix(rotate, temptrans, new float[16]);
-					modelTransform=FloatUtil.multMatrix(FloatUtil.makeScale(new float[16], false, ((imageWidth>imageHeight)?1.0f:1.f/ratio), ((imageWidth>imageHeight)?ratio:1.0f), 1.0f), temprot, new float[16]);
-					modelTransform=FloatUtil.multMatrix(scale, modelTransform, new float[16]);
-				}else
-					FloatUtil.multMatrix(scale, FloatUtil.multMatrix(rotate, translate, new float[16]), modelTransform);
-				if(JCP.doFrustum)modelTransform=FloatUtil.multMatrix(FloatUtil.makeTranslation(new float[16], false, 0, 0, frustumZshift), modelTransform);
-				glos.getUniformBuffer("model").loadMatrix(modelTransform);
-				
-				if(ltr==null || !(ltr[0]==left && ltr[1]==top && ltr[2]==reverse) || cutPlanes.changed /*|| imageState.isChanged.srcRect*/) {
-					cutPlanes.changed=false;
-					double zrat=cal.pixelDepth/cal.pixelWidth;
-					int zmaxsls=(int)(zrat*(double)sls);
-					zmax=(float)(zmaxsls)/(float)imageWidth;
-					final float[] initVerts=cutPlanes.getInitCoords();
-					//For display of the square, there are 3 space verts and 3 texture verts
-					//for each of the 4 points of the square.
-					ByteBuffer vertb=glos.getDirectBuffer(GL_ARRAY_BUFFER, "image3d");
-					((Buffer)vertb).clear();
-					lim=0;
-					if(left) { //left or right
-						for(float p=cutPlanes.x();p<cutPlanes.w();p+=1.0f) {
-							float xt,xv, pn;
-							if(reverse) pn=p;
-							else pn=cutPlanes.w()-(p-cutPlanes.x()+1.0f);
-							xt=(pn+0.5f)/imageWidth*cutPlanes.twm;
-							xv=xt*2f-1f;
-							for(int i=0;i<4;i++) {
-								vertb.putFloat(xv); vertb.putFloat(initVerts[i*6+1]); vertb.putFloat(initVerts[i*6+2]);
-								vertb.putFloat(xt); vertb.putFloat(initVerts[i*6+4]); vertb.putFloat(initVerts[i*6+5]);
-							}
-							lim++;
-						}
-						lim*=24;
-					} else if(top) { //top or bottom
-						for(float p=cutPlanes.y();p<cutPlanes.h();p+=1.0f) {
-							float yt,yv,pn;
-							if(!reverse) pn=p;
-							else pn=cutPlanes.h()-(p-cutPlanes.y()+1.0f);
-							yt=(pn+0.5f)/imageHeight*cutPlanes.thm;
-							yv=1f-yt*2f;
-							for(int i=0;i<4;i++) {
-								float zv=initVerts[i*6+2];
-								float zt=initVerts[i*6+5];
-								if(i==1) {zv=initVerts[2]; zt=initVerts[5];}
-								else if(i==3) {zv=initVerts[8]; zt=initVerts[11];}
-								vertb.putFloat(initVerts[i*6]); vertb.putFloat(yv); vertb.putFloat(zv);
-								vertb.putFloat(initVerts[i*6+3]); vertb.putFloat(yt); vertb.putFloat(zt);
-							}
-							lim++;
-						}
-						lim*=24;
-					}else { //front or back
-						for(float csl=(int)(cutPlanes.z()*zrat);csl<(int)(cutPlanes.d()*zrat);csl+=1.0f) {
-							float z=csl;
-							if(reverse) z=(cutPlanes.d()*(float)zrat)-(csl-(int)(cutPlanes.z()*(float)zrat));//z=((float)zmaxsls-csl-1f);
-							for(int i=0;i<4;i++) {
-								vertb.putFloat(initVerts[i*6]); vertb.putFloat(initVerts[i*6+1]); vertb.putFloat(((float)zmaxsls-2f*z)/imageWidth); 
-								vertb.putFloat(initVerts[i*6+3]); vertb.putFloat(initVerts[i*6+4]); vertb.putFloat((z+0.5f)/zmaxsls); 
-							}
-							lim++;
-						}
-						lim*=24;
-					}
-					((Buffer)vertb).limit(lim*4);
-				}
-				ltr=new boolean[] {left,top,reverse};	
-			}
-			
-			
 			//GL draw----
-			glos.useProgram("image");
-			gl.glDrawBuffer(GL_BACK);
-			glos.clearColorDepth();
 			if(go3d) {
 				if(stereoType==StereoType.QUADBUFFER) {
 					if(stereoi==0)
@@ -937,18 +954,18 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				}
 			}else {
 				gl.glDisable(GL_BLEND);
-				lim=24;
 			}
 			//Projection matrix binding
 			//drawing the 3d volume or 2d image
 			String bname="global";
-			if(JCP.doFrustum && go3d) {
-				bname="stereo-frustum";
+			if(go3d) {
+				bname="3d-view";
 				if(stereoType.ordinal()>0) {
-					if(stereoi==0)bname="stereo-left-frustum";
-					else bname="stereo-right-frustum";
+					if(stereoi==0)bname="stereo-left-view";
+					else bname="stereo-right-view";
 				}
 			}
+			glos.useProgram("image"); 
 			glos.bindUniformBuffer(bname, 1);
 			glos.bindUniformBuffer("model", 2);
 			glos.bindUniformBuffer("lut", 3);
@@ -964,17 +981,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 
 			
 			if(roi!=null || overlay!=null || JCP.drawCrosshairs) { 
-				if(go3d) {
-					scX=(float)imageWidth/srcRect.width;
-					scY=(float)imageHeight/srcRect.height;
-					FloatUtil.multMatrix(rotate,FloatUtil.makeTranslation(new float[16], false, tx*scX, ty*scY, tz*scX));
-					if(supermag!=0f) {
-						float tsm=(scX+supermag)/scX;
-						rotate=FloatUtil.multMatrix(FloatUtil.makeScale(new float[16], false, tsm, tsm, tsm), rotate);
-					}
-					if(JCP.doFrustum)rotate=FloatUtil.multMatrix(FloatUtil.makeTranslation(new float[16], false, 0, 0, frustumZshift), rotate);
-					glos.getUniformBuffer("modelr").loadMatrix(rotate);
-				}
 				//if(go3d)IJ.log(FloatUtil.matrixToString(null, "rot2: ", "%10.4f", rotate, 0, 4, 4, false).toString());
 				float z=0f;
 				float zf=(float)(cal.pixelDepth/cal.pixelWidth)/srcRect.width;
@@ -1040,8 +1046,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			if(nzi) {
 				drawMyZoomIndicator(drawable);
 			}
-			//IJ.log("\\Update0:Display took: "+(System.nanoTime()-starttime)/1000000L+"ms");	 
-			gl.glDisable(GL_SCISSOR_TEST);
+			//IJ.log("\\Update0:Display took: "+(System.nanoTime()-starttime)/1000000L+"ms");
 			gl.glFinish();
 		} //stereoi
 		

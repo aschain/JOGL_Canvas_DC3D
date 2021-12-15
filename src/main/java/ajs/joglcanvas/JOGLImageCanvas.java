@@ -602,18 +602,22 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(!JCP.openglroi) {
 			//&& (roi!=null || (!go3d && overlay!=null)) && (!isPoint || (isPoint && !go3d))) {
 			if(!go3d) {
-				BufferedImage roiImage=new BufferedImage(srcRectWidthMag, srcRectHeightMag, BufferedImage.TYPE_INT_ARGB);
-				Graphics g=roiImage.getGraphics();
-				if(roi!=null) {roi.draw(g); doRoi=true;}
-				if(overlay!=null) {
-					for(int i=0;i<overlay.size();i++) {
-						Roi oroi=overlay.get(i);
-						oroi.setImage(imp);
-						int rc=oroi.getCPosition(), rz=oroi.getZPosition(),rt=oroi.getTPosition();
-						if((rc==0||rc==imp.getC()) && (rz==0||rz==imp.getZ()) && (rt==0||rt==imp.getT())) {oroi.drawOverlay(g); doRoi=true;}
+				BufferedImage roiImage;
+				Graphics g;
+				if(roi!=null || overlay!=null) {
+					roiImage=new BufferedImage(srcRectWidthMag, srcRectHeightMag, BufferedImage.TYPE_INT_ARGB);
+					g=roiImage.getGraphics();
+					if(roi!=null) {roi.draw(g); doRoi=true;}
+					if(overlay!=null) {
+						for(int i=0;i<overlay.size();i++) {
+							Roi oroi=overlay.get(i);
+							oroi.setImage(imp);
+							int rc=oroi.getCPosition(), rz=oroi.getZPosition(),rt=oroi.getTPosition();
+							if((rc==0||rc==imp.getC()) && (rz==0||rz==imp.getZ()) && (rt==0||rt==imp.getT())) {oroi.drawOverlay(g); doRoi=true;}
+						}
 					}
+					if(doRoi)glos.getTexture("roiGraphic").createRgbaTexture(AWTTextureIO.newTextureData(gl.getGLProfile(), roiImage, false).getBuffer(), roiImage.getWidth(), roiImage.getHeight(), 1, 4, false);
 				}
-				if(doRoi)glos.getTexture("roiGraphic").createRgbaTexture(AWTTextureIO.newTextureData(gl.getGLProfile(), roiImage, false).getBuffer(), roiImage.getWidth(), roiImage.getHeight(), 1, 4, false);
 			}else{   // if(!JCP.openglroi && (overlay!=null || isPoint) && go3d) 
 				doOv=new boolean[sls];
 				if(!glos.textures.containsKey("overlay") || glos.getTexture("overlay").getTextureLength()!=sls) {
@@ -745,22 +749,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}
 		myImageUpdated=false;
 		
-		//Set up model matrix
-		float 	trX=-((float)(srcRect.x*2+srcRect.width)/imageWidth-1f),
-				trY=((float)(srcRect.y*2+srcRect.height)/imageHeight-1f),
-				scX=(float)imageWidth/srcRect.width+(go3d?supermag:0f),
-				scY=(float)imageHeight/srcRect.height+(go3d?supermag:0f);
-		float[] translate=null,scale=null,rotate=null;
-		if( (imageState.isChanged.srcRect || imageState.resized) || go3d) {
-			if(tx>2.0f)tx=2.0f; if(tx<-2.0f)tx=-2.0f;
-			if(ty>2.0f)ty=2.0f; if(ty<-2.0f)ty=-2.0f;
-			if(tz>2.0f)tz=2.0f; if(tz<-2.0f)tz=-2.0f;
-			translate=FloatUtil.makeTranslation(new float[16], false, trX+(go3d?tx:0f), trY+(go3d?ty:0f), go3d?tz:0f);
-			scale=FloatUtil.makeScale(new float[16], false, scX, scY, scX);
-			if(!go3d)
-				glos.getUniformBuffer("model").loadMatrix(FloatUtil.multMatrix(scale, translate));//note this modifies scale
-		}
-		
 
 		//setluts
 		ByteBuffer lutMatrixPointer=glos.getDirectBuffer(GL_UNIFORM_BUFFER, "lut");
@@ -806,6 +794,22 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			lutMatrixPointer.putFloat((gamma==null || gamma.length<=i)?0f:gamma[i]); //padding for vec3 std140
 		}
 		((Buffer)lutMatrixPointer).rewind();
+		
+		//Set up model matrix
+		float 	trX=-((float)(srcRect.x*2+srcRect.width)/imageWidth-1f),
+				trY=((float)(srcRect.y*2+srcRect.height)/imageHeight-1f),
+				scX=(float)imageWidth/srcRect.width+(go3d?supermag:0f),
+				scY=(float)imageHeight/srcRect.height+(go3d?supermag:0f);
+		float[] translate=null,scale=null,rotate=null;
+		if( (imageState.isChanged.srcRect || imageState.resized) || go3d) {
+			if(tx>2.0f)tx=2.0f; if(tx<-2.0f)tx=-2.0f;
+			if(ty>2.0f)ty=2.0f; if(ty<-2.0f)ty=-2.0f;
+			if(tz>2.0f)tz=2.0f; if(tz<-2.0f)tz=-2.0f;
+			translate=FloatUtil.makeTranslation(new float[16], false, trX+(go3d?tx:0f), trY+(go3d?ty:0f), go3d?tz:0f);
+			scale=FloatUtil.makeScale(new float[16], false, scX, scY, scX);
+			if(!go3d)
+				glos.getUniformBuffer("model").loadMatrix(FloatUtil.multMatrix(scale, translate));//note this modifies scale
+		}
 		
 		//Rotation-Translation-Scale Model Matrix
 		//and order of drawing slices depending on rotation
@@ -927,21 +931,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					glos.clearColorDepth();
 				}else if(stereoType!=StereoType.OFF) {
 					int width=drawable.getSurfaceWidth(), height=drawable.getSurfaceHeight();
-					gl.glBindFramebuffer(GL_FRAMEBUFFER, stereoFramebuffers[0]);
-					gl.glBindRenderbuffer(GL_RENDERBUFFER, stereoFramebuffers[1]);
-					
-					JCGLObjects.PixelTypeInfo info=new JCGLObjects.PixelTypeInfo(pixelType3d,4);
-					gl.glBindTexture(GL_TEXTURE_3D, glos.getTexture("anaglyph",stereoi));
-					gl.glTexImage3D(GL_TEXTURE_3D, 0, info.glInternalFormat, width, height, 1, 0, GL_RGBA, info.glPixelSize, null);
-					gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-					gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-					gl.glFramebufferTexture3D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_3D, glos.getTexture("anaglyph",stereoi), 0, 0);
-					gl.glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, width, height);
-					gl.glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, stereoFramebuffers[1]);
-					gl.glBindTexture(GL_TEXTURE_3D, 0);
-					
-					gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-					if(gl.glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)IJ.error("not ready");
+					drawToTexture(width, height, glos.getTexture("anaglyph",stereoi), stereoFramebuffers[0], stereoFramebuffers[1]);
 				}
 				//Blend
 				gl.glEnable(GL_BLEND);
@@ -1301,6 +1291,24 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private int getCurrent3dPixelType() {
 		for(int i=0;i<PixelType.values().length;i++)if(pixelType3d==PixelType.values()[i])return i;
 		return -1;
+	}
+	
+	private void drawToTexture(int width, int height, int texture, int framebuffer, int renderbuffer){
+		gl.glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+		gl.glBindRenderbuffer(GL_RENDERBUFFER, renderbuffer);
+		
+		JCGLObjects.PixelTypeInfo info=new JCGLObjects.PixelTypeInfo(pixelType3d,4);
+		gl.glBindTexture(GL_TEXTURE_3D, texture);
+		gl.glTexImage3D(GL_TEXTURE_3D, 0, info.glInternalFormat, width, height, 1, 0, GL_RGBA, info.glPixelSize, null);
+		gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		gl.glFramebufferTexture3D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_3D, texture, 0, 0);
+		gl.glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, width, height);
+		gl.glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, renderbuffer);
+		gl.glBindTexture(GL_TEXTURE_3D, 0);
+		
+		gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		if(gl.glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)IJ.error("not ready");
 	}
 	
 	private void drawGraphics(GL2GL3 gl, float z, String name, int index, String modelmatrix) {

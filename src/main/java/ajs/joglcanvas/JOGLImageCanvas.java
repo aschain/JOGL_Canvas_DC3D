@@ -551,8 +551,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 
 	@Override
 	public void display(GLAutoDrawable drawable) {
-		long displaytime=System.nanoTime();
+		long displaytime = 0;
 		if(JCP.debug && verbose) {
+			displaytime=System.nanoTime();
 			//IJ.log("\\Update2:Display took: "+(System.nanoTime()-starttime)/1000000L+"ms");
 			IJ.log("\\Update0:Display start took: "+String.format("%5.1f", (float)(System.nanoTime()-dragtime)/1000000f)+"ms");
 		}
@@ -1400,7 +1401,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			public void mouseWheelMoved(MouseWheelEvent e) {
 				imp.getCanvas().setCursor(e.getX(), e.getY(), offScreenX(e.getX()), offScreenY(e.getY()));
 				imp.getWindow().mouseWheelMoved(e);
-				updateMirror(); repaint();
+				repaintLater();
 			}
 		});
 		addMirrorListeners();
@@ -1644,6 +1645,15 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}
 		else if(gl!=null) setPaintPending(false);
 		//else super.repaint();
+	}
+	
+	public void repaintLater() {
+		java.awt.EventQueue.invokeLater(new Runnable() {
+			@Override
+			public void run() {
+				repaint();
+			}
+		});
 	}
 
 	@Override
@@ -2103,7 +2113,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					if(w<1)w=1; if(h<1)h=1; if(d<1)d=1;
 					if(w>imp.getWidth())w--; if(h>imp.getHeight())h--; if(d>imp.getNSlices())d--;
 					cutPlanes.updateCube(new int[] {x,y,z,w,h,d});
-					repaint();
+					repaintLater();
 				}
 				return;
 			}
@@ -2128,7 +2138,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				if(key=='=')ic.zoomIn(x,y);
 				else ic.zoomOut(x,y);
 			}
-			if(isMirror) {updateMirror(); repaint();}
+			if(isMirror) {repaint();}
 		}
 		ij.keyTyped(e);
 	}
@@ -2225,7 +2235,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				if(dx<0)dx+=360; if(dx>360)dx-=360;
 				if(dy<0)dy+=360; if(dy>360)dy-=360;
 			}
-			if(!isMirror) repaint();
+			if(!isMirror) repaintLater();
 		}else {
 			if(isMirror) {
 				imp.getCanvas().mouseDragged(e);
@@ -2237,7 +2247,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				super.mouseDragged(e);
 			}
 		}
-		if(isMirror) {updateMirror(); repaint();}		
+		if(isMirror) {repaintLater();}		
 	}
 	
 	@Override
@@ -2261,14 +2271,14 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	public void mouseMoved(MouseEvent e) {
 		//if(JCP.debug)IJ.log("\\Update:MouseMoved "+e.getX()+" "+e.getY());
 		if(shouldKeep(e)){
-			if(JCP.drawCrosshairs) {oicp=new Point(offScreenX(e.getX()),offScreenY(e.getY())); repaint();}
+			if(JCP.drawCrosshairs) {oicp=new Point(offScreenX(e.getX()),offScreenY(e.getY())); repaintLater();}
 		}else {
 			if(isMirror) {
 				imp.getCanvas().mouseMoved(e);
 				((MirrorCanvas)imp.getCanvas()).drawCursorPoint(true);
 			}
 			else {
-				if(JCP.drawCrosshairs) {oicp=new Point(offScreenX(e.getX()),offScreenY(e.getY())); repaint();}
+				if(JCP.drawCrosshairs) {oicp=new Point(offScreenX(e.getX()),offScreenY(e.getY())); repaintLater();}
 				super.mouseMoved(e);
 			}
 		}

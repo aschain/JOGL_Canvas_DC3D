@@ -1016,7 +1016,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					if(JCP.drawCrosshairs && oicp!=null  && (isMirror || go3d)) {
 						int left=0, right=imp.getWidth(), top=imp.getHeight(), bottom=0, front=1, back=sls;
 						//int opx=Math.max(1,(int)(1.0/magnification));
-						if(threeDCursorType==ThreeDCursorType.SHORT) {
+						if(threeDCursorType==ThreeDCursorType.SHORT || (isMirror & !go3d)) {
 							int fpx=(int)(13.0/magnification), slfpx=(int)((double)fpx/cal.pixelDepth*cal.pixelWidth);
 							left=oicp.x-fpx; right=oicp.x+fpx; top=oicp.y+fpx; bottom=oicp.y-fpx; front=sl+1-slfpx; back=sl+1+slfpx;
 							if(left<0)left=0; if(right>imp.getWidth())right=imp.getWidth(); if(top>imp.getHeight())top=imp.getHeight();

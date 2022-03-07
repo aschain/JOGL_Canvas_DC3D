@@ -2042,7 +2042,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 
 	public void imageUpdated(ImagePlus uimp) {
 		if(imp.equals(uimp)) {
-			if(!go3d)myImageUpdated=true;
+			if(!go3d) {
+				myImageUpdated=true;
+				repaintLater();
+			}
 			else {
 				//needImageUpdate=true;
 			}
@@ -2217,7 +2220,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	
 	private boolean shouldKeep(MouseEvent e) {
 		if(isRightClick(e) && !disablePopupMenu) return false;
-		if(isMirror) return (isRightClick(e) || !disablePopupMenu);
+		if(isMirror) return go3d&&(isRightClick(e) || !disablePopupMenu);
 		return (go3d && ((IJ.getToolName()=="hand" && !IJ.spaceBarDown()) || isRightClick(e)));
 	}
 	

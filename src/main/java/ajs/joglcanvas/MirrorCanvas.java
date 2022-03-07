@@ -51,6 +51,7 @@ public class MirrorCanvas extends ImageCanvas {
 	@Override
 	public void mouseDragged(MouseEvent e) {
 		jic.oicp=new Point(offScreenX(e.getX()),offScreenY(e.getY()));
+		if(JCP.drawCrosshairs)jic.repaintLater();
 		super.mouseDragged(e);
 	}
 }

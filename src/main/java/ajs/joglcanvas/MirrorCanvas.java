@@ -25,7 +25,7 @@ public class MirrorCanvas extends ImageCanvas {
 	}
 	@Override
 	public void paint(Graphics g){
-		jic.repaint();
+		//jic.repaint();
 		super.paint(g);
 		if(onScreenMirrorCursor && jic.oicp!=null) {
 			g.setColor(Color.red);
@@ -40,7 +40,7 @@ public class MirrorCanvas extends ImageCanvas {
 	@Override
 	public void mouseMoved(MouseEvent e) {
 		jic.oicp=new Point(offScreenX(e.getX()),offScreenY(e.getY()));
-		if(JCP.drawCrosshairs)jic.repaint();
+		if(JCP.drawCrosshairs)jic.repaintLater();
 		super.mouseMoved(e);
 	}
 	@Override

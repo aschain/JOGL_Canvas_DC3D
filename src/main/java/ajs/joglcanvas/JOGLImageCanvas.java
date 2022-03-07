@@ -985,8 +985,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 
 			//Draw roi and overlay and cursor crosshairs
 			//
-			drawToTexture(width, height, glos.getTexture("temp",stereoi), tempFramebuffers[0], tempFramebuffers[1]);
-			glos.clearColorDepth();
+			if(go3d) {
+				drawToTexture(width, height, glos.getTexture("temp",stereoi), tempFramebuffers[0], tempFramebuffers[1]);
+				glos.clearColorDepth();
+			}
+			
 			if(roi!=null || overlay!=null || JCP.drawCrosshairs) { 
 				//if(go3d)IJ.log(FloatUtil.matrixToString(null, "rot2: ", "%10.4f", rotate, 0, 4, 4, false).toString());
 				float z=0f;

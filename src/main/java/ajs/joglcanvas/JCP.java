@@ -83,7 +83,7 @@ public class JCP implements PlugIn {
 	public static boolean wrappedBuffers=Prefs.get("ajs.joglcanvas.wrappedBuffers", true);
 	public static boolean doFrustum=Prefs.get("ajs.joglcanvas.doFrustum", false);
 	public static boolean qbfullscreen=Prefs.get("ajs.joglcanvas.qbfullscreen", false);
-	public static boolean drawCrosshairs=Prefs.get("ajs.joglcanvas.drawCrosshairs", false);
+	public static int drawCrosshairs=(int)Prefs.get("ajs.joglcanvas.drawCrosshairs", 0);
 	public static boolean debug=false;
 	private static final float[][] duboisColors = new float[][] {
 		 {0.456f, -0.04f, -0.015f,
@@ -490,7 +490,8 @@ public class JCP implements PlugIn {
 		gd.addCheckbox("Open 10-bit test image", false);
 		gd.addMessage("Advanced Settings:");
 		gd.addCheckbox("Draw ROI with OpenGL (in progress)", openglroi);
-		gd.addCheckbox("Draw cursor crosshairs (requires GL ROI)", drawCrosshairs);
+		String[] cursorChoices=new String[] {"Off", "Short", "Long"};
+		gd.addChoice("Draw cursor crosshairs (requires GL ROI)", cursorChoices, cursorChoices[drawCrosshairs]);
 		gd.addCheckbox("Store whole stack in PBO, even for 2D (more video memory but faster)", usePBOforSlices);
 		gd.addCheckbox("Use image arrays wrapped in a buffer for video memory", wrappedBuffers);
 		gd.addCheckbox("Show some extra debug info", debug);
@@ -536,7 +537,7 @@ public class JCP implements PlugIn {
 		boolean dotest=gd.getNextBoolean();
 		openglroi=gd.getNextBoolean();
 		Prefs.set("ajs.joglcanvas.openglroi", openglroi);
-		drawCrosshairs=gd.getNextBoolean();
+		drawCrosshairs=gd.getNextChoiceIndex();
 		Prefs.set("ajs.joglcanvas.drawCrosshairs", drawCrosshairs);
 		usePBOforSlices=gd.getNextBoolean();
 		Prefs.set("ajs.joglcanvas.usePBOforSlices", usePBOforSlices);

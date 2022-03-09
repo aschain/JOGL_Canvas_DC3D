@@ -34,13 +34,13 @@ public class MirrorCanvas extends ImageCanvas {
 	}
 	@Override
 	public void mouseEntered(MouseEvent e) {
-		if(JCP.drawCrosshairs)jic.glw.setPointerVisible(true);
+		if(JCP.drawCrosshairs>0)jic.glw.setPointerVisible(true);
 		super.mouseEntered(e);
 	}
 	@Override
 	public void mouseMoved(MouseEvent e) {
 		jic.oicp=new Point(offScreenX(e.getX()),offScreenY(e.getY()));
-		if(JCP.drawCrosshairs)jic.repaintLater();
+		if(JCP.drawCrosshairs>0)jic.repaintLater();
 		super.mouseMoved(e);
 	}
 	@Override
@@ -51,7 +51,7 @@ public class MirrorCanvas extends ImageCanvas {
 	@Override
 	public void mouseDragged(MouseEvent e) {
 		jic.oicp=new Point(offScreenX(e.getX()),offScreenY(e.getY()));
-		if(JCP.drawCrosshairs)jic.repaintLater();
+		if(JCP.drawCrosshairs>0)jic.repaintLater();
 		super.mouseDragged(e);
 	}
 }

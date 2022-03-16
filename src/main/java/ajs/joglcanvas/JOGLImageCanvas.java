@@ -96,7 +96,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	protected boolean disablePopupMenu;
 	protected double dpimag=1.0;
 	protected boolean myImageUpdated=true;
-	//protected boolean needImageUpdate=false;
 	private boolean deletePBOs=false;
 	protected boolean isMirror=false;
 	public Frame mirror=null;
@@ -560,7 +559,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(mylock) {if(JCP.debug)IJ.log("mylock "+System.currentTimeMillis());return;};
 		mylock=true;
 		imageState.check(dx,dy,dz);
-		if(imageState.isChanged.srcRect)resetGlobalMatrices(drawable);
+		boolean needDraw=false;
+		if(imageState.isChanged.srcRect) resetGlobalMatrices(drawable);
 		if(JCP.openglroi && rgldu==null) rgldu=new RoiGLDrawUtility(imp, drawable,glos.programs.get("roi"));
 		int sl=imp.getZ()-1, fr=imp.getT()-1,chs=imp.getNChannels(),sls=imp.getNSlices(),frms=imp.getNFrames();
 		Calibration cal=imp.getCalibration();
@@ -578,9 +578,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			//}
 			resetGlobalMatrices(drawable);
 			stereoUpdated=false;
+			needDraw=true;
 		}
 		if(threeDupdated || deletePBOs) {
 			if(go3d) {
+				if(JCP.debug)IJ.log("threeDupdated");
 				init3dTex();
 				glos.getTexture("image3d").initiate(pixelType3d, sb.bufferWidth, sb.bufferHeight, sls, 1);
 				ltr=null;
@@ -591,6 +593,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			}
 			imageState.isChanged.srcRect=true;
 			threeDupdated=false;
+			needDraw=true;
 		}
 		
 		//Roi and Overlay if not drawn with gl (create roi textures from imageplus)
@@ -738,7 +741,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		
 		if(go3d) {
 			if(imageState.isChanged.t || myImageUpdated) {
-				imageState.isChanged.rotation=true;
+				if(JCP.debug)IJ.log("t changed or myImageUpdated");
+				needDraw=true;
 				for(int i=0;i<chs;i++) {
 					int ccfr=fr*chs+i;
 					glos.loadTexFromPbo("image", ccfr, "image3d", i, sb.bufferWidth, sb.bufferHeight, sls, 0, pixelType3d, COMPS, false, Prefs.interpolateScaledImages);
@@ -749,7 +753,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}
 		myImageUpdated=false;
 		
-
+		if(imageState.isChanged.minmax) needDraw=true;
 		//setluts
 		ByteBuffer lutMatrixPointer=glos.getDirectBuffer(GL_UNIFORM_BUFFER, "lut");
 		((Buffer)lutMatrixPointer).rewind();
@@ -795,13 +799,13 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}
 		((Buffer)lutMatrixPointer).rewind();
 		
-		//Set up model matrix
-		float 	trX=-((float)(srcRect.x*2+srcRect.width)/imageWidth-1f),
-				trY=((float)(srcRect.y*2+srcRect.height)/imageHeight-1f),
-				scX=(float)imageWidth/srcRect.width+(go3d?supermag:0f),
-				scY=(float)imageHeight/srcRect.height+(go3d?supermag:0f);
-		float[] translate=null,scale=null,rotate=null;
-		if( (imageState.isChanged.srcRect || imageState.resized) || go3d) {
+		if( (imageState.isChanged.srcRect) || go3d) {
+			//Set up model matrix
+			float 	trX=-((float)(srcRect.x*2+srcRect.width)/imageWidth-1f),
+					trY=((float)(srcRect.y*2+srcRect.height)/imageHeight-1f),
+					scX=(float)imageWidth/srcRect.width+(go3d?supermag:0f),
+					scY=(float)imageHeight/srcRect.height+(go3d?supermag:0f);
+			float[] translate=null,scale=null,rotate=null;
 			if(tx>2.0f)tx=2.0f; if(tx<-2.0f)tx=-2.0f;
 			if(ty>2.0f)ty=2.0f; if(ty<-2.0f)ty=-2.0f;
 			if(tz>2.0f)tz=2.0f; if(tz<-2.0f)tz=-2.0f;
@@ -809,109 +813,112 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			scale=FloatUtil.makeScale(new float[16], false, scX, scY, scX);
 			if(!go3d)
 				glos.getUniformBuffer("model").loadMatrix(FloatUtil.multMatrix(scale, translate));//note this modifies scale
-		}
+		//}
 		
-		//Rotation-Translation-Scale Model Matrix
-		//and order of drawing slices depending on rotation
-		if(go3d) {
-			//Set up matricies
-			rotate=FloatUtil.makeRotationEuler(new float[16], 0, dy*FloatUtil.PI/180f, (float)dx*FloatUtil.PI/180f, (float)dz*FloatUtil.PI/180f);
-			//IJ.log("\\Update0:X x"+Math.round(100.0*matrix[0])/100.0+" y"+Math.round(100.0*matrix[1])/100.0+" z"+Math.round(100.0*matrix[2])/100.0);
-			//IJ.log("\\Update1:Y x"+Math.round(100.0*matrix[4])/100.0+" y"+Math.round(100.0*matrix[5])/100.0+" z"+Math.round(100.0*matrix[6])/100.0);
-			//IJ.log("\\Update2:Z x"+Math.round(100.0*matrix[8])/100.0+" y"+Math.round(100.0*matrix[9])/100.0+" z"+Math.round(100.0*matrix[10])/100.0);
-			//IJ.log(FloatUtil.matrixToString(null, "rot: ", "%10.4f", rotate, 0, 4, 4, false).toString());
+			if(imageState.isChanged.srcRect || imageState.isChanged.rotation) needDraw=true;
 			
-			boolean left,top,reverse;
-			float Xza=Math.abs(rotate[2]), Yza=Math.abs(rotate[6]), Zza=Math.abs(rotate[10]);
-			float maxZvec=Math.max(Xza, Math.max(Yza, Zza));
-			left=(maxZvec==Xza);
-			top=(maxZvec==Yza);
-			reverse=(Zza==rotate[10]);
-			if(left)reverse=Xza==rotate[2];
-			if(top)reverse=Yza==rotate[6];
-			float[] modelTransform=new float[16];
-			if(imageWidth!=imageHeight) {
-				float ratio=(float)imageWidth/(float)imageHeight;
-				modelTransform=FloatUtil.makeScale(modelTransform, false, ((imageWidth>imageHeight)?1.0f:ratio), ((imageWidth>imageHeight)?1.0f/ratio:1.0f), 1.0f); //scale aspect ratio
-				float[] temptrans=FloatUtil.multMatrix(modelTransform, translate, new float[16]);
-				float[] temprot=FloatUtil.multMatrix(rotate, temptrans, new float[16]);
-				modelTransform=FloatUtil.multMatrix(FloatUtil.makeScale(new float[16], false, ((imageWidth>imageHeight)?1.0f:1.f/ratio), ((imageWidth>imageHeight)?ratio:1.0f), 1.0f), temprot, new float[16]);
-				modelTransform=FloatUtil.multMatrix(scale, modelTransform, new float[16]);
-			}else
-				FloatUtil.multMatrix(scale, FloatUtil.multMatrix(rotate, translate, new float[16]), modelTransform);
-			modelTransform=FloatUtil.multMatrix(FloatUtil.makeTranslation(new float[16], false, 0, 0, frustumZshift), modelTransform);
-			glos.getUniformBuffer("model").loadMatrix(modelTransform);
-			
-			//roi model matrix
-			scX=(float)imageWidth/srcRect.width;
-			scY=(float)imageHeight/srcRect.height;
-			FloatUtil.multMatrix(rotate,FloatUtil.makeTranslation(new float[16], false, tx*scX, ty*scY, tz*scX));
-			if(supermag!=0f) {
-				float tsm=(scX+supermag)/scX;
-				rotate=FloatUtil.multMatrix(FloatUtil.makeScale(new float[16], false, tsm, tsm, tsm), rotate);
-			}
-			rotate=FloatUtil.multMatrix(FloatUtil.makeTranslation(new float[16], false, 0, 0, frustumZshift), rotate);
-			glos.getUniformBuffer("modelr").loadMatrix(rotate);
-			
-			if(ltr==null || !(ltr[0]==left && ltr[1]==top && ltr[2]==reverse) || cutPlanes.changed /*|| imageState.isChanged.srcRect*/) {
-				imageState.isChanged.rotation=true;
-				cutPlanes.changed=false;
-				double zrat=cal.pixelDepth/cal.pixelWidth;
-				int zmaxsls=(int)(zrat*(double)sls);
-				zmax=(float)(zmaxsls)/(float)imageWidth;
-				final float[] initVerts=cutPlanes.getInitCoords();
-				//For display of the square, there are 3 space verts and 3 texture verts
-				//for each of the 4 points of the square.
-				ByteBuffer vertb=glos.getDirectBuffer(GL_ARRAY_BUFFER, "image3d");
-				((Buffer)vertb).clear();
-				lim=0;
-				if(left) { //left or right
-					for(float p=cutPlanes.x();p<cutPlanes.w();p+=1.0f) {
-						float xt,xv, pn;
-						if(reverse) pn=p;
-						else pn=cutPlanes.w()-(p-cutPlanes.x()+1.0f);
-						xt=(pn+0.5f)/imageWidth*cutPlanes.twm;
-						xv=xt*2f-1f;
-						for(int i=0;i<4;i++) {
-							vertb.putFloat(xv); vertb.putFloat(initVerts[i*6+1]); vertb.putFloat(initVerts[i*6+2]);
-							vertb.putFloat(xt); vertb.putFloat(initVerts[i*6+4]); vertb.putFloat(initVerts[i*6+5]);
-						}
-						lim++;
-					}
-					lim*=24;
-				} else if(top) { //top or bottom
-					for(float p=cutPlanes.y();p<cutPlanes.h();p+=1.0f) {
-						float yt,yv,pn;
-						if(!reverse) pn=p;
-						else pn=cutPlanes.h()-(p-cutPlanes.y()+1.0f);
-						yt=(pn+0.5f)/imageHeight*cutPlanes.thm;
-						yv=1f-yt*2f;
-						for(int i=0;i<4;i++) {
-							float zv=initVerts[i*6+2];
-							float zt=initVerts[i*6+5];
-							if(i==1) {zv=initVerts[2]; zt=initVerts[5];}
-							else if(i==3) {zv=initVerts[8]; zt=initVerts[11];}
-							vertb.putFloat(initVerts[i*6]); vertb.putFloat(yv); vertb.putFloat(zv);
-							vertb.putFloat(initVerts[i*6+3]); vertb.putFloat(yt); vertb.putFloat(zt);
-						}
-						lim++;
-					}
-					lim*=24;
-				}else { //front or back
-					for(float csl=(int)(cutPlanes.z()*zrat);csl<(int)(cutPlanes.d()*zrat);csl+=1.0f) {
-						float z=csl;
-						if(reverse) z=(cutPlanes.d()*(float)zrat)-(csl-(int)(cutPlanes.z()*(float)zrat));//z=((float)zmaxsls-csl-1f);
-						for(int i=0;i<4;i++) {
-							vertb.putFloat(initVerts[i*6]); vertb.putFloat(initVerts[i*6+1]); vertb.putFloat(((float)zmaxsls-2f*z)/imageWidth); 
-							vertb.putFloat(initVerts[i*6+3]); vertb.putFloat(initVerts[i*6+4]); vertb.putFloat((z+0.5f)/zmaxsls); 
-						}
-						lim++;
-					}
-					lim*=24;
+			//Rotation-Translation-Scale Model Matrix
+			//and order of drawing slices depending on rotation
+			if(go3d) {
+				//Set up matricies
+				rotate=FloatUtil.makeRotationEuler(new float[16], 0, dy*FloatUtil.PI/180f, (float)dx*FloatUtil.PI/180f, (float)dz*FloatUtil.PI/180f);
+				//IJ.log("\\Update0:X x"+Math.round(100.0*matrix[0])/100.0+" y"+Math.round(100.0*matrix[1])/100.0+" z"+Math.round(100.0*matrix[2])/100.0);
+				//IJ.log("\\Update1:Y x"+Math.round(100.0*matrix[4])/100.0+" y"+Math.round(100.0*matrix[5])/100.0+" z"+Math.round(100.0*matrix[6])/100.0);
+				//IJ.log("\\Update2:Z x"+Math.round(100.0*matrix[8])/100.0+" y"+Math.round(100.0*matrix[9])/100.0+" z"+Math.round(100.0*matrix[10])/100.0);
+				//IJ.log(FloatUtil.matrixToString(null, "rot: ", "%10.4f", rotate, 0, 4, 4, false).toString());
+				
+				boolean left,top,reverse;
+				float Xza=Math.abs(rotate[2]), Yza=Math.abs(rotate[6]), Zza=Math.abs(rotate[10]);
+				float maxZvec=Math.max(Xza, Math.max(Yza, Zza));
+				left=(maxZvec==Xza);
+				top=(maxZvec==Yza);
+				reverse=(Zza==rotate[10]);
+				if(left)reverse=Xza==rotate[2];
+				if(top)reverse=Yza==rotate[6];
+				float[] modelTransform=new float[16];
+				if(imageWidth!=imageHeight) {
+					float ratio=(float)imageWidth/(float)imageHeight;
+					modelTransform=FloatUtil.makeScale(modelTransform, false, ((imageWidth>imageHeight)?1.0f:ratio), ((imageWidth>imageHeight)?1.0f/ratio:1.0f), 1.0f); //scale aspect ratio
+					float[] temptrans=FloatUtil.multMatrix(modelTransform, translate, new float[16]);
+					float[] temprot=FloatUtil.multMatrix(rotate, temptrans, new float[16]);
+					modelTransform=FloatUtil.multMatrix(FloatUtil.makeScale(new float[16], false, ((imageWidth>imageHeight)?1.0f:1.f/ratio), ((imageWidth>imageHeight)?ratio:1.0f), 1.0f), temprot, new float[16]);
+					modelTransform=FloatUtil.multMatrix(scale, modelTransform, new float[16]);
+				}else
+					FloatUtil.multMatrix(scale, FloatUtil.multMatrix(rotate, translate, new float[16]), modelTransform);
+				modelTransform=FloatUtil.multMatrix(FloatUtil.makeTranslation(new float[16], false, 0, 0, frustumZshift), modelTransform);
+				glos.getUniformBuffer("model").loadMatrix(modelTransform);
+				
+				//roi model matrix
+				scX=(float)imageWidth/srcRect.width;
+				scY=(float)imageHeight/srcRect.height;
+				FloatUtil.multMatrix(rotate,FloatUtil.makeTranslation(new float[16], false, tx*scX, ty*scY, tz*scX));
+				if(supermag!=0f) {
+					float tsm=(scX+supermag)/scX;
+					rotate=FloatUtil.multMatrix(FloatUtil.makeScale(new float[16], false, tsm, tsm, tsm), rotate);
 				}
-				((Buffer)vertb).limit(lim*4);
+				rotate=FloatUtil.multMatrix(FloatUtil.makeTranslation(new float[16], false, 0, 0, frustumZshift), rotate);
+				glos.getUniformBuffer("modelr").loadMatrix(rotate);
+				
+				if(ltr==null || !(ltr[0]==left && ltr[1]==top && ltr[2]==reverse) || cutPlanes.changed /*|| imageState.isChanged.srcRect*/) {
+					needDraw=true;
+					cutPlanes.changed=false;
+					double zrat=cal.pixelDepth/cal.pixelWidth;
+					int zmaxsls=(int)(zrat*(double)sls);
+					zmax=(float)(zmaxsls)/(float)imageWidth;
+					final float[] initVerts=cutPlanes.getInitCoords();
+					//For display of the square, there are 3 space verts and 3 texture verts
+					//for each of the 4 points of the square.
+					ByteBuffer vertb=glos.getDirectBuffer(GL_ARRAY_BUFFER, "image3d");
+					((Buffer)vertb).clear();
+					lim=0;
+					if(left) { //left or right
+						for(float p=cutPlanes.x();p<cutPlanes.w();p+=1.0f) {
+							float xt,xv, pn;
+							if(reverse) pn=p;
+							else pn=cutPlanes.w()-(p-cutPlanes.x()+1.0f);
+							xt=(pn+0.5f)/imageWidth*cutPlanes.twm;
+							xv=xt*2f-1f;
+							for(int i=0;i<4;i++) {
+								vertb.putFloat(xv); vertb.putFloat(initVerts[i*6+1]); vertb.putFloat(initVerts[i*6+2]);
+								vertb.putFloat(xt); vertb.putFloat(initVerts[i*6+4]); vertb.putFloat(initVerts[i*6+5]);
+							}
+							lim++;
+						}
+						lim*=24;
+					} else if(top) { //top or bottom
+						for(float p=cutPlanes.y();p<cutPlanes.h();p+=1.0f) {
+							float yt,yv,pn;
+							if(!reverse) pn=p;
+							else pn=cutPlanes.h()-(p-cutPlanes.y()+1.0f);
+							yt=(pn+0.5f)/imageHeight*cutPlanes.thm;
+							yv=1f-yt*2f;
+							for(int i=0;i<4;i++) {
+								float zv=initVerts[i*6+2];
+								float zt=initVerts[i*6+5];
+								if(i==1) {zv=initVerts[2]; zt=initVerts[5];}
+								else if(i==3) {zv=initVerts[8]; zt=initVerts[11];}
+								vertb.putFloat(initVerts[i*6]); vertb.putFloat(yv); vertb.putFloat(zv);
+								vertb.putFloat(initVerts[i*6+3]); vertb.putFloat(yt); vertb.putFloat(zt);
+							}
+							lim++;
+						}
+						lim*=24;
+					}else { //front or back
+						for(float csl=(int)(cutPlanes.z()*zrat);csl<(int)(cutPlanes.d()*zrat);csl+=1.0f) {
+							float z=csl;
+							if(reverse) z=(cutPlanes.d()*(float)zrat)-(csl-(int)(cutPlanes.z()*(float)zrat));//z=((float)zmaxsls-csl-1f);
+							for(int i=0;i<4;i++) {
+								vertb.putFloat(initVerts[i*6]); vertb.putFloat(initVerts[i*6+1]); vertb.putFloat(((float)zmaxsls-2f*z)/imageWidth); 
+								vertb.putFloat(initVerts[i*6+3]); vertb.putFloat(initVerts[i*6+4]); vertb.putFloat((z+0.5f)/zmaxsls); 
+							}
+							lim++;
+						}
+						lim*=24;
+					}
+					((Buffer)vertb).limit(lim*4);
+				}
+				ltr=new boolean[] {left,top,reverse};	
 			}
-			ltr=new boolean[] {left,top,reverse};	
 		}else 
 			lim=24;
 
@@ -939,7 +946,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					else bname="stereo-right-view";
 				}
 				
-				if(imageState.isChanged.rotation) {
+				if(needDraw) {
 					drawToTexture(width, height, glos.getTexture("anaglyph",stereoi), stereoFramebuffers[0], stereoFramebuffers[1]);
 					glos.clearColorDepth();
 					//Blend
@@ -1067,7 +1074,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			gl.glBlendFunc(GL_SRC_COLOR, GL_DST_COLOR);
 			glos.useProgram("anaglyph");
 			
-			for(int stereoi=0;stereoi<2;stereoi++) {
+			for(int stereoi=0;stereoi<views;stereoi++) {
 				if(stereoType==StereoType.QUADBUFFER) {
 					if(stereoi==0)gl.glDrawBuffer(GL_BACK_LEFT);
 					else gl.glDrawBuffer(GL_BACK_RIGHT);
@@ -1229,7 +1236,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		public int c,z,t;
 		public float odx, ody, odz;
 		public IsChanged isChanged=new IsChanged();
-		public boolean resized=false;
+		public boolean setNextSrcRect=false;
 		
 		public ImageState(ImagePlus imp) {
 			this.imp=imp;
@@ -1246,7 +1253,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}
 		
 		public void check(float dx, float dy, float dz) {
-			isChanged.srcRect=!prevSrcRect.equals(imp.getCanvas().getSrcRect());
+			isChanged.srcRect= (!prevSrcRect.equals(imp.getCanvas().getSrcRect())) || setNextSrcRect;
 			MinMax[] newMinmaxs=MinMax.getMinMaxs(imp.getLuts());
 			isChanged.minmax=false;
 			for(int i=0;i<minmaxs.length;i++) {
@@ -1263,7 +1270,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		
 		public void reset() {
 			isChanged.reset();
-			resized=false;
+			setNextSrcRect=false;
 		}
 		
 		static class IsChanged{
@@ -2234,7 +2241,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}
 	}
 	
-	public void setSuperMag(float m) { supermag=m;}
+	public void setSuperMag(float m) { if(supermag!=m)imageState.setNextSrcRect=true; supermag=m;}
 	public float getSuperMag() {return supermag;}
 	
 	@Override

@@ -73,7 +73,7 @@ public class JCRotator extends JCAdjuster implements MouseMotionListener {
 		});
 		add(b,c);
 		c.gridy++;
-		add(new Label("Additional Zoom"),c);
+		add(new Label("Additional Magnification"),c);
 		for(int i=0;i<1;i++) {
 			c.gridy++;
 			zscp=new NumberScrollPanel(jic.getSuperMag(),-2.0f,2.0f,'M',2);

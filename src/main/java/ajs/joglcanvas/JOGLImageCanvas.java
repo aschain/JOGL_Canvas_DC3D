@@ -1043,8 +1043,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						if(JCP.drawCrosshairs==1 || (isMirror & !go3d)) {
 							int fpx=(int)(13.0/magnification), slfpx=(int)((double)fpx/cal.pixelDepth*cal.pixelWidth);
 							left=oicp.x-fpx; right=oicp.x+fpx; top=oicp.y+fpx; bottom=oicp.y-fpx; front=sl+1-slfpx; back=sl+1+slfpx;
-							if(left<0)left=0; if(right>imp.getWidth())right=imp.getWidth(); if(top>imp.getHeight())top=imp.getHeight();
-							if(bottom<0)bottom=0; if(front<1)front=1; if(back>sls)back=sls;
+							if(left<0)left=0; if(right>imp.getWidth())right=imp.getWidth();
+							if(top>imp.getHeight())top=imp.getHeight(); if(bottom<0)bottom=0; 
+							if(front<1)front=1; if(back>sls)back=sls;
 						}
 						Color c=anacolor!=null?anacolor:Color.white;
 						rgldu.drawGLij(new int[] {left,oicp.y, sl+1, right,oicp.y,sl+1}, c, GL.GL_LINE_STRIP);
@@ -2207,7 +2208,20 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	}
 	
 	public Point offScreen(Point p) {
+		if(p==null)return null;
 		return new Point(offScreenX(p.x),offScreenY(p.y));
+	}
+	
+	public void setImageCursorPosition(MouseEvent e) {
+		if(e==null)oicp=null;
+		setImageCursorPosition(offScreen(e.getPoint()));
+	}
+	
+	public void setImageCursorPosition(Point p) {
+		if(p==null)oicp=null;
+		if(p.x<0)p.x=0; if(p.y<0)p.y=0;
+		if(p.x>imp.getWidth())p.x=imp.getWidth(); if(p.y>imp.getHeight())p.y=imp.getHeight();
+		oicp=new Point(p.x,p.y);
 	}
 	
 	/**
@@ -2282,7 +2296,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				((MirrorCanvas)imp.getCanvas()).drawCursorPoint(true);
 			}
 			else {
-				if(JCP.drawCrosshairs>0) {oicp=new Point(offScreenX(e.getX()),offScreenY(e.getY()));repaint();}
+				if(JCP.drawCrosshairs>0) {setImageCursorPosition(e);repaint();}
 				super.mouseDragged(e);
 			}
 		}
@@ -2293,7 +2307,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	public void mouseReleased(MouseEvent e) {
 		if(shouldKeep(e)) {
 			if(JCP.drawCrosshairs>0) {
-				glw.warpPointer(osx, osy);
+				glw.warpPointer((int)(osx*dpimag), (int)(osy*dpimag));
 			}
 			if(JCP.debug)IJ.log("Pointer warped "+sx+" "+sy);
 		}else {
@@ -2310,14 +2324,14 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	public void mouseMoved(MouseEvent e) {
 		//if(JCP.debug)IJ.log("\\Update:MouseMoved "+e.getX()+" "+e.getY());
 		if(shouldKeep(e)){
-			if(JCP.drawCrosshairs>0) {oicp=new Point(offScreenX(e.getX()),offScreenY(e.getY())); repaintLater();}
+			if(JCP.drawCrosshairs>0) {setImageCursorPosition(e); repaintLater();}
 		}else {
 			if(isMirror) {
 				imp.getCanvas().mouseMoved(e);
 				((MirrorCanvas)imp.getCanvas()).drawCursorPoint(true);
 			}
 			else {
-				if(JCP.drawCrosshairs>0) {oicp=new Point(offScreenX(e.getX()),offScreenY(e.getY())); repaintLater();}
+				if(JCP.drawCrosshairs>0) {setImageCursorPosition(e); repaintLater();}
 				super.mouseMoved(e);
 			}
 		}

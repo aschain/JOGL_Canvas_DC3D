@@ -314,11 +314,20 @@ public class JCP implements PlugIn {
 	
 	public static void openTestImage() {
 		int w=1024,h=512;
+		int min=16448;
 		IJ.newImage("JCP test image", "16-bit", w, h, 1);
 		ImagePlus testimp=WindowManager.getCurrentImage();
 		ImageProcessor ip=testimp.getProcessor();
 		for(int y=0;y<h;y++) {ip.set(0,y,0);ip.set(w-1,y,65535);}
-		for(int x=1;x<w-1;x++)for(int y=0;y<h;y++)ip.set(x,y,16448+x*4096/w);
+		for(int x=1;x<w-1;x++){
+			int value=min+x*4096/w;
+			for(int y=0;y<h;y++) {
+				// first 3rd 10bit, 2nd 3rd 8bit, 3rd 3rd 6bit
+				if(y>h/3)value=(value/16)*16;
+				if(y>(2*h/3))value=(value/32)*32;
+				ip.set(x,y,value);
+			}
+		}
 		ip.setMinAndMax(0, 65535);
 		testimp.updateAndRepaintWindow();
 	}

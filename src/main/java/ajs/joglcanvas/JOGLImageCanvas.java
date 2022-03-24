@@ -165,6 +165,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 
 	public JOGLImageCanvas(ImagePlus imp, boolean mirror) {
 		super(imp);
+		if(imp.getNSlices()==1)go3d=false;
 		pixelType3d=getPixelType(imp);
 		isMirror=mirror;
 		if(!mirror) {setOverlay(imp.getCanvas().getOverlay());}
@@ -1405,14 +1406,12 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	}
 
 	public void set3d(boolean newboo) {
+		if(imp.getNSlices()==1)newboo=false;
 		if(go3d==newboo)return;
 		threeDupdated=true;
 		myImageUpdated=true;
 		go3d=newboo;
-		if(!go3d)disablePopupMenu=false;
-		else {
-			disablePopupMenu=true;
-		}
+		disablePopupMenu=go3d;
 		repaint();
 	}
 	

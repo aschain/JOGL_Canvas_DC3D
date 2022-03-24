@@ -315,21 +315,25 @@ public class JCP implements PlugIn {
 	public static void openTestImage() {
 		int w=1024,h=512;
 		int min=16448;
-		IJ.newImage("JCP test image", "16-bit", w, h, 1);
-		ImagePlus testimp=WindowManager.getCurrentImage();
+		int n=3, fac=4;
+		ImagePlus testimp=IJ.createImage("JCP test image", "16-bit", w, h, 1);
 		ImageProcessor ip=testimp.getProcessor();
 		for(int y=0;y<h;y++) {ip.set(0,y,0);ip.set(w-1,y,65535);}
-		for(int x=1;x<w-1;x++){
+		int end=w-1; //w-1
+		for(int x=1;x<end;x++){
 			int value=min+x*4096/w;
 			for(int y=0;y<h;y++) {
-				// first 3rd 10bit, 2nd 3rd 8bit, 3rd 3rd 6bit
-				if(y>h/3)value=(value/16)*16;
-				if(y>(2*h/3))value=(value/32)*32;
+				// first nth 12bit, further nth part is 12-(n*4) bit
+				int p=y*n/h*fac;
+				int div=(int)Math.pow(2, p);
+				value=(value/div)*div;
 				ip.set(x,y,value);
 			}
 		}
 		ip.setMinAndMax(0, 65535);
-		testimp.updateAndRepaintWindow();
+		testimp.setColor(new Color(255,255,255));
+		for(int ni=0;ni<n;ni++)ip.drawString(""+(12-(ni*fac))+"-bit", 0, ip.getFontMetrics().getHeight()+ni*h/n);
+		testimp.show();
 	}
 	
 	public static GLCapabilities getGLCapabilities() {

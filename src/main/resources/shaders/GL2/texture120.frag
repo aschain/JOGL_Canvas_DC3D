@@ -26,7 +26,8 @@ void main(){
 				gl_FragColor=outputColor;
 				return;
 			}else{
-				float col=max((texColor.r-lut.r),0.0)/(lut.g-lut.r);
+				float col=(texColor.r-lut.r)/(lut.g-lut.r);
+				col=max(col,0.0);
 				if(lut.a>0.04)col=exp(lut.a*log(col));
 				color[2]=(rgb>3);
 				if(color[2])rgb=rgb-4;

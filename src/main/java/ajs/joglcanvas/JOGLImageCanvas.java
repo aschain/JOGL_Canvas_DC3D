@@ -773,6 +773,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			}else {
 				if(i<luts.length) {
 					int rgb=luts[i].getRGB(255);
+					boolean inv=false;
+					if((rgb & 0x00ffffff)==0 || imp.isInvertedLut()) {
+						if((luts[i].getRGB(0)&0x00ffffff)>0)rgb=luts[i].getRGB(0);
+						inv=true;
+					}
 					if(active[i] && !(cmode!=IJ.COMPOSITE && imp.getC()!=(i+1))) {
 						if(cmode==IJ.GRAYSCALE)color=7;
 						else color=(((rgb & 0x00ff0000)==0x00ff0000)?1:0) + (((rgb & 0x0000ff00)==0x0000ff00)?2:0) + (((rgb & 0x000000ff)==0x000000ff)?4:0);
@@ -791,6 +796,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						}
 					}
 					if(min==max) {if(min==0){max+=(1/topmax);}else{min-=(1/topmax);}}
+					if(inv) {float temp=max; max=min; min=temp;}
 				}
 			}
 			lutMatrixPointer.putFloat(min);

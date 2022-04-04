@@ -122,7 +122,7 @@
 				      <workingDirectory>${basedir}</workingDirectory>
 				      <arguments>
 				    	  <argument>-c</argument>
-				    	  <argument>echo -e $(../copyToFiji.sh plugins ${project.artifactId} target/${project.build.finalName}.jar)</argument>
+				    	  <argument>../copyToFiji.sh plugins ${project.artifactId} target/${project.build.finalName}.jar</argument>
 				      </arguments>
 				    </configuration>
 				  </execution>

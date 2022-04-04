@@ -236,7 +236,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				showMenuButton(true);
 			}
 		});
-		disablePopupMenu(true);
+		disablePopupMenu(go3d);
 	}
 	
 	private void setGL(GLAutoDrawable drawable) {
@@ -774,7 +774,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				if(i<luts.length) {
 					int rgb=luts[i].getRGB(255);
 					boolean inv=false;
-					if((rgb & 0x00ffffff)==0 || imp.isInvertedLut()) {
+					if((rgb & 0x00ffffff)==0) {
 						if((luts[i].getRGB(0)&0x00ffffff)>0)rgb=luts[i].getRGB(0);
 						inv=true;
 					}
@@ -1001,8 +1001,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				drawToTexture(width, height, glos.getTexture("temp",stereoi), tempFramebuffers[0], tempFramebuffers[1]);
 				glos.clearColorDepth();
 			}
-			
-			if(roi!=null || overlay!=null || JCP.drawCrosshairs>0) { 
+			boolean drawCrosshairs=JCP.drawCrosshairs>0 && oicp!=null  && (isMirror || go3d);
+			if(roi!=null || overlay!=null || drawCrosshairs) { 
 				//if(go3d)IJ.log(FloatUtil.matrixToString(null, "rot2: ", "%10.4f", rotate, 0, 4, 4, false).toString());
 				float z=0f;
 				float zf=(float)(cal.pixelDepth/cal.pixelWidth)/srcRect.width;
@@ -1014,8 +1014,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					if(doRoi || doOv!=null) {
 						glos.useProgram("roi");
 						glos.bindUniformBuffer(bname, 1);
-						if(doRoi)
-							drawGraphics(gl, z, "roiGraphic", 0, (go3d?"modelr":"idm"));
 						if(doOv!=null) {
 							for(int osl=0;osl<sls;osl++) {
 								if(doOv[osl] && (!cutPlanes.applyToRoi || (osl>=cutPlanes.z() && osl<cutPlanes.d())) ) {
@@ -1023,9 +1021,12 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 								}
 							}
 						}
+						if(doRoi)
+							drawGraphics(gl, z, "roiGraphic", 0, (go3d?"modelr":"idm"));
 						glos.stopProgram();
 					}
-				}else {
+				}
+				if(JCP.openglroi || drawCrosshairs){
 					Color anacolor=null;
 					if(stereoType==StereoType.ANAGLYPH && go3d) {
 						if(JCP.dubois)anacolor=(stereoi==0)?Color.RED:Color.CYAN;
@@ -1036,15 +1037,16 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					if(glos.glver==2)rgldu.startDrawing();
 					glos.bindUniformBuffer(bname, 1);
 					glos.bindUniformBuffer(go3d?"modelr":"idm", 2);
-					if(roi!=null)
-						rgldu.drawRoiGL(drawable, roi, true, anacolor, go3d);
-					if(overlay!=null) {
-						for(int i=0;i<overlay.size();i++) {
-							rgldu.drawRoiGL(drawable, overlay.get(i), false, anacolor, go3d);
+					if(JCP.openglroi) {
+						if(overlay!=null) {
+							for(int i=0;i<overlay.size();i++) {
+								rgldu.drawRoiGL(drawable, overlay.get(i), false, anacolor, go3d);
+							}
 						}
+						if(roi!=null)
+							rgldu.drawRoiGL(drawable, roi, true, anacolor, go3d);
 					}
-					
-					if(JCP.drawCrosshairs>0 && oicp!=null  && (isMirror || go3d)) {
+					if(drawCrosshairs) {
 						int left=0, right=imp.getWidth(), top=imp.getHeight(), bottom=0, front=1, back=sls;
 						//int opx=Math.max(1,(int)(1.0/magnification));
 						if(JCP.drawCrosshairs==1 || (isMirror & !go3d)) {

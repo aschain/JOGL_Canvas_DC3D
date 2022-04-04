@@ -116,6 +116,8 @@ public class RoiGLDrawUtility {
 			}
 			return;
 		}
+
+		gl.glEnable(GL_MULTISAMPLE);
 		this.go3d=go3d;
 		this.anacolor=anacolor;
 		int sls=imp.getNSlices(), ch=imp.getC(), sl=imp.getZ(), fr=imp.getT();
@@ -190,30 +192,58 @@ public class RoiGLDrawUtility {
 					new float[] {(fp.ypoints[0]+fp.ypoints[1])/2,(fp.ypoints[2]+fp.ypoints[3])/2},
 					2);
 		}
+		FloatPolygon loopfp=fp;
 		
 		int todraw=GL_LINE_STRIP;
-		if(tp==Roi.RECTANGLE || tp==Roi.TRACED_ROI || tp==Roi.OVAL || (!(roi.getState()==Roi.CONSTRUCTING) && (tp==Roi.POLYGON || tp==Roi.FREEROI)) )todraw=GL_LINE_LOOP;
-		if(tp==Roi.FREEROI && (roi instanceof ij.gui.EllipseRoi || roi.getClass().getName()=="ij.gui.RotatedRectRoi"))todraw=GL_LINE_LOOP;
+		if(tp==Roi.RECTANGLE || tp==Roi.TRACED_ROI || tp==Roi.OVAL || (!(roi.getState()==Roi.CONSTRUCTING) && (tp==Roi.POLYGON || tp==Roi.FREEROI))
+			|| (tp==Roi.FREEROI && (roi instanceof ij.gui.EllipseRoi || roi.getClass().getName()=="ij.gui.RotatedRectRoi"))) {
+			//todraw=GL_LINE_LOOP;
+			int n=fp.npoints+1;
+			float[] xpoints=new float[n];
+			float[] ypoints=new float[n];
+			for(int i=0; i<(n-1); i++) {
+				xpoints[i]=fp.xpoints[i];
+				ypoints[i]=fp.ypoints[i];
+			}
+			xpoints[n-1]=fp.xpoints[0];
+			ypoints[n-1]=fp.ypoints[0];
+			loopfp=new FloatPolygon(xpoints, ypoints, n);
+		}
 
 		gl.glLineWidth(1f);
-		Color roicolor=anacolor==null?Roi.getColor():anacolor;
+		Color roicolor=anacolor==null?roi.getStrokeColor():anacolor;
+		if(roicolor==null)roicolor=Roi.getColor();
+		if(roi.getFillColor()!=null) {
+			todraw=GL_TRIANGLE_STRIP;
+			roicolor=roi.getFillColor();
+			roi.getStroke();
+		}
 		
-		drawGLFP(todraw, fp, z, roicolor);
+		Color altcolor=new Color(roicolor.getRed(),roicolor.getGreen(), roicolor.getBlue(), roicolor.getAlpha());
+		if(roicolor.getAlpha()==77)altcolor=new Color(altcolor.getRed(),altcolor.getGreen(), altcolor.getBlue(),255);
+		if(roi instanceof TextRoi)altcolor=Roi.getColor();
+		drawGLFP(todraw, loopfp, z, altcolor);
 		
-		int n=fp.npoints;
-		float[] xpoints=fp.xpoints;
-		float[] ypoints=fp.ypoints;
 
 		//if it is a line with width
-		if(strokeWidth>1 && (tp==Roi.LINE || tp==Roi.FREELINE || tp==Roi.POLYLINE) && !(roi instanceof Arrow) && fp.npoints>=2) {
-			Color c=new Color(roicolor.getRed(), roicolor.getGreen(), roicolor.getBlue(), 77);
-			drawPolyWideLine(fp, c, strokeWidth, z);
+		if(strokeWidth>1 && !(roi instanceof Arrow) && fp.npoints>=2) {
+			//Color c=new Color(roicolor.getRed(), roicolor.getGreen(), roicolor.getBlue(), 77);
+			if(todraw==GL_LINE_STRIP) 
+				drawPolyWideLine(fp, roicolor, strokeWidth, z);
+			else {
+				drawPolyWideLine(loopfp, roicolor, strokeWidth, z);
+			}
+			
 		}
+		
 		if(roi instanceof Arrow) { //arrow
 			drawArrow((Arrow)roi, z);
 		}
 		
 		if(drawHandles) {
+			int n=fp.npoints;
+			float[] xpoints=fp.xpoints;
+			float[] ypoints=fp.ypoints;
 			//IJ.log("\\Update:tp:"+tp+" n:"+n+" cn: "+roi.getClass().getSimpleName());
 			float[] xhandles=new float[0],yhandles=new float[0];
 			if(roi instanceof ij.gui.EllipseRoi || tp==Roi.OVAL) {
@@ -792,38 +822,52 @@ public class RoiGLDrawUtility {
 		};
 	}
 	
-	protected void drawTextRoiString(TextRoi troi, float z) {
+	protected void drawTextRoiString(TextRoi troi, float x, float y, float z) {
+		int aa=(mag>1?(int)mag:1)*4;
 		Rectangle bounds=troi.getBounds();
-		drawString(troi.getText(), troi.getStrokeColor(), glX(bounds.x), glY(bounds.y), z, false, null);
-	}
-	
-	private void drawString(String text, Color color, float x, float y, float z) {
-		drawString(text, color, x, y, z, true, new Font("SansSerif", Font.PLAIN, 12));
-	}
-	
-	protected void drawString(String text, Color color, float x, float y, float z, boolean demag, Font font) {
-		float icmag=(demag?1.0f:(float)mag);
+		IJ.log("textRoi bounds "+bounds);
+		if((bounds.width * bounds.height) == 0)return;
+		String text=troi.getText();
 		int lines=text.split("\n").length;
-		if(font==null)font=new Font(TextRoi.getDefaultFontName(), TextRoi.getDefaultFontStyle(), TextRoi.getDefaultFontSize());
-		font=new Font(font.getName(),font.getStyle(),(int)(font.getSize()*icmag+0.5));
-		TextRoi troi=new TextRoi(text, 0.0, 0.0, font);
-		troi.setStrokeColor(color);
-		troi.setLocation(0.0, 0.0);
-		Rectangle bounds=troi.getBounds();
+		if(lines==0)return;
 		bounds.height*=lines;
-		BufferedImage roiImage=new BufferedImage(bounds.width, bounds.height, BufferedImage.TYPE_INT_ARGB);
+		BufferedImage roiImage=new BufferedImage(bounds.width*aa, bounds.height*aa, BufferedImage.TYPE_INT_ARGB);
 		Graphics g=roiImage.getGraphics();
+		troi.setLocation(0.0, 0.0);
+		Font font=troi.getCurrentFont();
+		troi.setFont(new Font(font.getName(),font.getStyle(),font.getSize()*aa));
 		troi.drawOverlay(g);
+		troi.setFont(font);
+		troi.setLocation(bounds.x, bounds.y);
 		rglos.getTexture("text").createRgbaTexture(AWTTextureIO.newTextureData(gl.getGLProfile(), roiImage, false).getBuffer(), roiImage.getWidth(), roiImage.getHeight(), 1, 4, false);
 		g.dispose();
+		// /(float)mag
 		FloatBuffer vb=GLBuffers.newDirectFloatBuffer(getVecSquare(x, y, z, (float)bounds.width/w/(float)mag*2f, (float)bounds.height/h/(float)mag*2f, 0f, 1f, 0.5f, 1f, -1f));
 		ShortBuffer eb=GLBuffers.newDirectShortBuffer(new short[] {0,1,2,2,3,0});
-		gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		rglos.useProgram("text");
 		gl.glEnable(GL_BLEND);
 		rglos.drawTexVaoWithEBOVBO("text", 0, eb, vb);
 		rglos.stopProgram();
 		gl.glDisable(GL_BLEND);
+	}
+	
+	private void drawTextRoiString(TextRoi troi, float z) {
+		Rectangle bounds=troi.getBounds();
+		drawTextRoiString(troi, glX(bounds.x), glY(bounds.y), z);
+	}
+	
+	private void drawString(String text, Color color, float x, float y, float z) {
+		drawString(text, color, x, y, z, new Font("SansSerif", Font.PLAIN, 12));
+	}
+	
+	private void drawString(String text, Color color, float x, float y, float z, Font font) {
+		float icmag=(float)mag;//(demag?1.0f:(float)mag);
+		if(font==null)font=new Font(TextRoi.getDefaultFontName(), TextRoi.getDefaultFontStyle(), TextRoi.getDefaultFontSize());
+		font=new Font(font.getName(),font.getStyle(),(int)(font.getSize()*icmag+0.5));
+		TextRoi troi=new TextRoi(text, 0.0, 0.0, font);
+		troi.setStrokeColor(color);
+		drawTextRoiString(troi, x, y, z);
 	}
 	
 	

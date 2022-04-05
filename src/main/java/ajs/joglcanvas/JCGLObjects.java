@@ -124,12 +124,12 @@ public class JCGLObjects {
 			gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	}
 	
-	public void newTexture(String name) {
-		newTexture(name, 1);
+	public void newTexture(String name, boolean is3d) {
+		newTexture(name, 1, is3d);
 	}
 	
-	public void newTexture(String name, int size) {
-		JCTexture oldtex=textures.put(name, new JCTexture(size));
+	public void newTexture(String name, int size, boolean is3d) {
+		JCTexture oldtex=textures.put(name, new JCTexture(size, is3d));
 		if(oldtex!=null)oldtex.dispose();
 	}
 	
@@ -137,7 +137,7 @@ public class JCGLObjects {
 		return textures.containsKey(name);
 	}
 	
-	public int getTexture(String name, int index) {
+	public int getTextureHandle(String name, int index) {
 		return textures.get(name).handles[index];
 	}
 	
@@ -154,38 +154,44 @@ public class JCGLObjects {
 	 * Texture handling loading
 	 */
 	
-	public void loadTexFromPbo(String pboName, int pn, String texName, int tn, int width, int height, int depth, int offsetSlice, PixelType type, int COMPS, boolean endian, boolean linear) {
-		loadTexFromPbo(getTexture(texName, tn), getPbo(pboName, pn), width, height, depth, offsetSlice, type, COMPS, endian, linear);
-	}
-	
 	public void loadTexFromPbo(String sameName, int pn,int width, int height, int depth, int offsetSlice, PixelType type, int COMPS, boolean endian, boolean linear) {
 		loadTexFromPbo(sameName, pn, sameName, 0, width, height, depth, offsetSlice, type, COMPS, endian, linear);
 	}
 	
-	public void loadTexFromPbo(int texHandle, int pboHandle, int width, int height, int depth, int offsetSlice, PixelType type, int COMPS, boolean endian, boolean linear) {
+	//public void loadTexFromPbo(int poop, int texHandle, int pboHandle, int width, int height, int depth, int offsetSlice, PixelType type, int COMPS, boolean endian, boolean linear) {
+	public void loadTexFromPbo(String pboName, int pn, String texName, int tn, int width, int height, int depth, int offsetSlice, PixelType type, int COMPS, boolean endian, boolean linear) {
+			
+		int texHandle=getTextureHandle(texName, tn), pboHandle=getPboHandle(pboName, pn);
+		boolean is3d=getTexture(texName).is3d;
 		
 		PixelTypeInfo pinfo=new PixelTypeInfo(type, COMPS);
+		
+		int textype=is3d?GL_TEXTURE_3D:GL_TEXTURE_2D;
 		
 		//gl3.glEnable(GL_TEXTURE_3D);
 		//gl3.glActiveTexture(GL_TEXTURE0);
 		gl.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pboHandle);
-		gl.glBindTexture(GL_TEXTURE_3D, texHandle); 
+		gl.glBindTexture(textype, texHandle); 
 		gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		if(endian)gl.glPixelStorei(GL_UNPACK_SWAP_BYTES, GL_TRUE);
-		gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_BASE_LEVEL, 0);
-		gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAX_LEVEL, 0);
-		gl23.glTexSubImage3D(GL_TEXTURE_3D, 0, 0, 0, 0, width, height, depth, pinfo.glFormat, pinfo.glPixelSize, offsetSlice*pinfo.components*width*height*pinfo.sizeBytes);
+		gl.glTexParameteri(textype, GL_TEXTURE_BASE_LEVEL, 0);
+		gl.glTexParameteri(textype, GL_TEXTURE_MAX_LEVEL, 0);
+		if(is3d)
+			gl23.glTexSubImage3D(GL_TEXTURE_3D, 0, 0, 0, 0, width, height, depth, pinfo.glFormat, pinfo.glPixelSize, offsetSlice*pinfo.components*width*height*pinfo.sizeBytes);
+		else
+			gl23.glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, pinfo.glFormat, pinfo.glPixelSize, offsetSlice*pinfo.components*width*height*pinfo.sizeBytes);
+
 		int magtype=linear?GL_LINEAR:GL_NEAREST;
-		gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, magtype);
-		gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, magtype);//GL_NEAREST_MIPMAP_LINEAR
-		gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-		gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-		gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
-		gl.glTexParameterfv(GL_TEXTURE_3D, GL_TEXTURE_BORDER_COLOR, new float[] {0f,0f,0f,0f},0);
+		gl.glTexParameteri(textype, GL_TEXTURE_MAG_FILTER, magtype);
+		gl.glTexParameteri(textype, GL_TEXTURE_MIN_FILTER, magtype);//GL_NEAREST_MIPMAP_LINEAR
+		gl.glTexParameteri(textype, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+		gl.glTexParameteri(textype, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+		gl.glTexParameteri(textype, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
+		gl.glTexParameterfv(textype, GL_TEXTURE_BORDER_COLOR, new float[] {0f,0f,0f,0f},0);
 		//gl3.glGenerateMipmap(GL_TEXTURE_3D);
 		if(endian)gl.glPixelStorei(GL_UNPACK_SWAP_BYTES, GL_FALSE);
 		//gl3.glDisable(GL_TEXTURE_3D);
-		gl.glBindTexture(GL_TEXTURE_3D, 0); 
+		gl.glBindTexture(textype, 0); 
 		gl.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 	}
 	
@@ -251,6 +257,7 @@ public class JCGLObjects {
 
 	public void drawTexVao(String name, int texIndex, int glElementBufferType, int count, int chs) {
 		int gltype=GL_TEXTURE_3D;
+		if(!getTexture(name).is3d)gltype=GL_TEXTURE_2D;
 		//gl23.glEnable(gltype);
 		//gl3.glActiveTexture(GL_TEXTURE0);
 		//gl3.glBindTexture(gltype, textures.get(name, texIndex));
@@ -262,7 +269,7 @@ public class JCGLObjects {
 		for(int i=0;i<chs;i++) {
 			gl.glActiveTexture(GL_TEXTURE0+i);
 			//if(glver==2)gl2.glEnable(gltype);
-			gl.glBindTexture(gltype, getTexture(name, texIndex+i));
+			gl.glBindTexture(gltype, getTextureHandle(name, texIndex+i));
 			tns[i]=i;
 		}
 		gl.glActiveTexture(GL_TEXTURE0);
@@ -316,10 +323,12 @@ public class JCGLObjects {
 	class JCTexture{
 		
 		public int[] handles;
+		public boolean is3d;
 		
-		public JCTexture(int size) {
+		public JCTexture(int size, boolean is3d) {
 			handles=new int[size];
 			gl.glGenTextures(size, handles, 0);
+			this.is3d=is3d;
 		}
 		
 		public void dispose() {
@@ -352,8 +361,13 @@ public class JCGLObjects {
 			PixelTypeInfo pinfo=new PixelTypeInfo(ptype, COMPS);
 			int[] ths=handles;
 			for(int i=0;i<ths.length;i++) {
-				gl.glBindTexture(GL_TEXTURE_3D, ths[i]);
-				gl23.glTexImage3D(GL_TEXTURE_3D, 0, pinfo.glInternalFormat, width, height, depth, 0, pinfo.glFormat, pinfo.glPixelSize, null);
+				if(is3d) {
+					gl.glBindTexture(GL_TEXTURE_3D, ths[i]);
+					gl23.glTexImage3D(GL_TEXTURE_3D, 0, pinfo.glInternalFormat, width, height, depth, 0, pinfo.glFormat, pinfo.glPixelSize, null);
+				}else {
+					gl.glBindTexture(GL_TEXTURE_2D, ths[i]);
+					gl23.glTexImage2D(GL_TEXTURE_2D, 0, pinfo.glInternalFormat, width, height, 0, pinfo.glFormat, pinfo.glPixelSize, null);
+				}
 			}
 			
 		}
@@ -361,23 +375,29 @@ public class JCGLObjects {
 		private void subRgbaTexture(int glTextureHandle, Buffer buffer, int zoffset, int width, int height, int depth, int COMPS, boolean genmipmap, boolean linear) { 
 	
 			PixelTypeInfo pinfo=new PixelTypeInfo(buffer, COMPS);
-
-			gl.glBindTexture(GL_TEXTURE_3D, glTextureHandle);
-			if(!genmipmap) {
-				gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_BASE_LEVEL, 0);
-				gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAX_LEVEL, 0);
-			}
-			gl23.glTexSubImage3D(GL_TEXTURE_3D, 0, 0,0,zoffset, width, height, depth, pinfo.glFormat, pinfo.glPixelSize, buffer);
-			int magtype=linear?GL_LINEAR:GL_NEAREST;
-			gl23.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, magtype);
-			gl23.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, magtype);//GL_NEAREST_MIPMAP_LINEAR
-			gl23.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-			gl23.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-			gl23.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
-			gl23.glTexParameterfv(GL_TEXTURE_3D, GL_TEXTURE_BORDER_COLOR, new float[] {0f,0f,0f,0f},0);
 			
-			if(genmipmap)gl.glGenerateMipmap(GL_TEXTURE_3D);
-			gl.glBindTexture(GL_TEXTURE_3D, 0);
+			int textype=is3d?GL_TEXTURE_3D:GL_TEXTURE_2D;
+
+			gl.glBindTexture(textype, glTextureHandle);
+			if(!genmipmap) {
+				gl.glTexParameteri(textype, GL_TEXTURE_BASE_LEVEL, 0);
+				gl.glTexParameteri(textype, GL_TEXTURE_MAX_LEVEL, 0);
+			}
+			if(is3d)
+				gl23.glTexSubImage3D(GL_TEXTURE_3D, 0, 0,0,zoffset, width, height, depth, pinfo.glFormat, pinfo.glPixelSize, buffer);
+			else
+				gl23.glTexSubImage2D(GL_TEXTURE_2D, 0, 0,0, width, height, pinfo.glFormat, pinfo.glPixelSize, buffer);
+				
+			int magtype=linear?GL_LINEAR:GL_NEAREST;
+			gl23.glTexParameteri(textype, GL_TEXTURE_MAG_FILTER, magtype);
+			gl23.glTexParameteri(textype, GL_TEXTURE_MIN_FILTER, magtype);//GL_NEAREST_MIPMAP_LINEAR
+			gl23.glTexParameteri(textype, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+			gl23.glTexParameteri(textype, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+			gl23.glTexParameteri(textype, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
+			gl23.glTexParameterfv(textype, GL_TEXTURE_BORDER_COLOR, new float[] {0f,0f,0f,0f},0);
+			
+			if(genmipmap)gl.glGenerateMipmap(textype);
+			gl.glBindTexture(textype, 0);
 		} 
 	}
 
@@ -399,7 +419,7 @@ public class JCGLObjects {
 		return pbos.get(name);
 	}
 	
-	public int getPbo(String name, int index) {
+	public int getPboHandle(String name, int index) {
 		return pbos.get(name).pbos[index];
 	}
 	

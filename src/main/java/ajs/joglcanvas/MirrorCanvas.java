@@ -54,4 +54,14 @@ public class MirrorCanvas extends ImageCanvas {
 		if(JCP.drawCrosshairs>0)jic.repaintLater();
 		super.mouseDragged(e);
 	}
+	@Override
+	public void mousePressed(MouseEvent e) {
+		jic.repaintLater();
+		super.mousePressed(e);
+	}
+	@Override
+	public void mouseReleased(MouseEvent e) {
+		jic.repaintLater();
+		super.mouseReleased(e);
+	}
 }

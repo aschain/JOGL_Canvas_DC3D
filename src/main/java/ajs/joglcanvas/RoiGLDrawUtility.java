@@ -61,7 +61,7 @@ public class RoiGLDrawUtility {
 		rglos.newVao("roiGL", 3, GL_FLOAT, 4, GL_FLOAT);
 		rglos.newProgram("color", "shaders", "color", "color");
 		
-		rglos.newTexture("text");
+		rglos.newTexture("text", true);
 		rglos.newBuffer(GL_ARRAY_BUFFER, "text");
 		rglos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "text");
 		rglos.newVao("text", 3, GL_FLOAT, 3, GL_FLOAT);
@@ -146,7 +146,7 @@ public class RoiGLDrawUtility {
 		}
 		
 		if(roi instanceof TextRoi){
-			drawTextRoiString((TextRoi)roi, z);
+			drawTextRoiString((TextRoi)roi, z, !isRoi);
 			if(!drawHandles)return;
 		}
 
@@ -227,11 +227,7 @@ public class RoiGLDrawUtility {
 		//if it is a line with width
 		if(strokeWidth>1 && !(roi instanceof Arrow) && fp.npoints>=2) {
 			//Color c=new Color(roicolor.getRed(), roicolor.getGreen(), roicolor.getBlue(), 77);
-			if(todraw==GL_LINE_STRIP) 
-				drawPolyWideLine(fp, roicolor, strokeWidth, z);
-			else {
-				drawPolyWideLine(loopfp, roicolor, strokeWidth, z);
-			}
+			drawPolyWideLine(loopfp, roicolor, strokeWidth, z);
 			
 		}
 		
@@ -530,9 +526,14 @@ public class RoiGLDrawUtility {
 		if(!ms)gl.glDisable(GL_MULTISAMPLE);
 	}
 	
+	/**
+	 * drawArrow adapted from Arrow calculatePoints()
+	 * @param aroi
+	 * @param z
+	 * @param flip
+	 */
 	private void drawArrow(Arrow aroi, float z, boolean flip) {
 		Color color=anacolor==null?aroi.getStrokeColor():anacolor;
-		//ripped from Arrow calculatePoints()
 		double tip = 0.0;
 		double base;
 		double shaftWidth = aroi.getStrokeWidth();
@@ -561,7 +562,7 @@ public class RoiGLDrawUtility {
 			if (style==Arrow.BAR) {
 				points[3*2] = (float)(x2d-dx*shaftWidth*0.5);
 				points[3*2+1] = (float)(y2d-dy*shaftWidth*0.5);
-			}else {
+			}else{
 				length+=shaftWidth*2;
 				points[3*2] = (float)x2d;//(float)(x2d-dx*shaftWidth*factor);
 				points[3*2+1] = (float)y2d;//(float)(y2d-dy*shaftWidth*factor);
@@ -622,6 +623,8 @@ public class RoiGLDrawUtility {
 			float[] acoords=getGLCoords(new FloatPolygon(new float[] {points[2*1],points[2*2],points[2*3],points[2*1],points[2*4],points[2*3]},new float[] {points[2*1+1],points[2*2+1],points[2*3+1],points[2*1+1],points[2*4+1],points[2*3+1]}, 6),z,false);
 			drawGL(acoords, color, GL_TRIANGLES);
 		}
+		for(int i=0;i<points.length/2;i++)
+			IJ.log("x"+points[i*2]+" y"+points[i*2+1]);
 	}
 	
 	private float glX(float x) {
@@ -821,28 +824,31 @@ public class RoiGLDrawUtility {
 		};
 	}
 	
-	protected void drawTextRoiString(TextRoi troi, float x, float y, float z) {
-		int aa=1;//(mag>1?(int)mag:1)*4;
+	protected void drawTextRoiString(TextRoi troi, float x, float y, float z, boolean isOverlay, boolean fixoffset) {
+		int aa=4;//(mag>1?(int)mag:1)*4;
+		float magor1=1f;
+		double locx=offx, locy=offy;
+		if(isOverlay) {
+			magor1=(float)mag;
+		}
+		if(fixoffset) {
+			locx=0.0; locy=0.0;
+		}
 		Rectangle bounds=troi.getBounds();
-		//IJ.log("textRoi bounds "+bounds);
 		if((bounds.width * bounds.height) == 0)return;
 		String text=troi.getText();
 		if(text==null || "".contentEquals(text))return;
-		//int lines=text.split("\n").length;
-		//if(lines==0)return;
-		//bounds.height*=lines;
-		BufferedImage roiImage=new BufferedImage(bounds.width*aa*(int)dpimag, bounds.height*aa*(int)dpimag, BufferedImage.TYPE_INT_ARGB);
+		BufferedImage roiImage=new BufferedImage((int)(bounds.width*aa*mag*dpimag+0.5f), (int)(bounds.height*aa*mag*dpimag+0.5f), BufferedImage.TYPE_INT_ARGB);
 		Graphics g=roiImage.getGraphics();
-		troi.setLocation(0.0, 0.0);
+		troi.setLocation(locx, locy);
 		Font font=troi.getCurrentFont();
-		troi.setFont(font.deriveFont(font.getSize()*aa));
+		troi.setFont(font.deriveFont((float)(font.getSize()*aa)*magor1));
 		troi.drawOverlay(g);
 		troi.setFont(font);
 		troi.setLocation(bounds.x, bounds.y);
 		rglos.getTexture("text").createRgbaTexture(AWTTextureIO.newTextureData(gl.getGLProfile(), roiImage, false).getBuffer(), roiImage.getWidth(), roiImage.getHeight(), 1, 4, false);
 		g.dispose();
-		// /(float)mag
-		FloatBuffer vb=GLBuffers.newDirectFloatBuffer(getVecSquare(x*dpimag, y*dpimag, z, (float)bounds.width/w/(float)mag*2f*dpimag, (float)bounds.height/h/(float)mag*2f*dpimag, 0f, 1f, 0.5f, 1f, -1f));
+		FloatBuffer vb=GLBuffers.newDirectFloatBuffer(getVecSquare(x, y, z, (float)bounds.width/w*2f*dpimag, (float)bounds.height/h*2f*dpimag, 0f, 1f, 0.5f, 1f, -1f));
 		ShortBuffer eb=GLBuffers.newDirectShortBuffer(new short[] {0,1,2,2,3,0});
 		gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		rglos.useProgram("text");
@@ -852,9 +858,9 @@ public class RoiGLDrawUtility {
 		gl.glDisable(GL_BLEND);
 	}
 	
-	private void drawTextRoiString(TextRoi troi, float z) {
+	private void drawTextRoiString(TextRoi troi, float z, boolean isOverlay) {
 		Rectangle bounds=troi.getBounds();
-		drawTextRoiString(troi, glX(bounds.x), glY(bounds.y), z);
+		drawTextRoiString(troi, glX(bounds.x*dpimag), glY(bounds.y*dpimag), z, isOverlay, isOverlay);
 	}
 	
 	private void drawString(String text, Color color, float x, float y, float z) {
@@ -862,12 +868,11 @@ public class RoiGLDrawUtility {
 	}
 	
 	private void drawString(String text, Color color, float x, float y, float z, Font font) {
-		float icmag=1f;//(demag?1.0f:(float)mag);
 		if(font==null)font=new Font(TextRoi.getDefaultFontName(), TextRoi.getDefaultFontStyle(), TextRoi.getDefaultFontSize());
-		font=new Font(font.getName(),font.getStyle(),(int)(font.getSize()*icmag+0.5));
+		//font=new Font(font.getName(),font.getStyle(),(int)(font.getSize()*icmag+0.5));
 		TextRoi troi=new TextRoi(text, 0.0, 0.0, font);
 		troi.setStrokeColor(color);
-		drawTextRoiString(troi, x, y, z);
+		drawTextRoiString(troi, x, y, z, false, true);
 	}
 	
 	

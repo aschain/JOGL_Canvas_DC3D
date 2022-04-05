@@ -251,6 +251,13 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		glos=new JCGLObjects(drawable);
 		setGL(drawable);
 		context=drawable.getContext();
+		int[] maxsize=new int[1];
+		gl.glGetIntegerv(GL_MAX_TEXTURE_SIZE,maxsize,0);
+		if(maxsize[0]<Math.max(imp.getWidth(), imp.getHeight())) {
+			IJ.log("*** JOGLCanvas images must be below "+maxsize[0]+" on your computer ****\n*** Cancelling...");
+			revert();
+			return;
+		}
 		
 		if(dpimag!=1.0) {
 			double pd=dpimag;
@@ -288,13 +295,14 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				-1f, 	1f, 	0,		0, 0, 0.5f
 		});
 		
-		glos.newTexture("image2d", imp.getNChannels());
+		glos.newTexture("image2d", imp.getNChannels(), false);
 		glos.newBuffer(GL_ARRAY_BUFFER, "image2d", vertb);
 		glos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "image2d", elementBuffer2d);
 		glos.newVao("image2d", 3, GL_FLOAT, 3, GL_FLOAT);
+		glos.newProgram("image2d", "shaders", "texture", "texture2d");
 		glos.newProgram("image", "shaders", "texture", "texture");
 
-		glos.newTexture("roiGraphic");
+		glos.newTexture("roiGraphic", true);
 		glos.newBuffer(GL_ARRAY_BUFFER, "roiGraphic");
 		glos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "roiGraphic");
 		glos.newVao("roiGraphic", 3, GL_FLOAT, 3, GL_FLOAT);
@@ -352,7 +360,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			ShortBuffer elementBuffer=GLBuffers.newDirectShortBuffer(e);
 			((Buffer)elementBuffer).rewind();
 	
-			glos.newTexture("image3d", imp.getNChannels());
+			glos.newTexture("image3d", imp.getNChannels(), true);
 			glos.newBuffer(GL_ARRAY_BUFFER, "image3d", maxsize*floatsPerVertex*4*Buffers.SIZEOF_FLOAT, null);
 			glos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "image3d", ((Buffer)elementBuffer).capacity()*Buffers.SIZEOF_SHORT, elementBuffer);
 			glos.newVao("image3d", 3, GL_FLOAT, 3, GL_FLOAT);
@@ -370,14 +378,14 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		});
 		byte[] eb=new byte[] {0,1,2,2,3,0};
 		
-		glos.newTexture("temp",2);
+		glos.newTexture("temp",2, true);
 		glos.newBuffer(GL_ARRAY_BUFFER, "temp", avb);
 		glos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "temp", GLBuffers.newDirectByteBuffer(eb));
 		glos.newVao("temp", 3, GL_FLOAT, 3, GL_FLOAT);
 		gl.glGenFramebuffers(1, tempFramebuffers, 0);
 		gl.glGenRenderbuffers(1, tempFramebuffers, 1);
 		
-		glos.newTexture("anaglyph",2);
+		glos.newTexture("anaglyph",2, true);
 		glos.newBuffer(GL_ARRAY_BUFFER, "anaglyph", avb);
 		glos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "anaglyph", GLBuffers.newDirectByteBuffer(eb));
 		glos.newVao("anaglyph", 3, GL_FLOAT, 3, GL_FLOAT);
@@ -566,11 +574,20 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		int sl=imp.getZ()-1, fr=imp.getT()-1,chs=imp.getNChannels(),sls=imp.getNSlices(),frms=imp.getNFrames();
 		Calibration cal=imp.getCalibration();
 		if(go3d&&sls==1)go3d=false;
-		sb.setPixelType(go3d?pixelType3d:getPixelType(), go3d?undersample:1);
 		
 		int srcRectWidthMag = (int)(srcRect.width*magnification+0.5);
 		int srcRectHeightMag = (int)(srcRect.height*magnification+0.5);
 		setGL(drawable);
+		int[] maxsize=new int[1];
+		gl.glGetIntegerv(GL_MAX_3D_TEXTURE_SIZE,maxsize,0);
+		int bigsize=Math.max(imp.getWidth(), imp.getHeight());
+		if(go3d && maxsize[0]<bigsize) {
+			while(maxsize[0]<bigsize) {
+				bigsize/=2;
+				undersample*=2;
+			}
+		}
+		sb.setPixelType(go3d?pixelType3d:getPixelType(), go3d?undersample:1);
 		
 		if(go3d && stereoUpdated) {
 			if(JCP.debug)IJ.log("stereoUpdate reshape");
@@ -624,7 +641,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			}else{   // if(!JCP.openglroi && (overlay!=null || isPoint) && go3d) 
 				doOv=new boolean[sls];
 				if(!glos.textures.containsKey("overlay") || glos.getTexture("overlay").getTextureLength()!=sls) {
-					glos.newTexture("overlay",sls);
+					glos.newTexture("overlay",sls, true);
 					glos.newBuffer(GL_ARRAY_BUFFER, "overlay");
 					glos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "overlay");
 					glos.newVao("overlay", 3, GL_FLOAT, 3, GL_FLOAT);
@@ -954,7 +971,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				}
 				
 				if(needDraw) {
-					drawToTexture(width, height, glos.getTexture("anaglyph",stereoi), stereoFramebuffers[0], stereoFramebuffers[1]);
+					drawToTexture(width, height, glos.getTextureHandle("anaglyph",stereoi), stereoFramebuffers[0], stereoFramebuffers[1]);
 					glos.clearColorDepth();
 					//Blend
 					gl.glEnable(GL_BLEND);
@@ -984,7 +1001,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				gl.glDisable(GL_BLEND);
 				//Projection matrix binding
 				//drawing the 2d image
-				glos.useProgram("image"); 
+				glos.useProgram("image2d"); 
 				glos.bindUniformBuffer(bname, 1);
 				glos.bindUniformBuffer("model", 2);
 				glos.bindUniformBuffer("lut", 3);
@@ -998,7 +1015,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			//Draw roi and overlay and cursor crosshairs
 			//
 			if(go3d) {
-				drawToTexture(width, height, glos.getTexture("temp",stereoi), tempFramebuffers[0], tempFramebuffers[1]);
+				drawToTexture(width, height, glos.getTextureHandle("temp",stereoi), tempFramebuffers[0], tempFramebuffers[1]);
 				glos.clearColorDepth();
 			}
 			boolean drawCrosshairs=JCP.drawCrosshairs>0 && oicp!=null  && (isMirror || go3d);

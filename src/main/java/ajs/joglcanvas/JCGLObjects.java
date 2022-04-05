@@ -878,11 +878,11 @@ public class JCGLObjects {
 	            if(glver>2) {
 	        		gl23.glUniformBlockBinding(handle, gl23.glGetUniformBlockIndex(handle, "Transform0"), 1);
 	        		gl23.glUniformBlockBinding(handle, gl23.glGetUniformBlockIndex(handle, "Transform1"), 2);
-	        		if(fragment.equals("texture"))gl23.glUniformBlockBinding(handle, gl23.glGetUniformBlockIndex(handle, "lutblock"), 3);
+	        		if(fragment.startsWith("texture"))gl23.glUniformBlockBinding(handle, gl23.glGetUniformBlockIndex(handle, "lutblock"), 3);
 	            }else{
 	            	addLocation("proj");
 	            	addLocation("model");
-	            	if(fragment.equals("texture"))addLocation("luts");
+	            	if(fragment.startsWith("texture"))addLocation("luts");
 	            }
             
         	}

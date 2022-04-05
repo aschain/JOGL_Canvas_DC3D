@@ -46,13 +46,14 @@ public class RoiGLDrawUtility {
 	private GLAutoDrawable drawable;
 	private JCGLObjects rglos=null;
 	float px=2f/1024f;
-	float yrat=1f;
+	//float yrat=1f;
 	float w=-1f,h,offx,offy,dw, dh;
 	double mag;
 	boolean go3d;
 	Color anacolor=null;
+	float dpimag=1f;
 
-	public RoiGLDrawUtility(ImagePlus imp, GLAutoDrawable drawable) {
+	public RoiGLDrawUtility(ImagePlus imp, GLAutoDrawable drawable, JCProgram program, double dpimag) {
 		this.imp=imp;
 		rglos= new JCGLObjects(drawable);
 		rglos.newBuffer(GL_ARRAY_BUFFER, "roiGL");
@@ -64,13 +65,10 @@ public class RoiGLDrawUtility {
 		rglos.newBuffer(GL_ARRAY_BUFFER, "text");
 		rglos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "text");
 		rglos.newVao("text", 3, GL_FLOAT, 3, GL_FLOAT);
+		rglos.programs.put("text",program);
 		updateSrcRect();
 		setGL(drawable);
-	}
-	
-	public RoiGLDrawUtility(ImagePlus imp, GLAutoDrawable drawable, JCProgram program) {
-		this(imp, drawable);
-		rglos.programs.put("text",program);
+		this.dpimag=(float)dpimag;
 	}
 	
 	private void updateSrcRect() {
@@ -80,8 +78,8 @@ public class RoiGLDrawUtility {
 		offx=(float)srcRect.x; offy=(float)srcRect.y;
 		dw=(int)(mag*w+0.5);
 		dh=(int)(mag*h+0.5);
-		px=2f/(int)(mag*h+0.5);
-		yrat=1f;//(float)srcRect.height/srcRect.width;
+		px=2f/(int)(mag*h+0.5)*dpimag;
+		//yrat=1f;//(float)srcRect.height/srcRect.width;
 	}
 	
 	private void setGL(GLAutoDrawable drawable) {
@@ -136,6 +134,7 @@ public class RoiGLDrawUtility {
 		}
 		setGL(drawable);
 		updateSrcRect();
+		gl.glLineWidth((float)dpimag);
 		boolean drawHandles=isRoi;
 		//if(isRoi && roi.getState()==Roi.CONSTRUCTING)drawHandles=false;
 
@@ -210,7 +209,6 @@ public class RoiGLDrawUtility {
 			loopfp=new FloatPolygon(xpoints, ypoints, n);
 		}
 
-		gl.glLineWidth(1f);
 		Color roicolor=anacolor==null?roi.getStrokeColor():anacolor;
 		if(roicolor==null)roicolor=Roi.getColor();
 		if(roi.getFillColor()!=null) {
@@ -222,6 +220,7 @@ public class RoiGLDrawUtility {
 		Color altcolor=new Color(roicolor.getRed(),roicolor.getGreen(), roicolor.getBlue(), roicolor.getAlpha());
 		if(roicolor.getAlpha()==77)altcolor=new Color(altcolor.getRed(),altcolor.getGreen(), altcolor.getBlue(),255);
 		if(roi instanceof TextRoi)altcolor=Roi.getColor();
+		
 		drawGLFP(todraw, loopfp, z, altcolor);
 		
 
@@ -476,7 +475,7 @@ public class RoiGLDrawUtility {
 		if (roi.getShowLabels() && nPoints>1) {
 			int offset = 2;
 			if (nCounters==1) {
-				drawString(""+n, Color.YELLOW, sglx(sx(x)+offset), sgly(sy(y)+(offset)), z); //y offset +fontSize;
+				drawString(""+n, color, sglx(sx(x)+offset), sgly(sy(y)+(offset)), z); //y offset +fontSize;
 			} else if (counters!=null) {
 				drawString(""+counters[n-1], getPointColor(counters[n-1]), sglx(sx(x)+offset), sgly(sy(y)+(offset)), z);//y offset +fontSize
 			}
@@ -630,7 +629,7 @@ public class RoiGLDrawUtility {
 	}
 	
 	private float glY(float y) {
-		return (((h-(y-offy))/h-0.5f/dh)*2f-1f)*yrat;
+		return (((h-(y-offy))/h-0.5f/dh)*2f-1f);
 	}
 	
 	private int sx(float x) {
@@ -652,7 +651,7 @@ public class RoiGLDrawUtility {
 	 * screen coordinate (not image) to gl
 	 */
 	private float sgly(int y) {
-		return ((dh-(float)y-0.5f)/dh*2f-1f)*yrat;
+		return ((dh-(float)y-0.5f)/dh*2f-1f);
 	}
 	
 	//private int impX(float x) {
@@ -823,26 +822,27 @@ public class RoiGLDrawUtility {
 	}
 	
 	protected void drawTextRoiString(TextRoi troi, float x, float y, float z) {
-		int aa=(mag>1?(int)mag:1)*4;
+		int aa=1;//(mag>1?(int)mag:1)*4;
 		Rectangle bounds=troi.getBounds();
-		IJ.log("textRoi bounds "+bounds);
+		//IJ.log("textRoi bounds "+bounds);
 		if((bounds.width * bounds.height) == 0)return;
 		String text=troi.getText();
-		int lines=text.split("\n").length;
-		if(lines==0)return;
-		bounds.height*=lines;
-		BufferedImage roiImage=new BufferedImage(bounds.width*aa, bounds.height*aa, BufferedImage.TYPE_INT_ARGB);
+		if(text==null || "".contentEquals(text))return;
+		//int lines=text.split("\n").length;
+		//if(lines==0)return;
+		//bounds.height*=lines;
+		BufferedImage roiImage=new BufferedImage(bounds.width*aa*(int)dpimag, bounds.height*aa*(int)dpimag, BufferedImage.TYPE_INT_ARGB);
 		Graphics g=roiImage.getGraphics();
 		troi.setLocation(0.0, 0.0);
 		Font font=troi.getCurrentFont();
-		troi.setFont(new Font(font.getName(),font.getStyle(),font.getSize()*aa));
+		troi.setFont(font.deriveFont(font.getSize()*aa));
 		troi.drawOverlay(g);
 		troi.setFont(font);
 		troi.setLocation(bounds.x, bounds.y);
 		rglos.getTexture("text").createRgbaTexture(AWTTextureIO.newTextureData(gl.getGLProfile(), roiImage, false).getBuffer(), roiImage.getWidth(), roiImage.getHeight(), 1, 4, false);
 		g.dispose();
 		// /(float)mag
-		FloatBuffer vb=GLBuffers.newDirectFloatBuffer(getVecSquare(x, y, z, (float)bounds.width/w/(float)mag*2f, (float)bounds.height/h/(float)mag*2f, 0f, 1f, 0.5f, 1f, -1f));
+		FloatBuffer vb=GLBuffers.newDirectFloatBuffer(getVecSquare(x*dpimag, y*dpimag, z, (float)bounds.width/w/(float)mag*2f*dpimag, (float)bounds.height/h/(float)mag*2f*dpimag, 0f, 1f, 0.5f, 1f, -1f));
 		ShortBuffer eb=GLBuffers.newDirectShortBuffer(new short[] {0,1,2,2,3,0});
 		gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		rglos.useProgram("text");
@@ -862,7 +862,7 @@ public class RoiGLDrawUtility {
 	}
 	
 	private void drawString(String text, Color color, float x, float y, float z, Font font) {
-		float icmag=(float)mag;//(demag?1.0f:(float)mag);
+		float icmag=1f;//(demag?1.0f:(float)mag);
 		if(font==null)font=new Font(TextRoi.getDefaultFontName(), TextRoi.getDefaultFontStyle(), TextRoi.getDefaultFontSize());
 		font=new Font(font.getName(),font.getStyle(),(int)(font.getSize()*icmag+0.5));
 		TextRoi troi=new TextRoi(text, 0.0, 0.0, font);

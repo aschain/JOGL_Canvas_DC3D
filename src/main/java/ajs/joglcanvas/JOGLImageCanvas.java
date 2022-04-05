@@ -562,7 +562,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		imageState.check(dx,dy,dz);
 		boolean needDraw=false;
 		if(imageState.isChanged.srcRect) resetGlobalMatrices(drawable);
-		if(JCP.openglroi && rgldu==null) rgldu=new RoiGLDrawUtility(imp, drawable,glos.programs.get("roi"));
+		if(JCP.openglroi && rgldu==null) rgldu=new RoiGLDrawUtility(imp, drawable,glos.programs.get("roi"), dpimag);
 		int sl=imp.getZ()-1, fr=imp.getT()-1,chs=imp.getNChannels(),sls=imp.getNSlices(),frms=imp.getNFrames();
 		Calibration cal=imp.getCalibration();
 		if(go3d&&sls==1)go3d=false;
@@ -1033,7 +1033,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						else anacolor=(stereoi==0)?JCP.leftAnaglyphColor:JCP.rightAnaglyphColor;
 					}
 					gl.glDisable(GL_BLEND);
-					if(rgldu==null) rgldu=new RoiGLDrawUtility(imp, drawable);
+					if(rgldu==null) rgldu=new RoiGLDrawUtility(imp, drawable,glos.programs.get("roi"), dpimag);
 					if(glos.glver==2)rgldu.startDrawing();
 					glos.bindUniformBuffer(bname, 1);
 					glos.bindUniformBuffer(go3d?"modelr":"idm", 2);
@@ -1639,7 +1639,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 
 		gl.glDisable(GL_BLEND);
 		gl.glLineWidth((float)dpimag);
-		if(rgldu==null) rgldu=new RoiGLDrawUtility(imp, drawable);
+		if(rgldu==null) rgldu=new RoiGLDrawUtility(imp, drawable,glos.programs.get("roi"), dpimag);
 		if(glos.glver==2)rgldu.startDrawing();
 		glos.bindUniformBuffer(projMatrix, 1);
 		glos.bindUniformBuffer("idm", 2);

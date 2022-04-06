@@ -623,8 +623,8 @@ public class RoiGLDrawUtility {
 			float[] acoords=getGLCoords(new FloatPolygon(new float[] {points[2*1],points[2*2],points[2*3],points[2*1],points[2*4],points[2*3]},new float[] {points[2*1+1],points[2*2+1],points[2*3+1],points[2*1+1],points[2*4+1],points[2*3+1]}, 6),z,false);
 			drawGL(acoords, color, GL_TRIANGLES);
 		}
-		for(int i=0;i<points.length/2;i++)
-			IJ.log("x"+points[i*2]+" y"+points[i*2+1]);
+		//for(int i=0;i<points.length/2;i++)
+		//	IJ.log("x"+points[i*2]+" y"+points[i*2+1]);
 	}
 	
 	private float glX(float x) {

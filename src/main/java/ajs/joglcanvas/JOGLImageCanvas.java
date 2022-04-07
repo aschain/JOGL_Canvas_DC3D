@@ -13,7 +13,7 @@ import ij.gui.StackWindow;
 import ij.measure.Calibration;
 import ij.process.LUT;
 import java.awt.geom.AffineTransform;
-
+import java.awt.geom.Point2D;
 import java.awt.CheckboxMenuItem;
 import java.awt.Color;
 import java.awt.Component;
@@ -159,7 +159,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	public float depthZ=5f;
 	public float zmax=1f;
 	public GLContext context;
-	public Point oicp=null;
+	public Point2D.Double oicp=null;
 	private Button menuButton;
 	//private long starttime=0;
 
@@ -1075,19 +1075,19 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 							rgldu.drawRoiGL(drawable, roi, true, anacolor, go3d);
 					}
 					if(drawCrosshairs) {
-						int left=0, right=imp.getWidth(), top=imp.getHeight(), bottom=0, front=1, back=sls;
+						float left=0, right=imp.getWidth(), top=imp.getHeight(), bottom=0, front=1, back=sls, oix=(float)oicp.getX(), oiy=(float)oicp.getY();
 						//int opx=Math.max(1,(int)(1.0/magnification));
 						if(JCP.drawCrosshairs==1 || (isMirror & !go3d)) {
-							int fpx=(int)(13.0/magnification), slfpx=(int)((double)fpx/cal.pixelDepth*cal.pixelWidth);
-							left=oicp.x-fpx; right=oicp.x+fpx; top=oicp.y+fpx; bottom=oicp.y-fpx; front=sl+1-slfpx; back=sl+1+slfpx;
-							if(left<0)left=0; if(right>imp.getWidth())right=imp.getWidth();
-							if(top>imp.getHeight())top=imp.getHeight(); if(bottom<0)bottom=0; 
+							float fpx=(int)(13.0/magnification), slfpx=(int)((double)fpx/cal.pixelDepth*cal.pixelWidth);
+							left=oix-fpx; right=oix+fpx; top=oiy+fpx; bottom=oiy-fpx; front=sl+1-slfpx; back=sl+1+slfpx;
+							//if(left<0)left=0; if(right>imp.getWidth())right=imp.getWidth();
+							//if(top>imp.getHeight())top=imp.getHeight(); if(bottom<0)bottom=0; 
 							if(front<1)front=1; if(back>sls)back=sls;
 						}
 						Color c=anacolor!=null?anacolor:Color.white;
-						rgldu.drawGLij(new int[] {left,oicp.y, sl+1, right,oicp.y,sl+1}, c, GL.GL_LINE_STRIP);
-						rgldu.drawGLij(new int[] {oicp.x,bottom, sl+1, oicp.x, top, sl+1}, c, GL.GL_LINE_STRIP);
-						rgldu.drawGLij(new int[] {oicp.x, oicp.y, front, oicp.x, oicp.y, back}, c, GL.GL_LINE_STRIP);
+						rgldu.drawGLij(new float[] {left,oiy, sl+1, right,oiy,sl+1}, c, GL.GL_LINE_STRIP);
+						rgldu.drawGLij(new float[] {oix,bottom, sl+1, oix, top, sl+1}, c, GL.GL_LINE_STRIP);
+						if(go3d)rgldu.drawGLij(new float[] {oix, oiy, front, oix, oiy, back}, c, GL.GL_LINE_STRIP);
 					}
 					
 					gl.glBindBufferBase(GL_UNIFORM_BUFFER, 1, 0);
@@ -2242,21 +2242,21 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}
 	}
 	
-	public Point offScreen(Point p) {
+	public Point2D.Double offScreenD(Point p) {
 		if(p==null)return null;
-		return new Point(offScreenX(p.x),offScreenY(p.y));
+		return new Point2D.Double(offScreenXD(p.x),offScreenYD(p.y));
 	}
 	
 	public void setImageCursorPosition(MouseEvent e) {
 		if(e==null)oicp=null;
-		setImageCursorPosition(offScreen(e.getPoint()));
+		setImageCursorPosition(offScreenD(e.getPoint()));
 	}
 	
-	public void setImageCursorPosition(Point p) {
+	public void setImageCursorPosition(Point2D.Double p) {
 		if(p==null)oicp=null;
 		if(p.x<0)p.x=0; if(p.y<0)p.y=0;
 		if(p.x>imp.getWidth())p.x=imp.getWidth(); if(p.y>imp.getHeight())p.y=imp.getHeight();
-		oicp=new Point(p.x,p.y);
+		oicp=new Point2D.Double(p.x,p.y);
 	}
 	
 	/**

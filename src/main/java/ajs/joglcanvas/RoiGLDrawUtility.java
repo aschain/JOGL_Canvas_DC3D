@@ -319,14 +319,14 @@ public class RoiGLDrawUtility {
 		return width;
 	}
 	
-	public float[] ijToGLCoords(int[] ijcoords, boolean screen) {
+	public float[] ijToGLCoords(float[] ijcoords, boolean screen) {
 		float[] glcoords=new float[ijcoords.length];
 		Calibration cal=imp.getCalibration();
 		float zf=(float)(cal.pixelDepth/cal.pixelWidth)/w;
 		int sls=imp.getNSlices();
 		for(int i=0; i<ijcoords.length; i++) {
-			if(i%3==0)glcoords[i]=screen?(sglx(ijcoords[i])):(glX(ijcoords[i]));
-			else if(i%3==1)glcoords[i]=screen?(sgly(ijcoords[i])):(glY(ijcoords[i]));
+			if(i%3==0)glcoords[i]=screen?(sglx((int)ijcoords[i])):(glX(ijcoords[i]));
+			else if(i%3==1)glcoords[i]=screen?(sgly((int)ijcoords[i])):(glY(ijcoords[i]));
 			else if(i%3==2)glcoords[i]=((float)sls-2f*(ijcoords[i]-1))*zf;
 		}
 		return glcoords;
@@ -355,7 +355,7 @@ public class RoiGLDrawUtility {
 		return getSubGLCoords(fp,0,fp.npoints,z,screen);
 	}
 	
-	public void drawGLij(int[] coords, Color color, int toDraw) {
+	public void drawGLij(float[] coords, Color color, int toDraw) {
 		drawGL(ijToGLCoords(coords, false), color, toDraw);
 	}
 	
@@ -628,11 +628,13 @@ public class RoiGLDrawUtility {
 	}
 	
 	private float glX(float x) {
-		return ((x-offx)/w+0.5f/dw)*2f-1f;
+		double xf=x, offx=this.offx, w=this.w, dw=this.dw;
+		return (float)((xf-offx)/w*2.0+1.0/dw-1.0);
 	}
 	
 	private float glY(float y) {
-		return (((h-(y-offy))/h-0.5f/dh)*2f-1f);
+		double h=this.h, yf=y, offy=this.offy, dh=this.dh;
+		return (float)(((h-(yf-offy))/h)*2.0-1.0/dh-1.0);
 	}
 	
 	private int sx(float x) {
@@ -824,33 +826,30 @@ public class RoiGLDrawUtility {
 		};
 	}
 	
-	protected void drawTextRoiString(TextRoi troi, float x, float y, float z, boolean isOverlay, boolean fixoffset) {
-		int aa=4;//(mag>1?(int)mag:1)*4;
-		float magor1=1f;
-		double locx=offx, locy=offy;
-		if(isOverlay) {
-			magor1=(float)mag;
-		}
-		if(fixoffset) {
-			locx=0.0; locy=0.0;
-		}
+	protected void drawTextRoiString(TextRoi troi, float x, float y, float z, boolean noscale) {
+		int aa=1;//(mag>1?(int)mag:1)*4;
+		float magor1=noscale?(float)mag:1f;
 		Rectangle bounds=troi.getBounds();
 		if((bounds.width * bounds.height) == 0)return;
 		String text=troi.getText();
 		if(text==null || "".contentEquals(text))return;
-		BufferedImage roiImage=new BufferedImage((int)(bounds.width*aa*mag*dpimag+0.5f), (int)(bounds.height*aa*mag*dpimag+0.5f), BufferedImage.TYPE_INT_ARGB);
+		//BufferedImage roiImage=new BufferedImage((int)(bounds.width*aa*mag*dpimag+0.5f), (int)(bounds.height*aa*mag*dpimag+0.5f), BufferedImage.TYPE_INT_ARGB);
+		BufferedImage roiImage=new BufferedImage((int)(bounds.width*aa*dpimag+0.5f), (int)(bounds.height*aa*dpimag+0.5f), BufferedImage.TYPE_INT_ARGB);
 		Graphics g=roiImage.getGraphics();
-		troi.setLocation(locx, locy);
+		ImagePlus rimp=troi.getImage();
+		troi.setImage(null);
+		troi.setLocation(0.0, 0.0);
 		Font font=troi.getCurrentFont();
-		troi.setFont(font.deriveFont((float)(font.getSize()*aa)*magor1));
+		troi.setFont(font.deriveFont((float)(font.getSize()*aa)));
 		troi.drawOverlay(g);
+		troi.setImage(rimp);
 		troi.setFont(font);
 		troi.setLocation(bounds.x, bounds.y);
 		rglos.getTexture("text").createRgbaTexture(AWTTextureIO.newTextureData(gl.getGLProfile(), roiImage, false).getBuffer(), roiImage.getWidth(), roiImage.getHeight(), 1, 4, false);
 		g.dispose();
-		FloatBuffer vb=GLBuffers.newDirectFloatBuffer(getVecSquare(x, y, z, (float)bounds.width/w*2f*dpimag, (float)bounds.height/h*2f*dpimag, 0f, 1f, 0.5f, 1f, -1f));
+		FloatBuffer vb=GLBuffers.newDirectFloatBuffer(getVecSquare(x, y, z, (float)bounds.width/magor1/w*2f*dpimag, (float)bounds.height/magor1/h*2f*dpimag, 0f, 1f, 0.5f, 1f, -1f));
 		ShortBuffer eb=GLBuffers.newDirectShortBuffer(new short[] {0,1,2,2,3,0});
-		gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		//gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		rglos.useProgram("text");
 		gl.glEnable(GL_BLEND);
 		rglos.drawTexVaoWithEBOVBO("text", 0, eb, vb);
@@ -860,7 +859,7 @@ public class RoiGLDrawUtility {
 	
 	private void drawTextRoiString(TextRoi troi, float z, boolean isOverlay) {
 		Rectangle bounds=troi.getBounds();
-		drawTextRoiString(troi, glX(bounds.x*dpimag), glY(bounds.y*dpimag), z, isOverlay, isOverlay);
+		drawTextRoiString(troi, glX(bounds.x*dpimag), glY(bounds.y*dpimag), z, false);
 	}
 	
 	private void drawString(String text, Color color, float x, float y, float z) {
@@ -872,7 +871,7 @@ public class RoiGLDrawUtility {
 		//font=new Font(font.getName(),font.getStyle(),(int)(font.getSize()*icmag+0.5));
 		TextRoi troi=new TextRoi(text, 0.0, 0.0, font);
 		troi.setStrokeColor(color);
-		drawTextRoiString(troi, x, y, z, false, true);
+		drawTextRoiString(troi, x, y, z, true);
 	}
 	
 	

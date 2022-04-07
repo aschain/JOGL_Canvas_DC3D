@@ -304,7 +304,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		glos.newProgram("image2d", "shaders", "texture", "texture2d");
 		glos.newProgram("image", "shaders", "texture", "texture");
 
-		glos.newTexture("roiGraphic", true);
+		glos.newTexture("roiGraphic", false);
 		glos.newBuffer(GL_ARRAY_BUFFER, "roiGraphic");
 		glos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "roiGraphic");
 		glos.newVao("roiGraphic", 3, GL_FLOAT, 3, GL_FLOAT);

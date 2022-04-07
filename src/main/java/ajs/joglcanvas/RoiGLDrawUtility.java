@@ -61,7 +61,7 @@ public class RoiGLDrawUtility {
 		rglos.newVao("roiGL", 3, GL_FLOAT, 4, GL_FLOAT);
 		rglos.newProgram("color", "shaders", "color", "color");
 		
-		rglos.newTexture("text", true);
+		rglos.newTexture("text", false);
 		rglos.newBuffer(GL_ARRAY_BUFFER, "text");
 		rglos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "text");
 		rglos.newVao("text", 3, GL_FLOAT, 3, GL_FLOAT);
@@ -850,7 +850,7 @@ public class RoiGLDrawUtility {
 		g.dispose();
 		FloatBuffer vb=GLBuffers.newDirectFloatBuffer(getVecSquare(x, y, z, (float)bounds.width/w*2f*dpimag, (float)bounds.height/h*2f*dpimag, 0f, 1f, 0.5f, 1f, -1f));
 		ShortBuffer eb=GLBuffers.newDirectShortBuffer(new short[] {0,1,2,2,3,0});
-		gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		rglos.useProgram("text");
 		gl.glEnable(GL_BLEND);
 		rglos.drawTexVaoWithEBOVBO("text", 0, eb, vb);

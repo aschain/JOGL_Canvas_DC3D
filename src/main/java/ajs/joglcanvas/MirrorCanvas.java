@@ -3,6 +3,8 @@ package ajs.joglcanvas;
 import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.Point;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
 
 import ij.ImagePlus;
@@ -17,6 +19,12 @@ public class MirrorCanvas extends ImageCanvas {
 	public MirrorCanvas(JOGLImageCanvas jic, ImagePlus imp) {
 		super(imp);
 		this.jic=jic;
+		addKeyListener(new KeyAdapter() {
+			@Override
+			public void keyReleased(KeyEvent e) {
+				jic.repaintLater();
+			}
+		});
 	}
 	
 	public void drawCursorPoint(boolean boo) {
@@ -29,7 +37,7 @@ public class MirrorCanvas extends ImageCanvas {
 		super.paint(g);
 		if(onScreenMirrorCursor && jic.oicp!=null) {
 			g.setColor(Color.red);
-			g.drawRect(screenX(jic.oicp.x)-1,screenY(jic.oicp.y)-1,3,3);
+			g.drawRect(screenXD(jic.oicp.x)-1,screenYD(jic.oicp.y)-1,3,3);
 		}
 	}
 	@Override
@@ -39,8 +47,10 @@ public class MirrorCanvas extends ImageCanvas {
 	}
 	@Override
 	public void mouseMoved(MouseEvent e) {
-		jic.oicp=new Point(offScreenX(e.getX()),offScreenY(e.getY()));
-		if(JCP.drawCrosshairs>0)jic.repaintLater();
+		if(JCP.drawCrosshairs>0) {
+			jic.setImageCursorPosition(e);
+			jic.repaintLater();
+		}
 		super.mouseMoved(e);
 	}
 	@Override
@@ -50,8 +60,10 @@ public class MirrorCanvas extends ImageCanvas {
 	}
 	@Override
 	public void mouseDragged(MouseEvent e) {
-		jic.oicp=new Point(offScreenX(e.getX()),offScreenY(e.getY()));
-		if(JCP.drawCrosshairs>0)jic.repaintLater();
+		if(JCP.drawCrosshairs>0) {
+			jic.setImageCursorPosition(e);
+		}
+		jic.repaintLater();
 		super.mouseDragged(e);
 	}
 	@Override

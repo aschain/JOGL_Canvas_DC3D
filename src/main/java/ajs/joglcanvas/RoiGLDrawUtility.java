@@ -827,7 +827,7 @@ public class RoiGLDrawUtility {
 	}
 	
 	protected void drawTextRoiString(TextRoi troi, float x, float y, float z, boolean noscale) {
-		int aa=1;//(mag>1?(int)mag:1)*4;
+		float aa=noscale?1:(mag>1?(float)mag:1);
 		float magor1=noscale?(float)mag:1f;
 		Rectangle bounds=troi.getBounds();
 		if((bounds.width * bounds.height) == 0)return;

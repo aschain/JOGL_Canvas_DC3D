@@ -827,7 +827,7 @@ public class RoiGLDrawUtility {
 	}
 	
 	protected void drawTextRoiString(TextRoi troi, float x, float y, float z, boolean noscale) {
-		float aa=noscale?1:(mag>1?(float)mag:1);
+		float aa=noscale?1:(float)mag;
 		float magor1=noscale?(float)mag:1f;
 		Rectangle bounds=troi.getBounds();
 		if((bounds.width * bounds.height) == 0)return;
@@ -838,18 +838,20 @@ public class RoiGLDrawUtility {
 		Graphics g=roiImage.getGraphics();
 		ImagePlus rimp=troi.getImage();
 		troi.setImage(null);
+		boolean isaa=troi.getAntialiased();
+		troi.setAntialiased(false);
 		troi.setLocation(0.0, 0.0);
 		Font font=troi.getCurrentFont();
-		troi.setFont(font.deriveFont((float)(font.getSize()*aa)));
+		troi.setFont(font.deriveFont((float)(font.getSize()*aa*dpimag)));
 		troi.drawOverlay(g);
 		troi.setImage(rimp);
 		troi.setFont(font);
 		troi.setLocation(bounds.x, bounds.y);
-		rglos.getTexture("text").createRgbaTexture(AWTTextureIO.newTextureData(gl.getGLProfile(), roiImage, false).getBuffer(), roiImage.getWidth(), roiImage.getHeight(), 1, 4, false);
+		troi.setAntialiased(isaa);
+		rglos.getTexture("text").createRgbaTexture(AWTTextureIO.newTextureData(gl.getGLProfile(), roiImage, false).getBuffer(), roiImage.getWidth(), roiImage.getHeight(), 1, 4, true);
 		g.dispose();
-		FloatBuffer vb=GLBuffers.newDirectFloatBuffer(getVecSquare(x, y, z, (float)bounds.width/magor1/w*2f*dpimag, (float)bounds.height/magor1/h*2f*dpimag, 0f, 1f, 0.5f, 1f, -1f));
+		FloatBuffer vb=GLBuffers.newDirectFloatBuffer(getVecSquare(x, y, z, (float)bounds.width/magor1/w*2f, (float)bounds.height/magor1/h*2f, 0f, 1f, 0.5f, 1f, -1f));
 		ShortBuffer eb=GLBuffers.newDirectShortBuffer(new short[] {0,1,2,2,3,0});
-		//gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		rglos.useProgram("text");
 		gl.glEnable(GL_BLEND);
 		rglos.drawTexVaoWithEBOVBO("text", 0, eb, vb);
@@ -859,7 +861,7 @@ public class RoiGLDrawUtility {
 	
 	private void drawTextRoiString(TextRoi troi, float z, boolean isOverlay) {
 		Rectangle bounds=troi.getBounds();
-		drawTextRoiString(troi, glX(bounds.x*dpimag), glY(bounds.y*dpimag), z, false);
+		drawTextRoiString(troi, glX(bounds.x), glY(bounds.y), z, false);
 	}
 	
 	private void drawString(String text, Color color, float x, float y, float z) {

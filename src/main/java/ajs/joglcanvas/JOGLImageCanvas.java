@@ -10,6 +10,7 @@ import ij.gui.PointRoi;
 import ij.gui.Roi;
 import ij.gui.ScrollbarWithLabel;
 import ij.gui.StackWindow;
+import ij.gui.Toolbar;
 import ij.measure.Calibration;
 import ij.process.LUT;
 import java.awt.geom.AffineTransform;
@@ -2225,14 +2226,14 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}
 	}
 	
-	public Point2D.Double offScreenD(Point p) {
+	public Point2D.Double offScreenD(Point p, double dpifix) {
 		if(p==null)return null;
-		return new Point2D.Double(offScreenXD(p.x),offScreenYD(p.y));
+		return new Point2D.Double(offScreenXD((int)(p.x/dpifix+0.5)),offScreenYD((int)(p.y/dpifix+0.5)));
 	}
 	
-	public void setImageCursorPosition(MouseEvent e) {
+	public void setImageCursorPosition(MouseEvent e, double dpifix) {
 		if(e==null)oicp=null;
-		setImageCursorPosition(offScreenD(e.getPoint()));
+		setImageCursorPosition(offScreenD(e.getPoint(), dpifix));
 	}
 	
 	public void setImageCursorPosition(Point2D.Double p) {
@@ -2261,6 +2262,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		return (go3d && ((IJ.getToolName()=="hand" && !IJ.spaceBarDown()) || isRightClick(e)));
 	}
 	
+	private MouseEvent fixMouseEvent(MouseEvent e) {
+		return new MouseEvent(icc, e.getID(), e.getWhen(), e.getModifiers(), (int)(e.getX()/dpimag+0.5),  (int)(e.getY()/dpimag+0.5), 
+				e.getXOnScreen(), e.getYOnScreen(), e.getClickCount(), e.isPopupTrigger(), e.getButton());
+	}
+	
 	@Override
 	public void mousePressed(MouseEvent e) {
 		//if(go3d && ((e.getModifiersEx() & (MouseEvent.BUTTON1_DOWN_MASK | MouseEvent.BUTTON3_DOWN_MASK))>0))resetAngles();
@@ -2269,7 +2275,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			sy = e.getY();
 			osx=sx; osy=sy;
 		}else {
-			if(isMirror && !isRightClick(e)) imp.getCanvas().mousePressed(e); else super.mousePressed(e); 
+			if(isMirror && isRightClick(e) && Toolbar.getToolId()!=Toolbar.MAGNIFIER) {handlePopupMenu(e);return;}
+			if(dpimag>1.0)e=fixMouseEvent(e);
+			imp.getCanvas().mousePressed(e);
 		}
 	}
 	
@@ -2308,13 +2316,13 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			}
 			if(!isMirror) repaintLater();
 		}else {
+			if(dpimag>1.0)e=fixMouseEvent(e);
 			if(isMirror) {
 				imp.getCanvas().mouseDragged(e);
 				((MirrorCanvas)imp.getCanvas()).setSourceRect(srcRect);
 				((MirrorCanvas)imp.getCanvas()).drawCursorPoint(true);
-			}
-			else {
-				if(JCP.drawCrosshairs>0) {setImageCursorPosition(e);repaint();}
+			}else {
+				if(JCP.drawCrosshairs>0) {setImageCursorPosition(e, dpimag);repaint();}
 				super.mouseDragged(e);
 			}
 		}
@@ -2326,10 +2334,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(shouldKeep(e)) {
 			if((osx-sx)==0 && (osy-sy)==0) {handlePopupMenu(e);return;}
 			if(JCP.drawCrosshairs>0) {
-				glw.warpPointer((int)(osx*dpimag), (int)(osy*dpimag));
+				glw.warpPointer((osx), (osy));
 			}
 			if(JCP.debug)log("Pointer warped "+osx+" "+osy);
 		}else {
+			if(dpimag>1.0)e=fixMouseEvent(e);
 			if(isMirror)imp.getCanvas().mouseReleased(e); else super.mouseReleased(e);
 		}
 	}
@@ -2343,14 +2352,15 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	public void mouseMoved(MouseEvent e) {
 		//if(JCP.debug)log("\\Update:MouseMoved "+e.getX()+" "+e.getY());
 		if(shouldKeep(e)){
-			if(JCP.drawCrosshairs>0) {setImageCursorPosition(e); repaintLater();}
+			if(JCP.drawCrosshairs>0) {setImageCursorPosition(e, dpimag); repaintLater();}
 		}else {
+			if(dpimag>1.0)e=fixMouseEvent(e);
 			if(isMirror) {
 				imp.getCanvas().mouseMoved(e);
 				((MirrorCanvas)imp.getCanvas()).drawCursorPoint(true);
 			}
 			else {
-				if(JCP.drawCrosshairs>0) {setImageCursorPosition(e); repaintLater();}
+				if(JCP.drawCrosshairs>0) {setImageCursorPosition(e, 1.0); repaintLater();}
 				super.mouseMoved(e);
 			}
 		}
@@ -2364,7 +2374,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}else {
 			if(isMirror) {
 				//imp.getCanvas().mouseEntered(e); 
-			}else super.mouseEntered(e);
+			}else {
+				super.mouseEntered(e);
+			}
 		}
 	}
 	
@@ -2383,6 +2395,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	@Override
 	public void mouseClicked(MouseEvent e) {
 		if(!shouldKeep(e)){
+			if(dpimag>1.0)e=fixMouseEvent(e);
 			if(isMirror)imp.getCanvas().mouseClicked(e); else super.mouseClicked(e);
 		}
 	}

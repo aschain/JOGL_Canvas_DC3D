@@ -2,7 +2,6 @@ package ajs.joglcanvas;
 
 import java.awt.Color;
 import java.awt.Graphics;
-import java.awt.Point;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
@@ -15,6 +14,7 @@ public class MirrorCanvas extends ImageCanvas {
 	private static final long serialVersionUID = 1L;
 	private boolean onScreenMirrorCursor=false;
 	JOGLImageCanvas jic;
+	private double dpimag=1.0;
 	
 	public MirrorCanvas(JOGLImageCanvas jic, ImagePlus imp) {
 		super(imp);
@@ -48,7 +48,7 @@ public class MirrorCanvas extends ImageCanvas {
 	@Override
 	public void mouseMoved(MouseEvent e) {
 		if(JCP.drawCrosshairs>0) {
-			jic.setImageCursorPosition(e);
+			jic.setImageCursorPosition(e, dpimag);
 			jic.repaintLater();
 		}
 		super.mouseMoved(e);
@@ -61,7 +61,7 @@ public class MirrorCanvas extends ImageCanvas {
 	@Override
 	public void mouseDragged(MouseEvent e) {
 		if(JCP.drawCrosshairs>0) {
-			jic.setImageCursorPosition(e);
+			jic.setImageCursorPosition(e, dpimag);
 		}
 		jic.repaintLater();
 		super.mouseDragged(e);

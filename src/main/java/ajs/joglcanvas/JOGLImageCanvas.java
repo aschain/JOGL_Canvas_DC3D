@@ -380,14 +380,14 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		});
 		byte[] eb=new byte[] {0,1,2,2,3,0};
 		
-		glos.newTexture("temp",2, true);
+		glos.newTexture("temp",2, false);
 		glos.newBuffer(GL_ARRAY_BUFFER, "temp", avb);
 		glos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "temp", GLBuffers.newDirectByteBuffer(eb));
 		glos.newVao("temp", 3, GL_FLOAT, 3, GL_FLOAT);
 		gl.glGenFramebuffers(1, tempFramebuffers, 0);
 		gl.glGenRenderbuffers(1, tempFramebuffers, 1);
 		
-		glos.newTexture("anaglyph",2, true);
+		glos.newTexture("anaglyph",2, false);
 		glos.newBuffer(GL_ARRAY_BUFFER, "anaglyph", avb);
 		glos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "anaglyph", GLBuffers.newDirectByteBuffer(eb));
 		glos.newVao("anaglyph", 3, GL_FLOAT, 3, GL_FLOAT);
@@ -982,7 +982,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				}
 				
 				if(needDraw) {
-					drawToTexture(width, height, glos.getTextureHandle("anaglyph",stereoi), stereoFramebuffers[0], stereoFramebuffers[1]);
+					glos.drawToTexture("anaglyph", stereoi, width, height, stereoFramebuffers[0], stereoFramebuffers[1], pixelType3d);
 					glos.clearColorDepth();
 					//Blend
 					gl.glEnable(GL_BLEND);
@@ -1026,7 +1026,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			//Draw roi and overlay and cursor crosshairs
 			//
 			if(go3d) {
-				drawToTexture(width, height, glos.getTextureHandle("temp",stereoi), tempFramebuffers[0], tempFramebuffers[1]);
+				glos.drawToTexture("temp", stereoi, width, height, tempFramebuffers[0], tempFramebuffers[1], pixelType3d);
 				glos.clearColorDepth();
 			}
 			boolean drawCrosshairs=JCP.drawCrosshairs>0 && oicp!=null  && (isMirror || go3d);
@@ -1368,24 +1368,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		return -1;
 	}
 	
-	private void drawToTexture(int width, int height, int texture, int framebuffer, int renderbuffer){
-		gl.glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-		gl.glBindRenderbuffer(GL_RENDERBUFFER, renderbuffer);
-		
-		JCGLObjects.PixelTypeInfo info=new JCGLObjects.PixelTypeInfo(pixelType3d,4);
-		gl.glBindTexture(GL_TEXTURE_3D, texture);
-		gl.glTexImage3D(GL_TEXTURE_3D, 0, info.glInternalFormat, width, height, 1, 0, GL_RGBA, info.glPixelSize, null);
-		gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-		gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		gl.glFramebufferTexture3D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_3D, texture, 0, 0);
-		gl.glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, width, height);
-		gl.glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, renderbuffer);
-		gl.glBindTexture(GL_TEXTURE_3D, 0);
-		
-		gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		if(gl.glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)IJ.error("not ready");
-	}
-	
 	private void drawGraphics(GL2GL3 gl, float z, String name, int index, String modelmatrix) {
 		FloatBuffer vb;
 		if(go3d && cutPlanes.applyToRoi) {
@@ -1410,15 +1392,15 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	}
 	
 	private void drawGraphics(GL2GL3 gl, String name, int index, String modelmatrix, Buffer vb) {
-
+		int gltextype=glos.getTexture(name).is3d?GL_TEXTURE_3D:GL_TEXTURE_2D;
 		ShortBuffer eb=GLBuffers.newDirectShortBuffer(new short[] {0,1,2,2,3,0});
-		gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		gl.glTexParameteri(gltextype, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 		//glos.bindUniformBuffer("global", 1);
 		glos.bindUniformBuffer(modelmatrix, 2);
 		glos.drawTexVaoWithEBOVBO(name, index, eb, vb);
 		glos.unBindBuffer(GL_UNIFORM_BUFFER,1);
 		glos.unBindBuffer(GL_UNIFORM_BUFFER,2);
-		if(Prefs.interpolateScaledImages)gl.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		if(Prefs.interpolateScaledImages)gl.glTexParameteri(gltextype, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	}
 
 
@@ -2088,7 +2070,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				repaintLater();
 			}
 			else {
-				//needImageUpdate=true;
+				myImageUpdated=true;
 			}
 		}
 	}

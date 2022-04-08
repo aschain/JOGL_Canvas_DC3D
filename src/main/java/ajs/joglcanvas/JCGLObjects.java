@@ -1,6 +1,19 @@
 package ajs.joglcanvas;
 
+import static com.jogamp.opengl.GL.GL_COLOR_ATTACHMENT0;
+import static com.jogamp.opengl.GL.GL_COLOR_BUFFER_BIT;
+import static com.jogamp.opengl.GL.GL_DEPTH_ATTACHMENT;
+import static com.jogamp.opengl.GL.GL_DEPTH_BUFFER_BIT;
+import static com.jogamp.opengl.GL.GL_FRAMEBUFFER;
+import static com.jogamp.opengl.GL.GL_FRAMEBUFFER_COMPLETE;
+import static com.jogamp.opengl.GL.GL_NEAREST;
+import static com.jogamp.opengl.GL.GL_RENDERBUFFER;
+import static com.jogamp.opengl.GL.GL_RGBA;
+import static com.jogamp.opengl.GL.GL_TEXTURE_MAG_FILTER;
+import static com.jogamp.opengl.GL.GL_TEXTURE_MIN_FILTER;
 import static com.jogamp.opengl.GL2.*;
+import static com.jogamp.opengl.GL2ES2.GL_DEPTH_COMPONENT;
+import static com.jogamp.opengl.GL2ES2.GL_TEXTURE_3D;
 
 import java.io.File;
 import java.io.FileReader;
@@ -27,6 +40,7 @@ import com.jogamp.opengl.util.glsl.ShaderCode;
 import com.jogamp.opengl.util.glsl.ShaderProgram;
 
 import ajs.joglcanvas.JOGLImageCanvas.PixelType;
+import ij.IJ;
 
 public class JCGLObjects {
 	
@@ -318,6 +332,34 @@ public class JCGLObjects {
 		gl23.glDrawElements(glDraw, elementBuffer.capacity(), getGLType(elementBuffer), 0);
 		if(glver>2)gl23.glBindVertexArray(0);
 		unBindEBOVBO(name);
+	}
+	
+	public void drawToTexture(String texname, int texn, int width, int height, int framebuffer, int renderbuffer, PixelType pixelType3d){
+		int texture=getTextureHandle(texname,texn);
+		boolean is3d=getTexture(texname).is3d;
+		int gltextype=is3d?GL_TEXTURE_3D:GL_TEXTURE_2D;
+		
+		gl23.glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+		gl23.glBindRenderbuffer(GL_RENDERBUFFER, renderbuffer);
+		
+		PixelTypeInfo info=new PixelTypeInfo(pixelType3d,4);
+		gl23.glBindTexture(gltextype, texture);
+		if(is3d)
+			gl23.glTexImage3D(gltextype, 0, info.glInternalFormat, width, height, 1, 0, GL_RGBA, info.glPixelSize, null);
+		else
+			gl23.glTexImage2D(gltextype, 0, info.glInternalFormat, width, height, 0, GL_RGBA, info.glPixelSize, null);
+		gl23.glTexParameteri(gltextype, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		gl23.glTexParameteri(gltextype, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		if(is3d)
+			gl23.glFramebufferTexture3D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, gltextype, texture, 0, 0);
+		else
+			gl23.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, gltextype, texture, 0);
+		gl23.glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, width, height);
+		gl23.glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, renderbuffer);
+		gl23.glBindTexture(gltextype, 0);
+		
+		gl23.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		if(gl23.glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)IJ.error("not ready");
 	}
 	
 	class JCTexture{

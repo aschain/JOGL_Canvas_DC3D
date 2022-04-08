@@ -270,8 +270,7 @@ public class JCGLObjects {
 	}
 
 	public void drawTexVao(String name, int texIndex, int glElementBufferType, int count, int chs) {
-		int gltype=GL_TEXTURE_3D;
-		if(!getTexture(name).is3d)gltype=GL_TEXTURE_2D;
+		int gltype=getTexture(name).is3d?GL_TEXTURE_3D:GL_TEXTURE_2D;
 		//gl23.glEnable(gltype);
 		//gl3.glActiveTexture(GL_TEXTURE0);
 		//gl3.glBindTexture(gltype, textures.get(name, texIndex));

@@ -652,7 +652,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			}else{   // if(!JCP.openglroi && (overlay!=null || isPoint) && go3d) 
 				doOv=new boolean[sls];
 				if(!glos.textures.containsKey("overlay") || glos.getTexture("overlay").getTextureLength()!=sls) {
-					glos.newTexture("overlay",sls, true);
+					glos.newTexture("overlay",sls, false);
 					glos.newBuffer(GL_ARRAY_BUFFER, "overlay");
 					glos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "overlay");
 					glos.newVao("overlay", 3, GL_FLOAT, 3, GL_FLOAT);
@@ -1042,16 +1042,20 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					if(doRoi || doOv!=null) {
 						glos.useProgram("roi");
 						glos.bindUniformBuffer(bname, 1);
+						glos.bindUniformBuffer(go3d?"modelr":"idm", 2);
 						if(doOv!=null) {
 							for(int osl=0;osl<sls;osl++) {
 								if(doOv[osl] && (!cutPlanes.applyToRoi || (osl>=cutPlanes.z() && osl<cutPlanes.d())) ) {
-									drawGraphics(gl, ((float)sls-2f*(float)osl)*zf, "overlay", osl, (go3d?"modelr":"idm"));
+									float zc=((float)sls-2f*(float)osl)*zf;
+									drawGraphics(gl, zc, "overlay", osl);
 								}
 							}
 						}
 						if(doRoi)
-							drawGraphics(gl, z, "roiGraphic", 0, (go3d?"modelr":"idm"));
+							drawGraphics(gl, z, "roiGraphic", 0);
 						glos.stopProgram();
+						glos.unBindBuffer(GL_UNIFORM_BUFFER,1);
+						glos.unBindBuffer(GL_UNIFORM_BUFFER,2);
 					}
 				}
 				if(JCP.openglroi || drawCrosshairs){
@@ -1368,7 +1372,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		return -1;
 	}
 	
-	private void drawGraphics(GL2GL3 gl, float z, String name, int index, String modelmatrix) {
+	private void drawGraphics(GL2GL3 gl, float z, String name, int index) {
 		FloatBuffer vb;
 		if(go3d && cutPlanes.applyToRoi) {
 			final float[] iv=cutPlanes.getScreenCoords();
@@ -1387,19 +1391,15 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			});
 		}
 		//glos.useProgram("roi");
-		drawGraphics(gl, name, index, modelmatrix, vb);
+		drawGraphics(gl, name, index, vb);
 		//glos.stopProgram();
 	}
 	
-	private void drawGraphics(GL2GL3 gl, String name, int index, String modelmatrix, Buffer vb) {
+	private void drawGraphics(GL2GL3 gl, String name, int index, Buffer vb) {
 		int gltextype=glos.getTexture(name).is3d?GL_TEXTURE_3D:GL_TEXTURE_2D;
 		ShortBuffer eb=GLBuffers.newDirectShortBuffer(new short[] {0,1,2,2,3,0});
 		gl.glTexParameteri(gltextype, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		//glos.bindUniformBuffer("global", 1);
-		glos.bindUniformBuffer(modelmatrix, 2);
 		glos.drawTexVaoWithEBOVBO(name, index, eb, vb);
-		glos.unBindBuffer(GL_UNIFORM_BUFFER,1);
-		glos.unBindBuffer(GL_UNIFORM_BUFFER,2);
 		if(Prefs.interpolateScaledImages)gl.glTexParameteri(gltextype, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	}
 
@@ -1822,7 +1822,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	protected void handlePopupMenu(MouseEvent e) {
 		if(icc==null)super.handlePopupMenu(e);
 		else {
-			if (disablePopupMenu) return;
+			//if (disablePopupMenu) return;
 			glw.setPointerVisible(true);
 			if (IJ.debugMode) log("show popup: " + (e.isPopupTrigger()?"true":"false"));
 			int x = e.getX();
@@ -1838,6 +1838,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				add(dcpopup);
 				dcpopup.show(icc,x,y);
 			}
+			glw.setPointerVisible(JCP.drawCrosshairs>0);
 		}
 	}
 
@@ -2323,10 +2324,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	@Override
 	public void mouseReleased(MouseEvent e) {
 		if(shouldKeep(e)) {
+			if((osx-sx)==0 && (osy-sy)==0) {handlePopupMenu(e);return;}
 			if(JCP.drawCrosshairs>0) {
 				glw.warpPointer((int)(osx*dpimag), (int)(osy*dpimag));
 			}
-			if(JCP.debug)log("Pointer warped "+sx+" "+sy);
+			if(JCP.debug)log("Pointer warped "+osx+" "+osy);
 		}else {
 			if(isMirror)imp.getCanvas().mouseReleased(e); else super.mouseReleased(e);
 		}

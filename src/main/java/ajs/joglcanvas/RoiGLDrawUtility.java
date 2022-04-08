@@ -125,7 +125,7 @@ public class RoiGLDrawUtility {
 		int tp=roi.getType();
 		if(go3d) {
 			CutPlanesCube fc=JCP.getJOGLImageCanvas(imp).getCutPlanesCube();
-			if(rsl!=0 && fc.applyToRoi && (rsl<fc.z() ||rsl>=fc.d()))return;
+			if(rsl!=0 && fc.applyToRoi && (rsl<=fc.z() ||rsl>fc.d()))return;
 			Rectangle b=roi.getBounds();
 			if(tp!=Roi.POINT && fc.applyToRoi) {
 				if((b.x+b.width)<fc.x() || (b.x>fc.w()))return;

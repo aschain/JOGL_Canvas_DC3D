@@ -2251,7 +2251,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	 */
 	private static boolean isRightClick(MouseEvent e) {
 	    return (e.getButton()==MouseEvent.BUTTON3 ||
-	            (System.getProperty("os.name").contains("Mac OS X") &&
+	            (IJ.isMacintosh() &&
 	                    (e.getModifiers() & MouseEvent.BUTTON1_MASK) != 0 &&
 	                    (e.getModifiers() & MouseEvent.CTRL_MASK) != 0));
 	}
@@ -2277,7 +2277,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}else {
 			if(isMirror && isRightClick(e) && Toolbar.getToolId()!=Toolbar.MAGNIFIER) {handlePopupMenu(e);return;}
 			if(dpimag>1.0)e=fixMouseEvent(e);
-			imp.getCanvas().mousePressed(e);
+			if(isMirror)imp.getCanvas().mousePressed(e);
+			else super.mousePressed(e);
+			
 		}
 	}
 	
@@ -2351,19 +2353,18 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	@Override
 	public void mouseMoved(MouseEvent e) {
 		//if(JCP.debug)log("\\Update:MouseMoved "+e.getX()+" "+e.getY());
-		if(shouldKeep(e)){
-			if(JCP.drawCrosshairs>0) {setImageCursorPosition(e, dpimag); repaintLater();}
-		}else {
+		//if(shouldKeep(e)){
+		//	if(JCP.drawCrosshairs>0) {setImageCursorPosition(e, dpimag); repaintLater();}
+		//}else {
 			if(dpimag>1.0)e=fixMouseEvent(e);
 			if(isMirror) {
 				imp.getCanvas().mouseMoved(e);
 				((MirrorCanvas)imp.getCanvas()).drawCursorPoint(true);
-			}
-			else {
+			}else {
 				if(JCP.drawCrosshairs>0) {setImageCursorPosition(e, 1.0); repaintLater();}
 				super.mouseMoved(e);
 			}
-		}
+		//}
 	}
 	
 	@Override

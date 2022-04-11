@@ -314,23 +314,24 @@ public class JCP implements PlugIn {
 	
 	public static void openTestImage() {
 		int w=1024,h=512;
-		int min=16448;
-		int n=3, fac=4;
+		int min=1538, addmax=1024, ipmax=4096;
+		int n=4, fac=2;
 		ImagePlus testimp=IJ.createImage("JCP test image", "16-bit", w, h, 1);
 		ImageProcessor ip=testimp.getProcessor();
-		for(int y=0;y<h;y++) {ip.set(0,y,0);ip.set(w-1,y,65535);}
+		int[] divs=new int[n];
+		for(int i=0;i<n;i++){divs[i]=(int)Math.pow(2, fac*i);}
+		for(int y=0;y<h;y++) {ip.set(0,y,0);ip.set(w-1,y,ipmax-1);}
 		int end=w-1; //w-1
 		for(int x=1;x<end;x++){
-			int value=min+x*4096/w;
+			int value=min+x*addmax/w;
 			for(int y=0;y<h;y++) {
 				// first nth 12bit, further nth part is 12-(n*4) bit
-				int p=y*n/h*fac;
-				int div=(int)Math.pow(2, p);
-				value=(value/div)*div;
+				int div=divs[y*n/h];
+				value=(int)(((double)value+0.5*(double)div)/div)*div;
 				ip.set(x,y,value);
 			}
 		}
-		ip.setMinAndMax(0, 65535);
+		ip.setMinAndMax(0, ipmax-1);
 		testimp.setColor(new Color(255,255,255));
 		for(int ni=0;ni<n;ni++)ip.drawString(""+(12-(ni*fac))+"-bit", 0, ip.getFontMetrics().getHeight()+ni*h/n);
 		testimp.show();

@@ -18,18 +18,18 @@ public class JCStackWindow extends StackWindow {
 	 */
 	private static final long serialVersionUID = 1L;
 	
-	public JCStackWindow(ImagePlus imp, JOGLImageCanvas dcic) {
-		super(imp,dcic);
+	public JCStackWindow(ImagePlus imp, JOGLImageCanvas jic) {
+		super(imp,jic);
 		Container c=this;
 		if(c instanceof JFrame)c=((JFrame)c).getContentPane();
         Component[] wincs=c.getComponents();
         
         for(int i=0;i<wincs.length;i++) {
-        		if(wincs[i] instanceof JOGLImageCanvas) {c.remove(i); c.add(dcic.icc, i);}
+        		if(wincs[i] instanceof JOGLImageCanvas) {c.remove(i); c.add(jic.icc, i);}
         }
         addWindowListener(new WindowAdapter() {
 			public void windowClosing(WindowEvent e) {
-				dcic.glw.destroy();
+				jic.glw.destroy();
 			}
 		});
 		repaint();

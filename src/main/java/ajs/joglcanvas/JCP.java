@@ -56,6 +56,7 @@ import ij.Prefs;
 import ij.WindowManager;
 import ij.gui.GenericDialog;
 import ij.gui.ImageCanvas;
+import ij.gui.StackWindow;
 import ij.plugin.PlugIn;
 import ij.process.ImageProcessor;
 
@@ -164,31 +165,26 @@ public class JCP implements PlugIn {
 				IJ.error("JOGL Canvas currently limited to 6 channels");
 				return;
 			}
-			if(doMirror) {
-				java.awt.EventQueue.invokeLater(new Runnable() {
-				    @Override
-				    public void run() {
-						new JOGLImageCanvas(imp, true);
-				    }
-				});
-			}else {
-				java.awt.EventQueue.invokeLater(new Runnable() {
-				    @Override
-				    public void run() {
-				    	boolean changes=imp.changes;
-						boolean prompt=false;
-						ij.gui.Roi roi=imp.getRoi();
-						if(roi!=null && roi instanceof ij.gui.PointRoi) {
-							prompt=((ij.gui.PointRoi)roi).promptBeforeDeleting();
-							((ij.gui.PointRoi)roi).promptBeforeDeleting(false);
-						}
-						imp.changes=false;
-						new JCStackWindow(imp);
-						imp.changes=changes;
-						if(prompt)((ij.gui.PointRoi)roi).promptBeforeDeleting(true);
-				    }
-				});
-			}
+			java.awt.EventQueue.invokeLater(new Runnable() {
+			    @Override
+			    public void run() {
+			    	boolean changes=imp.changes;
+					boolean prompt=false;
+					ij.gui.Roi roi=imp.getRoi();
+					if(roi!=null && roi instanceof ij.gui.PointRoi) {
+						prompt=((ij.gui.PointRoi)roi).promptBeforeDeleting();
+						((ij.gui.PointRoi)roi).promptBeforeDeleting(false);
+					}
+					imp.changes=false;
+					JOGLImageCanvas jic=new JOGLImageCanvas(imp,doMirror);
+					if(doMirror)
+						new StackWindow(imp,jic);
+					else
+						new JCStackWindow(imp, jic);
+					imp.changes=changes;
+					if(prompt)((ij.gui.PointRoi)roi).promptBeforeDeleting(true);
+			    }
+			});
 		}
 	}
 	

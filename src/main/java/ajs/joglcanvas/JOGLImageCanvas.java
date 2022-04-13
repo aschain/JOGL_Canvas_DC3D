@@ -169,7 +169,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(imp.getNSlices()==1)go3d=false;
 		pixelType3d=getPixelType(imp);
 		isMirror=mirror;
-		if(!mirror) {setOverlay(imp.getCanvas().getOverlay());}
+		if(!isMirror) {setOverlay(imp.getCanvas().getOverlay());}
 		imageState=new ImageState(imp);
 		imageState.prevSrcRect=new Rectangle(0,0,0,0);
 		Calibration cal=imp.getCalibration();
@@ -1485,7 +1485,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					((ij.gui.PointRoi)roi).promptBeforeDeleting(false);
 				}
 				imp.changes=false;
-				new StackWindow(imp,new MirrorCanvas(jic,imp));
+				new StackWindow(imp,new JCMirrorCanvas(jic,imp));
 				imp.changes=changes;
 				if(prompt)((ij.gui.PointRoi)roi).promptBeforeDeleting(true);
 				imp.getWindow().addWindowListener(new WindowAdapter() {
@@ -2321,8 +2321,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			if(dpimag>1.0)e=fixMouseEvent(e);
 			if(isMirror) {
 				imp.getCanvas().mouseDragged(e);
-				((MirrorCanvas)imp.getCanvas()).setSourceRect(srcRect);
-				((MirrorCanvas)imp.getCanvas()).drawCursorPoint(true);
+				((JCMirrorCanvas)imp.getCanvas()).setSourceRect(srcRect);
+				((JCMirrorCanvas)imp.getCanvas()).drawCursorPoint(true);
 			}else {
 				if(JCP.drawCrosshairs>0) {setImageCursorPosition(e, dpimag);repaint();}
 				super.mouseDragged(e);
@@ -2359,7 +2359,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			if(dpimag>1.0)e=fixMouseEvent(e);
 			if(isMirror) {
 				imp.getCanvas().mouseMoved(e);
-				((MirrorCanvas)imp.getCanvas()).drawCursorPoint(true);
+				((JCMirrorCanvas)imp.getCanvas()).drawCursorPoint(true);
 			}else {
 				if(JCP.drawCrosshairs>0) {setImageCursorPosition(e, 1.0); repaintLater();}
 				super.mouseMoved(e);
@@ -2388,7 +2388,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(!shouldKeep(e)){
 			if(isMirror) {
 				imp.getCanvas().mouseExited(e);
-				((MirrorCanvas)imp.getCanvas()).drawCursorPoint(false);
+				((JCMirrorCanvas)imp.getCanvas()).drawCursorPoint(false);
 			}else super.mouseExited(e);
 		}
 	}

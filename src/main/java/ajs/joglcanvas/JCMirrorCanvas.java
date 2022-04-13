@@ -9,14 +9,14 @@ import java.awt.event.MouseEvent;
 import ij.ImagePlus;
 import ij.gui.ImageCanvas;
 
-public class MirrorCanvas extends ImageCanvas {
+public class JCMirrorCanvas extends ImageCanvas {
 
 	private static final long serialVersionUID = 1L;
 	private boolean onScreenMirrorCursor=false;
 	JOGLImageCanvas jic;
 	private double dpimag=1.0;
 	
-	public MirrorCanvas(JOGLImageCanvas jic, ImagePlus imp) {
+	public JCMirrorCanvas(JOGLImageCanvas jic, ImagePlus imp) {
 		super(imp);
 		this.jic=jic;
 		addKeyListener(new KeyAdapter() {

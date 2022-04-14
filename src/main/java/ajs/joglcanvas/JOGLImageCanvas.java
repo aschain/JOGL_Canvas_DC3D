@@ -164,11 +164,13 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	public GLContext context;
 	public Point2D.Double oicp=null;
 	private Button menuButton;
+	private ImageWindow prevwin;
 	//private long starttime=0;
 	private boolean onScreenMirrorCursor=false;
 
 	public JOGLImageCanvas(ImagePlus imp, boolean mirror) {
 		super(imp);
+		prevwin=imp.getWindow();
 		if(imp.getNSlices()==1)go3d=false;
 		pixelType3d=getPixelType(imp);
 		isMirror=mirror;
@@ -255,6 +257,20 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	//GLEventListener methods
 	@Override
 	public void init(GLAutoDrawable drawable) {
+		if(prevwin!=imp.getWindow()) {
+			prevwin=imp.getWindow();
+			final JOGLImageCanvas jic=this;
+			java.awt.EventQueue.invokeLater(new Runnable() {
+				@Override
+				public void run() {
+					prevwin.addWindowListener(new WindowAdapter() {
+						public void windowClosing(WindowEvent e) {
+							jic.dispose();
+						}
+					});
+				}
+			});
+		}
 		JCP.version=drawable.getGL().glGetString(GL_VERSION);
 		glos=new JCGLObjects(drawable);
 		setGL(drawable);
@@ -565,7 +581,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		java.awt.EventQueue.invokeLater(new Runnable() {
 			@Override
 			public void run() {
-				if(JCP.quiet)IJ.showStatus(string);
+				if(JCP.quiet && !JCP.debug)IJ.showStatus(string);
 				else IJ.log(string);
 			}
 		});
@@ -840,6 +856,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		((Buffer)lutMatrixPointer).rewind();
 		
 		if( (imageState.isChanged.srcRect) || go3d) {
+			if(JCP.debug && imageState.isChanged.srcRect)log("Dsp- imageState.isChanged.srcRect");
 			//Set up model matrix
 			float 	trX=-((float)(srcRect.x*2+srcRect.width)/imageWidth-1f),
 					trY=((float)(srcRect.y*2+srcRect.height)/imageHeight-1f),
@@ -1038,7 +1055,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			if(roi!=null || overlay!=null || drawCrosshairs) { 
 				//if(go3d)log(FloatUtil.matrixToString(null, "rot2: ", "%10.4f", rotate, 0, 4, 4, false).toString());
 				float z=0f;
-				float zf=(float)(cal.pixelDepth/cal.pixelWidth)/srcRect.width;
+				float zf=(float)(cal.pixelDepth/cal.pixelWidth)/(float)srcRect.width;
 				if(go3d) z=((float)sls-2f*sl)*zf;
 				gl.glEnable(GL_BLEND);
 				gl.glBlendEquation(GL_FUNC_ADD);
@@ -1084,19 +1101,16 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 							rgldu.drawRoiGL(drawable, roi, true, anacolor, go3d);
 					}
 					if(drawCrosshairs) {
-						float left=0, right=imp.getWidth(), top=imp.getHeight(), bottom=0, front=1, back=sls, oix=(float)oicp.getX(), oiy=(float)oicp.getY();
-						//int opx=Math.max(1,(int)(1.0/magnification));
+						float left=-1f, right=1f, top=-1f, bottom=1f, front=sls*zf, back=(-sls+2)*zf, oix=(float)screenXD(oicp.getX()), oiy=(float)screenYD(oicp.getY());
+						oix=(oix+0.5f)/dstWidth*2f-1f; oiy=(dstHeight-oiy-0.5f)/dstHeight*2f-1f;
 						if(JCP.drawCrosshairs==1 || (isMirror & !go3d)) {
-							float fpx=(int)(13.0/magnification), slfpx=(int)((double)fpx/cal.pixelDepth*cal.pixelWidth);
-							left=oix-fpx; right=oix+fpx; top=oiy+fpx; bottom=oiy-fpx; front=sl+1-slfpx; back=sl+1+slfpx;
-							//if(left<0)left=0; if(right>imp.getWidth())right=imp.getWidth();
-							//if(top>imp.getHeight())top=imp.getHeight(); if(bottom<0)bottom=0; 
-							if(front<1)front=1; if(back>sls)back=sls;
+							float wpx=13f*2f/dstWidth, hpx=13f*2f/dstHeight;
+							left=Math.max(oix-wpx,-1f); right=Math.min(oix+wpx,1f); top=Math.min(1f,oiy+hpx); bottom=Math.max(-1f,oiy-hpx); front=Math.min(z+wpx,front); back=Math.max(z-wpx,back);
 						}
 						Color c=anacolor!=null?anacolor:Color.white;
-						rgldu.drawGLij(new float[] {left,oiy, sl+1, right,oiy,sl+1}, c, GL.GL_LINE_STRIP);
-						rgldu.drawGLij(new float[] {oix,bottom, sl+1, oix, top, sl+1}, c, GL.GL_LINE_STRIP);
-						if(go3d)rgldu.drawGLij(new float[] {oix, oiy, front, oix, oiy, back}, c, GL.GL_LINE_STRIP);
+						rgldu.drawGL(new float[] {left,oiy, z, right,oiy,z}, c, GL.GL_LINE_STRIP);
+						rgldu.drawGL(new float[] {oix,bottom, z, oix, top, z}, c, GL.GL_LINE_STRIP);
+						if(go3d)rgldu.drawGL(new float[] {oix, oiy, front, oix, oiy, back}, c, GL.GL_LINE_STRIP);
 					}
 					
 					gl.glBindBufferBase(GL_UNIFORM_BUFFER, 1, 0);
@@ -1278,6 +1292,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	static class ImageState{
 		private ImagePlus imp;
 		public Rectangle prevSrcRect;
+		public double prevMag;
 		public MinMax[] minmaxs;
 		public Calibration prevCal;
 		public int c,z,t;
@@ -1292,6 +1307,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		
 		public void update(float dx, float dy, float dz) {
 			prevSrcRect=(Rectangle)imp.getCanvas().getSrcRect().clone();
+			prevMag=imp.getCanvas().getMagnification();
 			minmaxs=MinMax.getMinMaxs(imp.getLuts());
 			prevCal=(Calibration)imp.getCalibration().clone();
 			c=imp.getC(); z=imp.getZ(); t=imp.getT();
@@ -1300,7 +1316,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}
 		
 		public void check(float dx, float dy, float dz) {
-			isChanged.srcRect= (!prevSrcRect.equals(imp.getCanvas().getSrcRect())) || setNextSrcRect;
+			isChanged.srcRect= (!prevSrcRect.equals(imp.getCanvas().getSrcRect())) || setNextSrcRect || prevMag!=imp.getCanvas().getMagnification();
 			MinMax[] newMinmaxs=MinMax.getMinMaxs(imp.getLuts());
 			isChanged.minmax=false;
 			for(int i=0;i<minmaxs.length;i++) {
@@ -1533,7 +1549,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	}
 	
 	public void dispose() {
-		glw.destroy();mirror.dispose();mirror=null;
+		glw.destroy();
+		if(mirror!=null)mirror.dispose();
+		mirror=null;
 	}
 	
 	public void revert() {
@@ -2105,95 +2123,83 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	public void keyPressed(KeyEvent e) {
 		if(JCP.debug) System.out.println("AJS- JIC-keyPressed"+Character.toString(e.getKeyChar()));
 		//if(glw.isFullscreen()) {
-			for(char key : kps.okchars)if(key==e.getKeyChar()) {
+			for(char key : kps.okchars)if(key==Character.toLowerCase(e.getKeyChar())) {
 				kps.set(e.getKeyChar()); 
 				if(JCP.debug)log("Keypress "+e.getKeyChar());
 				return;
 			}
 			if(kps.keyIsPressed)return;
 		//}
-		if(!(e.getKeyChar()=='='||e.getKeyChar()=='-')) ij.keyPressed(e);}
+		//if(!(e.getKeyChar()=='='||e.getKeyChar()=='-')) ij.keyPressed(e);
+		ij.keyPressed(e);
+	}
 	@Override
 	public void keyReleased(KeyEvent e) {
 		if(JCP.debug) System.out.println("AJS- JIC-keyReleased"+Character.toString(e.getKeyChar())); 
-		//if(glw.isFullscreen()) {
-			for(char key : kps.okchars)if(key==e.getKeyChar()) {kps.unset(e.getKeyChar()); if(JCP.debug) log("Keypress off: "+e.getKeyChar()); return;}
-			if(kps.keyIsPressed)return;
-		//}
-		ij.keyReleased(e);
-	}
-	@Override
-	public void keyTyped(KeyEvent e) {
-		//System.out.println("AJS- JIC-keyTyped"+Character.toString(e.getKeyChar()));
 		char key=e.getKeyChar();
 		int code=e.getKeyCode();
 		//if(glw.isFullscreen()) {
-			if(kps.keyIsPressed) {
-				if(code==KeyEvent.VK_UP || code==KeyEvent.VK_DOWN || code==KeyEvent.VK_LEFT || code==KeyEvent.VK_RIGHT) {
-					int a=1;
-					int b=1;
-					if(code==KeyEvent.VK_DOWN)a=-1;
-					if(code==KeyEvent.VK_LEFT)b=-1;
-					int x=cutPlanes.x(), y=cutPlanes.y(), z=cutPlanes.z(), w=cutPlanes.w(), h=cutPlanes.h(), d=cutPlanes.d();
-					switch(kps.key) {
-					case 'z':
-						z+=a;
-						if(z==d)d++;
-						break;
-					case 'x':
-						x+=a*10;
-						if(x==w)w++;
-						break;
-					case 'y':
-						y+=a*10;
-						if(y==h)h++;
-						break;
-					case 'w':
-						w+=a*10;
-						if(w==x)x--;
-						break;
-					case 'h':
-						h+=a*10;
-						if(h==y)y--;
-						break;
-					case 'd':
-						d+=a;
-						if(d==z)z--;
-						break;
-					case 'c':
-						if(code==KeyEvent.VK_LEFT || code==KeyEvent.VK_RIGHT) {
-							imp.setC(imp.getC()+b);
-						}else {
-							double max=imp.getDisplayRangeMax();
-							int c=max>100?100:max>10?10:1;
-							imp.setDisplayRange(imp.getDisplayRangeMin(), max+a*c);
-						}
-						break;
-					case 'm':
-						double min=imp.getDisplayRangeMin();
-						int c=min>100?100:min>10?10:1;
-						imp.setDisplayRange(min+a*c, imp.getDisplayRangeMax());
-						break;
-					}
-					if(z<0)z=0; if(y<0)y=0; if(z<0)z=0;
-					if(z==imp.getNSlices())z--; if(x==imp.getWidth())x--; if(y==imp.getHeight())y--;
-					if(w<1)w=1; if(h<1)h=1; if(d<1)d=1;
-					if(w>imp.getWidth())w--; if(h>imp.getHeight())h--; if(d>imp.getNSlices())d--;
-					cutPlanes.updateCube(new int[] {x,y,z,w,h,d});
-					repaintLater();
+		if(kps.keyIsPressed && (code==KeyEvent.VK_UP || code==KeyEvent.VK_DOWN || code==KeyEvent.VK_LEFT || code==KeyEvent.VK_RIGHT)) {
+			int a=1;
+			int b=1;
+			if(code==KeyEvent.VK_DOWN)a=-1;
+			if(code==KeyEvent.VK_LEFT)b=-1;
+			int x=cutPlanes.x(), y=cutPlanes.y(), z=cutPlanes.z(), w=cutPlanes.w(), h=cutPlanes.h(), d=cutPlanes.d();
+			switch(kps.key) {
+			case 'z':
+				z+=a;
+				if(z==d)d++;
+				break;
+			case 'x':
+				x+=a*10;
+				if(x==w)w++;
+				break;
+			case 'y':
+				y+=a*10;
+				if(y==h)h++;
+				break;
+			case 'w':
+				w+=a*10;
+				if(w==x)x--;
+				break;
+			case 'h':
+				h+=a*10;
+				if(h==y)y--;
+				break;
+			case 'd':
+				d+=a;
+				if(d==z)z--;
+				break;
+			case 'c':
+				if(code==KeyEvent.VK_LEFT || code==KeyEvent.VK_RIGHT) {
+					imp.setC(imp.getC()+b);
+				}else {
+					double max=imp.getDisplayRangeMax();
+					int c=max>100?100:max>10?10:1;
+					imp.setDisplayRange(imp.getDisplayRangeMin(), max+a*c);
 				}
-				return;
+				break;
+			case 'm':
+				double min=imp.getDisplayRangeMin();
+				int c=min>100?100:min>10?10:1;
+				imp.setDisplayRange(min+a*c, imp.getDisplayRangeMax());
+				break;
 			}
-		//}
+			if(z<0)z=0; if(y<0)y=0; if(z<0)z=0;
+			if(z==imp.getNSlices())z--; if(x==imp.getWidth())x--; if(y==imp.getHeight())y--;
+			if(w<1)w=1; if(h<1)h=1; if(d<1)d=1;
+			if(w>imp.getWidth())w--; if(h>imp.getHeight())h--; if(d>imp.getNSlices())d--;
+			cutPlanes.updateCube(new int[] {x,y,z,w,h,d});
+			kps.keyWasUsed();
+		}
 		if(key=='u') {
 			if(go3d) {
 				myImageUpdated=true;
-				repaint();
 			}
 		}else if(code==KeyEvent.VK_ESCAPE) {
 			if(glw.isFullscreen())toggleFullscreen();
 		}else {
-			if(key=='='||key=='-') {
+			/*if(key=='='||key=='-') {
 				Point loc = getCursorLoc();
 				if (!cursorOverImage()) {
 					loc.x = srcRect.x + srcRect.width/2;
@@ -2204,33 +2210,55 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				ImageCanvas ic=isMirror?imp.getCanvas():this;
 				if(key=='=')ic.zoomIn(x,y);
 				else ic.zoomOut(x,y);
-			}
-			if(isMirror) {repaint();}
+			}*/
+			
 		}
+		for(char kpkey : kps.okchars) {if(kpkey==e.getKeyChar()) {
+			if(kps.keyIsPressed) {
+				if(!kps.keyWasUsed) ij.keyPressed(e);
+				kps.unset(e.getKeyChar()); 
+				if(JCP.debug) log("Keypress off: "+e.getKeyChar()); 
+			}
+		}}
+		//}
+		repaintLater();
+		ij.keyReleased(e);
 		ij.keyTyped(e);
+	}
+	@Override
+	public void keyTyped(KeyEvent e) {
 	}
 	
 	class Keypresses{
-		public char key;
-		public boolean keyIsPressed=false;
-		public char[] okchars=new char[] {'z','d','x','w','y','h','c','m'};
+		public volatile char key;
+		public volatile boolean keyIsPressed=false;
+		public volatile boolean keyWasUsed=false;
+		public final char[] okchars=new char[] {'z','d','x','w','y','h','c','m'};
 		
 		public Keypresses() {
 		}
 		
 		public void set(char key) {
 			if(Character.isAlphabetic(key)) {
-				this.key=key;
+				this.key=Character.toLowerCase(key);
 				keyIsPressed=true;
+				keyWasUsed=false;
 			}
 		}
 		
 		public void unset(char key) {
-			if(this.key==key)keyIsPressed=false;
+			if(this.key==key) {
+				reset();
+			}
 		}
 		
 		public void reset() {
 			keyIsPressed=false;
+			keyWasUsed=false;
+		}
+		
+		public void keyWasUsed() {
+			keyWasUsed=true;
 		}
 	}
 	

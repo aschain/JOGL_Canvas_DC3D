@@ -136,7 +136,7 @@ public class JCP implements PlugIn {
 	}
 	
 	public static void log(String text) {
-		if(quiet)IJ.showStatus(text);
+		if(quiet && !debug)IJ.showStatus(text);
 		else IJ.log(text);
 	}
 	
@@ -187,12 +187,7 @@ public class JCP implements PlugIn {
 					imp.changes=false;
 					final JOGLImageCanvas jic=new JOGLImageCanvas(imp,doMirror);
 					if(doMirror) {
-						StackWindow win=new StackWindow(imp,jic);
-						win.addWindowListener(new WindowAdapter() {
-							public void windowClosing(WindowEvent e) {
-								jic.dispose();
-							}
-						});
+						new StackWindow(imp,jic);
 					}else {
 						JCStackWindow win=new JCStackWindow(imp, jic);
 						if(mouseWheelFix)jic.addMouseWheelListener(win);
@@ -511,7 +506,7 @@ public class JCP implements PlugIn {
 		gd.addCheckbox("3D on by default?", go3d);
 		gd.addChoice("Default 3d Render Type", new String[] {"MAX","ALPHA"}, renderFunction);
 		gd.addChoice("Default Undersampling for 3D", new String[] {"None","2","4","6"},undersample==1?"None":(""+undersample));
-		gd.addCheckbox("Stereoscopic settings", false);
+		gd.addCheckbox("3D and Stereoscopic settings", false);
 		gd.addCheckbox("Prefer active stereo over high dynamic range", preferStereo);
 		gd.addCheckbox("Open 10-bit test image", false);
 		gd.addMessage("Advanced Settings:");
@@ -520,7 +515,7 @@ public class JCP implements PlugIn {
 		gd.addChoice("Draw cursor crosshairs (requires GL ROI)", cursorChoices, cursorChoices[drawCrosshairs]);
 		gd.addCheckbox("Store whole stack in PBO, even for 2D (more video memory but faster)", usePBOforSlices);
 		gd.addCheckbox("Use image arrays wrapped in a buffer for video memory", wrappedBuffers);
-		gd.addCheckbox("Check if mouse wheel is not working for converted canvas", mouseWheelFix);
+		gd.addCheckbox("Fix if mouse wheel is not working for converted canvas", mouseWheelFix);
 		gd.addCheckbox("Don't print to log on startup, etc", quiet);
 		gd.addCheckbox("Show some extra debug info", debug);
 		gd.showDialog();

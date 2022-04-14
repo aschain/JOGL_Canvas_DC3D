@@ -27,11 +27,6 @@ public class JCStackWindow extends StackWindow {
         for(int i=0;i<wincs.length;i++) {
         		if(wincs[i] instanceof JOGLImageCanvas) {c.remove(i); c.add(jic.icc, i);}
         }
-        addWindowListener(new WindowAdapter() {
-			public void windowClosing(WindowEvent e) {
-				jic.glw.destroy();
-			}
-		});
 		repaint();
 	}
 	
@@ -39,13 +34,9 @@ public class JCStackWindow extends StackWindow {
 		this(imp,new JOGLImageCanvas(imp, false));
 	}
 	
+	@Override
 	public void setTitle(String title) {
 		super.setTitle(title+" (JOGL Canvas)");
-	}
-	
-	public void updateTitle(String adder) {
-		if(adder.isEmpty())setTitle(imp.getTitle());
-		else super.setTitle(imp.getTitle()+" (JOGL Canvas) ("+adder+")");
 	}
 		
 }

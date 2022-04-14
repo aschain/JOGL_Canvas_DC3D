@@ -10,6 +10,7 @@ import java.awt.event.ActionListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import ij.IJ;
 import ij.ImagePlus;
@@ -22,7 +23,7 @@ public class JCRecorder implements PlugIn, BIScreenGrabber {
 
 	private static final double MIN_FRAME_RATE = 200;
 	
-	public boolean saving=false;
+	public AtomicBoolean saving=new AtomicBoolean(false);
 	private volatile boolean updated=false;
 	private BufferedImage currImage;
 	private volatile boolean stop=false;
@@ -59,8 +60,8 @@ public class JCRecorder implements PlugIn, BIScreenGrabber {
     }
 	
 	public void startSaving() {
-		if(saving)return;
-		saving=true;
+		if(saving.get())return;
+		saving.set(true);
 		recbox.setStopEnabled(true);
 		recbox.setStartEnabled(false);
 		dcic.setBIScreenGrabber(this);
@@ -106,7 +107,7 @@ public class JCRecorder implements PlugIn, BIScreenGrabber {
 		        }
 
         		(new ImagePlus(title,newimgst)).show();
-		        saving=false;
+		        saving.set(false);
 		        stop=false;
 		        recbox.setStatus(mystatus+"\nCompleted movie");
 				recbox.setStopEnabled(false);

@@ -78,7 +78,7 @@ public class RoiGLDrawUtility {
 		offx=(float)srcRect.x; offy=(float)srcRect.y;
 		dw=(int)(mag*w+0.5);
 		dh=(int)(mag*h+0.5);
-		px=2f/(int)(mag*h+0.5)*dpimag;
+		px=2f/(float)(int)(mag*h*dpimag+0.5);
 		//yrat=1f;//(float)srcRect.height/srcRect.width;
 	}
 	
@@ -320,6 +320,7 @@ public class RoiGLDrawUtility {
 	}
 	
 	public float[] ijToGLCoords(float[] ijcoords, boolean screen) {
+		updateSrcRect();
 		float[] glcoords=new float[ijcoords.length];
 		Calibration cal=imp.getCalibration();
 		float zf=(float)(cal.pixelDepth/cal.pixelWidth)/w;
@@ -355,10 +356,6 @@ public class RoiGLDrawUtility {
 		return getSubGLCoords(fp,0,fp.npoints,z,screen);
 	}
 	
-	public void drawGLij(float[] coords, Color color, int toDraw) {
-		drawGL(ijToGLCoords(coords, false), color, toDraw);
-	}
-	
 	public void drawGL(float[] coords, Color color, int toDraw) {
 		drawGL(coords, new float[] {(float)color.getRed()/255f,(float)color.getGreen()/255f,(float)color.getBlue()/255f,(float)color.getAlpha()/255f},toDraw);
 	}
@@ -374,7 +371,7 @@ public class RoiGLDrawUtility {
 	
 	/**
 	 * drawGLfb requires a FloatBuffer fb which has 3 position floats followed by 4 color floats per vertex.
-	 * @param gl
+	 * @param drawable
 	 * @param fb
 	 * @param toDraw
 	 */

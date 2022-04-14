@@ -565,7 +565,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		java.awt.EventQueue.invokeLater(new Runnable() {
 			@Override
 			public void run() {
-				IJ.log(string);
+				if(JCP.quiet)IJ.showStatus(string);
+				else IJ.log(string);
 			}
 		});
 	}
@@ -1671,9 +1672,12 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	@Override
 	public void setLocation(int x, int y) {
 		if(JCP.debug)IJ.log("setLocation x"+x+" y"+y);
-		if(icc!=null && !isMirror)icc.setLocation((int)(x*dpimag+0.5), (int)(y*dpimag+0.5));
+		if(icc!=null && !isMirror) {
+			int xd=(int)(x*dpimag+0.5), yd=(int)(y*dpimag+0.5);
+			icc.setLocation(xd, yd);
+			//glw.setPosition(xd, yd);
+		}
 		else super.setLocation(x, y);
-		glw.setPosition(x, y);
 	}
 
 	@Override
@@ -1751,7 +1755,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	}
 	@Override
 	public void addMouseWheelListener(MouseWheelListener object) {
-		IJ.log("adding mouse wheel listener to "+object+" and jea is null?"+(joglEventAdapter==null)+" mir"+isMirror);
+		if(JCP.debug)IJ.log("adding mouse wheel listener to "+object+" and jea is null?"+(joglEventAdapter==null)+" mir"+isMirror);
 		if(joglEventAdapter!=null && !isMirror)joglEventAdapter.addMouseWheelListener(object);
 		super.addMouseWheelListener(object);
 	}

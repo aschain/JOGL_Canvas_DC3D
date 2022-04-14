@@ -87,6 +87,8 @@ public class JCP implements PlugIn {
 	public static boolean doFrustum=Prefs.get("ajs.joglcanvas.doFrustum", false);
 	public static boolean qbfullscreen=Prefs.get("ajs.joglcanvas.qbfullscreen", false);
 	public static int drawCrosshairs=(int)Prefs.get("ajs.joglcanvas.drawCrosshairs", 0);
+	public static boolean mouseWheelFix=Prefs.get("ajs.joglcanvas.mouseWheelFix", false);
+	public static boolean quiet=Prefs.get("ajs.joglcanvas.quiet", false);
 	public static boolean debug=false;
 	private static final float[][] duboisColors = new float[][] {
 		 {0.456f, -0.04f, -0.015f,
@@ -133,22 +135,27 @@ public class JCP implements PlugIn {
 
 	}
 	
+	public static void log(String text) {
+		if(quiet)IJ.showStatus(text);
+		else IJ.log(text);
+	}
+	
 	public static void startListener() {
 		if(listenerInstance!=null) {
-			IJ.log("Restarting JOGL Canvas DC3D service...");
+			log("Restarting JOGL Canvas DC3D service...");
 			ImagePlus.removeImageListener(listenerInstance);
 			listenerInstance=null;
 		}
 		listenerInstance=new JOGLCanvasService();
 		ImagePlus.addImageListener(listenerInstance);
-		IJ.log("JOGL Canvas DC3D service started...");
+		log("JOGL Canvas DC3D service started...");
 	}
 	
 	public static void stopListener() {
 		if(listenerInstance!=null) {
 			ImagePlus.removeImageListener(listenerInstance);
 			listenerInstance=null;
-			IJ.log("JOGL Canvas DC3D service stopped...");
+			log("JOGL Canvas DC3D service stopped...");
 		}
 	}
 
@@ -186,8 +193,10 @@ public class JCP implements PlugIn {
 								jic.dispose();
 							}
 						});
-					}else
-						new JCStackWindow(imp, jic);
+					}else {
+						JCStackWindow win=new JCStackWindow(imp, jic);
+						if(mouseWheelFix)jic.addMouseWheelListener(win);
+					}
 					imp.changes=changes;
 					if(prompt)((ij.gui.PointRoi)roi).promptBeforeDeleting(true);
 			    }
@@ -366,7 +375,7 @@ public class JCP implements PlugIn {
 		}
 		if(defaultBitString==null || defaultBitString.equals("default")) return null;
 		setGLCapabilities(glCapabilities, defaultBitString);
-		IJ.log("Starting JOGL with Settings:\n   "+glCapabilities);
+		log("Starting JOGL with Settings:\n   "+glCapabilities);
 		return glCapabilities;
 	}
 	
@@ -387,7 +396,7 @@ public class JCP implements PlugIn {
 		glCapabilities.setSampleBuffers(true);
 		glCapabilities.setNumSamples(4);
 		glCapabilities.setStereo(preferStereo);
-		if(preferStereo && ((g+r+b)>26))IJ.log("JOGLImageCanvas Warning: Active stereo disables HDR 10-bit, disable it in prefs if you prefer HDR");
+		if(preferStereo && ((g+r+b)>26))log("JOGLImageCanvas Warning: Active stereo disables HDR 10-bit, disable it in prefs if you prefer HDR");
 	}
 
 	
@@ -511,6 +520,8 @@ public class JCP implements PlugIn {
 		gd.addChoice("Draw cursor crosshairs (requires GL ROI)", cursorChoices, cursorChoices[drawCrosshairs]);
 		gd.addCheckbox("Store whole stack in PBO, even for 2D (more video memory but faster)", usePBOforSlices);
 		gd.addCheckbox("Use image arrays wrapped in a buffer for video memory", wrappedBuffers);
+		gd.addCheckbox("Check if mouse wheel is not working for converted canvas", mouseWheelFix);
+		gd.addCheckbox("Don't print to log on startup, etc", quiet);
 		gd.addCheckbox("Show some extra debug info", debug);
 		gd.showDialog();
 		
@@ -534,7 +545,7 @@ public class JCP implements PlugIn {
 			if(listenerInstance==null)
 				startListener();
 			else
-				IJ.log("JOGL Canvas service running...");
+				log("JOGL Canvas service running...");
 		}else{
 			stopListener();
 		}
@@ -560,6 +571,10 @@ public class JCP implements PlugIn {
 		Prefs.set("ajs.joglcanvas.usePBOforSlices", usePBOforSlices);
 		wrappedBuffers=gd.getNextBoolean();
 		Prefs.set("ajs.joglcanvas.wrappedBuffers", wrappedBuffers);
+		mouseWheelFix=gd.getNextBoolean();
+		Prefs.set("ajs.joglcanvas.mouseWheelfix", mouseWheelFix);
+		quiet=gd.getNextBoolean();
+		Prefs.set("ajs.joglcanvas.quiet", quiet);
 		debug=gd.getNextBoolean();
 		
 		if(doana) anaglyphSettings();

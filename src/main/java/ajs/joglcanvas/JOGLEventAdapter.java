@@ -39,8 +39,8 @@ public class JOGLEventAdapter implements MouseListener, KeyListener {
 		if(mouseWheelListener!=null) mouseWheelListeners.add(mouseWheelListener);
 		if(keyListener!=null) keyListeners.add(keyListener);
 		if(win!=null) {
-			if(mouseListeners.size()>0 || mouseMotionListeners.size()>0 || mouseWheelListeners.size()>0) win.addMouseListener(this);
-			if(keyListeners.size()>0) win.addKeyListener(this);
+			win.addMouseListener(this);
+			win.addKeyListener(this);
 		}
 	}
 	

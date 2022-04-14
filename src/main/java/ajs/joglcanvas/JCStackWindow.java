@@ -32,6 +32,7 @@ public class JCStackWindow extends StackWindow {
 				jic.glw.destroy();
 			}
 		});
+		jic.addMouseWheelListener(this);
 		repaint();
 	}
 	

@@ -33,6 +33,8 @@ import java.awt.event.ItemListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
@@ -176,10 +178,15 @@ public class JCP implements PlugIn {
 						((ij.gui.PointRoi)roi).promptBeforeDeleting(false);
 					}
 					imp.changes=false;
-					JOGLImageCanvas jic=new JOGLImageCanvas(imp,doMirror);
-					if(doMirror)
-						new StackWindow(imp,jic);
-					else
+					final JOGLImageCanvas jic=new JOGLImageCanvas(imp,doMirror);
+					if(doMirror) {
+						StackWindow win=new StackWindow(imp,jic);
+						win.addWindowListener(new WindowAdapter() {
+							public void windowClosing(WindowEvent e) {
+								jic.dispose();
+							}
+						});
+					}else
 						new JCStackWindow(imp, jic);
 					imp.changes=changes;
 					if(prompt)((ij.gui.PointRoi)roi).promptBeforeDeleting(true);

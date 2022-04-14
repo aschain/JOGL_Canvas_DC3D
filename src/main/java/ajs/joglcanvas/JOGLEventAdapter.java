@@ -44,10 +44,6 @@ public class JOGLEventAdapter implements MouseListener, KeyListener {
 		}
 	}
 	
-	public JOGLEventAdapter(Component source, com.jogamp.newt.Window win, java.awt.event.MouseWheelListener mouseWheelListener) {
-		this(source, win, null, null, mouseWheelListener, null);
-	}
-	
 	public JOGLEventAdapter(JOGLImageCanvas jic, com.jogamp.newt.Window win) {
 		this(jic.icc, win, jic, jic, null, jic);
 	}
@@ -84,6 +80,22 @@ public class JOGLEventAdapter implements MouseListener, KeyListener {
 	
 	public void removeKeyListener(java.awt.event.KeyListener keyListener) {
 		if(keyListener!=null) keyListeners.remove(keyListener);
+	}
+	
+	public ArrayList<java.awt.event.MouseListener> getMouseListeners(){
+		return mouseListeners;
+	}
+	
+	public ArrayList<java.awt.event.MouseMotionListener> getMouseMotionListeners(){
+		return mouseMotionListeners;
+	}
+	
+	public ArrayList<java.awt.event.MouseWheelListener> getMouseWheelListeners(){
+		return mouseWheelListeners;
+	}
+	
+	public ArrayList<java.awt.event.KeyListener> getKeyListeners(){
+		return keyListeners;
 	}
 	
 	/**

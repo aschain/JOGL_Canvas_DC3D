@@ -51,9 +51,9 @@ public class RoiGLDrawUtility {
 	double mag;
 	boolean go3d;
 	Color anacolor=null;
-	float dpimag=1f;
+	//float dpimag=1f;
 
-	public RoiGLDrawUtility(ImagePlus imp, GLAutoDrawable drawable, JCProgram program, double dpimag) {
+	public RoiGLDrawUtility(ImagePlus imp, GLAutoDrawable drawable, JCProgram program) {
 		this.imp=imp;
 		rglos= new JCGLObjects(drawable);
 		rglos.newBuffer(GL_ARRAY_BUFFER, "roiGL");
@@ -68,7 +68,7 @@ public class RoiGLDrawUtility {
 		rglos.programs.put("text",program);
 		updateSrcRect();
 		setGL(drawable);
-		this.dpimag=(float)dpimag;
+		//this.dpimag=(float)dpimag;
 	}
 	
 	private void updateSrcRect() {
@@ -78,7 +78,7 @@ public class RoiGLDrawUtility {
 		offx=(float)srcRect.x; offy=(float)srcRect.y;
 		dw=(int)(mag*w+0.5);
 		dh=(int)(mag*h+0.5);
-		px=2f/(float)(int)(mag*h*dpimag+0.5);
+		//px=2f/(float)(int)(mag*h*dpimag+0.5);
 		//yrat=1f;//(float)srcRect.height/srcRect.width;
 	}
 	
@@ -134,7 +134,7 @@ public class RoiGLDrawUtility {
 		}
 		setGL(drawable);
 		updateSrcRect();
-		gl.glLineWidth((float)dpimag);
+		//gl.glLineWidth((float)dpimag);
 		boolean drawHandles=isRoi;
 		//if(isRoi && roi.getState()==Roi.CONSTRUCTING)drawHandles=false;
 
@@ -831,7 +831,7 @@ public class RoiGLDrawUtility {
 		String text=troi.getText();
 		if(text==null || "".contentEquals(text))return;
 		//BufferedImage roiImage=new BufferedImage((int)(bounds.width*aa*mag*dpimag+0.5f), (int)(bounds.height*aa*mag*dpimag+0.5f), BufferedImage.TYPE_INT_ARGB);
-		BufferedImage roiImage=new BufferedImage((int)(bounds.width*aa*dpimag+0.5f), (int)(bounds.height*aa*dpimag+0.5f), BufferedImage.TYPE_INT_ARGB);
+		BufferedImage roiImage=new BufferedImage((int)(bounds.width*aa+0.5f), (int)(bounds.height*aa+0.5f), BufferedImage.TYPE_INT_ARGB);
 		Graphics g=roiImage.getGraphics();
 		ImagePlus rimp=troi.getImage();
 		troi.setImage(null);
@@ -839,7 +839,7 @@ public class RoiGLDrawUtility {
 		troi.setAntialiased(false);
 		troi.setLocation(0.0, 0.0);
 		Font font=troi.getCurrentFont();
-		troi.setFont(font.deriveFont((float)(font.getSize()*aa*dpimag)));
+		troi.setFont(font.deriveFont((float)(font.getSize()*aa)));
 		troi.drawOverlay(g);
 		troi.setImage(rimp);
 		troi.setFont(font);

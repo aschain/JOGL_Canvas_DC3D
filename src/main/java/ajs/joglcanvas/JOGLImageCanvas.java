@@ -97,7 +97,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	final private StackBuffer sb;
 	private JCGLObjects glos;
 	protected boolean disablePopupMenu;
-	protected double dpimag=1.0;
+	//protected double dpimag=1.0;
 	protected boolean myImageUpdated=true;
 	private boolean deletePBOs=false;
 	protected boolean isMirror=false;
@@ -203,8 +203,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		Screen screen=NewtFactory.createScreen(display, 0);
 		screen.addReference();
 		glw=GLWindow.create(glc);
-		icc=new NewtCanvasAWT(glw)
-		{
+		final double dpiscale=dpimag;
+		icc=new NewtCanvasAWT(glw){
 			private static final long serialVersionUID = 1256279205085144008L;
 			@Override
 			public void reshape(int x, int y, int width, int height) {
@@ -213,23 +213,14 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					super.reshape(x,y,width, height);
 					//glw.setPosition(x,y);
 					if(isMirror)
-						java.awt.EventQueue.invokeLater(new Runnable() {public void run() {glw.setSize((int)(width*dpimag+0.5),(int)(height*dpimag+0.5));}});
+						java.awt.EventQueue.invokeLater(new Runnable() {public void run() {glw.setSize((int)(width*dpiscale+0.5),(int)(height*dpiscale+0.5));}});
 					else
-						glw.setSize((int)(width*dpimag+0.5),(int)(height*dpimag+0.5));
+						glw.setSize((int)(width*dpiscale+0.5),(int)(height*dpiscale+0.5));
 					Dimension s=new Dimension(width,height);
 					setMinimumSize(s);
 					setPreferredSize(s);
 				//}
 			}
-			//@Override
-			//public Dimension getSize() {
-			//	Dimension s=super.getSize();
-			//	if(isMirror) {
-			//		s.width=(int)(s.width/dpimag+0.5);
-			//		s.height=(int)(s.height/dpimag+0.5);
-			//	}
-			//	return s;
-			//}
 		};
 		final JOGLImageCanvas jic=this;
 		joglEventAdapter=new JOGLEventAdapter(jic, glw);
@@ -297,6 +288,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(ssc[0]!=1.0f || (dpimag!=1.0 && !isMirror)) {
 			if(ssc[0]==1.0f)ssc[0]=(float)dpimag;
 			joglEventAdapter.setDPI(ssc[0]);
+			log("Set JEA to "+ssc[0]);
+			dpimag=1.0;
 			//if(glw.setSurfaceScale(new float[] {1f,1f}))log("Changed to 1.0 1.0");
 			//else log("Unable to change SurfaceScale");
 		}
@@ -602,7 +595,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		imageState.check(dx,dy,dz);
 		boolean needDraw=false;
 		if(imageState.isChanged.srcRect) resetGlobalMatrices(drawable);
-		if(JCP.openglroi && rgldu==null) rgldu=new RoiGLDrawUtility(imp, drawable,glos.programs.get("roi"), dpimag);
+		if(JCP.openglroi && rgldu==null) rgldu=new RoiGLDrawUtility(imp, drawable,glos.programs.get("roi"));
 		int sl=imp.getZ()-1, fr=imp.getT()-1,chs=imp.getNChannels(),sls=imp.getNSlices(),frms=imp.getNFrames();
 		Calibration cal=imp.getCalibration();
 		if(go3d&&sls==1)go3d=false;
@@ -1087,7 +1080,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						else anacolor=(stereoi==0)?JCP.leftAnaglyphColor:JCP.rightAnaglyphColor;
 					}
 					gl.glDisable(GL_BLEND);
-					if(rgldu==null) rgldu=new RoiGLDrawUtility(imp, drawable,glos.programs.get("roi"), dpimag);
+					if(rgldu==null) rgldu=new RoiGLDrawUtility(imp, drawable,glos.programs.get("roi"));
 					if(glos.glver==2)rgldu.startDrawing();
 					glos.bindUniformBuffer(bname, 1);
 					glos.bindUniformBuffer(go3d?"modelr":"idm", 2);
@@ -1682,7 +1675,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				}
 			}
 			icc.setSize(width, height);
-		}super.setSize(width, height);
+		}
+		super.setSize(width, height);
 		dstWidth = width;
 		dstHeight = height;
 	}
@@ -2300,6 +2294,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	}
 	
 	private MouseEvent fixMouseEvent(MouseEvent e) {
+		double dpimag=1.0;
 		return new MouseEvent(icc, e.getID(), e.getWhen(), e.getModifiers(), (int)(e.getX()/dpimag+0.5),  (int)(e.getY()/dpimag+0.5), 
 				e.getXOnScreen(), e.getYOnScreen(), e.getClickCount(), e.isPopupTrigger(), e.getButton());
 	}

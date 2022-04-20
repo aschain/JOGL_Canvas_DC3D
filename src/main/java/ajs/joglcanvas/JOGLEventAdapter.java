@@ -212,33 +212,13 @@ public class JOGLEventAdapter implements MouseListener, KeyListener {
 	 * @return			The AWT MouseEvent
 	 */
 	public static java.awt.event.MouseEvent convertME(MouseEvent e, Component source, float dpimag){
-		java.awt.event.MouseEvent res=null;
-		int x=(int)(e.getX()/dpimag),
-			y=(int)(e.getY()/dpimag),
-			sx=x, sy=y;
+		Point p=null;
 		if(source.isVisible()) {
 			try {
-				Point p=source.getLocationOnScreen();
-				sx=x+p.x;
-				sy=y+p.y;
+				p=source.getLocationOnScreen();
 			}catch(Exception ex) {}
 		}
-		if(e.getEventType() ==MouseEvent.EVENT_MOUSE_WHEEL_MOVED) {
-			float rot=e.getRotation()[1];
-			if((e.getModifiers() & java.awt.event.InputEvent.SHIFT_DOWN_MASK) !=0)rot=e.getRotation()[1];
-			res=new java.awt.event.MouseWheelEvent(source, eventTypeNEWT2AWT(e.getEventType()), e.getWhen(), newtModifiers2awt(e.getModifiers(),true),
-					x, y, sx, sy, (int)e.getClickCount(), (int)e.getButton()==3,
-					java.awt.event.MouseWheelEvent.WHEEL_BLOCK_SCROLL, (int) e.getRotationScale(), (int)-rot, (double) -rot);
-		}
-		else res=new java.awt.event.MouseEvent(source, eventTypeNEWT2AWT(e.getEventType()), e.getWhen(), e.getModifiers(), 
-					x, y, sx, sy, (int)e.getClickCount(), (int)e.getButton()==3, (int)e.getButton());
-		if(JCP.debug && verbose) {
-			System.out.println("--");
-			System.out.println("newt:"+e);
-			System.out.println("awt:"+res);
-		}
-		
-		return res;
+		return convertME(e,source,dpimag,p);
 	}
 	
 	/**

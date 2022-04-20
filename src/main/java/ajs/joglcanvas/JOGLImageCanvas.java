@@ -97,7 +97,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	final private StackBuffer sb;
 	private JCGLObjects glos;
 	protected boolean disablePopupMenu;
-	//protected double dpimag=1.0;
+	protected double dpimag=1.0;
 	protected boolean myImageUpdated=true;
 	private boolean deletePBOs=false;
 	protected boolean isMirror=false;
@@ -288,8 +288,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(ssc[0]!=1.0f || (dpimag!=1.0 && !isMirror)) {
 			if(ssc[0]==1.0f)ssc[0]=(float)dpimag;
 			joglEventAdapter.setDPI(ssc[0]);
-			log("Set JEA to "+ssc[0]);
-			dpimag=1.0;
+			if(JCP.debug)log("Set JEA to "+ssc[0]);
 			//if(glw.setSurfaceScale(new float[] {1f,1f}))log("Changed to 1.0 1.0");
 			//else log("Unable to change SurfaceScale");
 		}
@@ -1495,17 +1494,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(!isMirror)return;
 		if(imp==null) {dispose();return;}
 		if(mirror==null || !mirror.isVisible() || glw.isFullscreen())return;
-		int glww=glw.getSurfaceWidth(), glwh=glw.getSurfaceHeight();
-		int w=getWidth(), h=getHeight();
-		if(mirrorMagUnlock || mirror.getExtendedState()==Frame.MAXIMIZED_BOTH) {
-			Insets ins=mirror.getInsets();
-			Dimension d=mirror.getSize();
-			w=d.width-ins.left-ins.right;
-			h=d.height-ins.top-ins.bottom;
-		}
-		int wm=(int)(w*dpimag+0.5), hm=(int)(h*dpimag+0.5);
-		if(glww!=wm || glwh!=hm) {
-			setSize(w,h);
+		if(!mirrorMagUnlock) {
+			int glww=glw.getSurfaceWidth(), glwh=glw.getSurfaceHeight();
+			int w=getWidth(), h=getHeight();
+			int wm=(int)(w*dpimag+0.5), hm=(int)(h*dpimag+0.5);
+			if(glww!=wm || glwh!=hm)setMirrorSize(w,h);
 		}
 	}
 	
@@ -1649,7 +1642,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 
 		gl.glDisable(GL_BLEND);
 		gl.glLineWidth((float)dpimag);
-		if(rgldu==null) rgldu=new RoiGLDrawUtility(imp, drawable,glos.programs.get("roi"), dpimag);
+		if(rgldu==null) rgldu=new RoiGLDrawUtility(imp, drawable,glos.programs.get("roi"));
 		if(glos.glver==2)rgldu.startDrawing();
 		glos.bindUniformBuffer(projMatrix, 1);
 		glos.bindUniformBuffer("idm", 2);
@@ -1668,17 +1661,20 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			if(JCP.debug)log("SetSize w:"+width+" h:"+height);
 			if(isMirror) {
 				super.setSize(width, height);
-				if(mirror.getExtendedState()!=Frame.MAXIMIZED_BOTH) {
-					java.awt.Insets ins=mirror.getInsets();
-					if(JCP.debug)log("mirror setsize Insets: tb"+(ins.top+ins.bottom)+" lr"+(ins.left+ins.right));
-					mirror.setSize(width+ins.left+ins.right,height+ins.top+ins.bottom);
-				}
-			}
+				if(!mirrorMagUnlock)setMirrorSize(width, height);
+			}else icc.setSize(width, height);
+			dstWidth = width;
+			dstHeight = height;
+		}else super.setSize(width, height);
+	}
+	
+	public void setMirrorSize(int width, int height) {
+		if(mirror.getExtendedState()!=Frame.MAXIMIZED_BOTH) {
+			java.awt.Insets ins=mirror.getInsets();
+			if(JCP.debug)log("mirror setsize Insets: tb"+(ins.top+ins.bottom)+" lr"+(ins.left+ins.right));
+			mirror.setSize(width+ins.left+ins.right,height+ins.top+ins.bottom);
 			icc.setSize(width, height);
 		}
-		super.setSize(width, height);
-		dstWidth = width;
-		dstHeight = height;
 	}
 	
 	@Override
@@ -2308,7 +2304,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			osx=sx; osy=sy;
 		}else {
 			if(isMirror && isRightClick(e) && Toolbar.getToolId()!=Toolbar.MAGNIFIER) {handlePopupMenu(e);return;}
-			if(dpimag>1.0)e=fixMouseEvent(e);
+			//if(dpimag>1.0)e=fixMouseEvent(e);
 			super.mousePressed(e);
 			repaintLater();
 		}
@@ -2348,11 +2344,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				if(dy<0)dy+=360; if(dy>360)dy-=360;
 			}
 		}else {
-			if(dpimag>1.0)e=fixMouseEvent(e);
+			//if(dpimag>1.0)e=fixMouseEvent(e);
 			if(isMirror && e.getSource()==icc) {
 				onScreenMirrorCursor=true;
 			}else onScreenMirrorCursor=false;
-			if(JCP.drawCrosshairs>0) {setImageCursorPosition(e, dpimag);}
+			if(JCP.drawCrosshairs>0) {setImageCursorPosition(e, 1.0);}
 			super.mouseDragged(e);
 		}
 		repaintLater();
@@ -2367,7 +2363,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			}
 			if(JCP.debug)log("Pointer warped "+osx+" "+osy);
 		}else {
-			if(dpimag>1.0)e=fixMouseEvent(e);
+			//if(dpimag>1.0)e=fixMouseEvent(e);
 			super.mouseReleased(e);
 		}
 	}
@@ -2383,7 +2379,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		//if(shouldKeep(e)){
 		//	if(JCP.drawCrosshairs>0) {setImageCursorPosition(e, dpimag); repaintLater();}
 		//}else {
-			if(dpimag>1.0)e=fixMouseEvent(e);
+			//if(dpimag>1.0)e=fixMouseEvent(e);
 			if(isMirror && e.getSource()==icc) {
 				onScreenMirrorCursor=true;
 			}else onScreenMirrorCursor=false;
@@ -2410,7 +2406,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	@Override
 	public void mouseClicked(MouseEvent e) {
 		if(!shouldKeep(e)){
-			if(dpimag>1.0)e=fixMouseEvent(e);
+			//if(dpimag>1.0)e=fixMouseEvent(e);
 			super.mouseClicked(e);
 		}
 	}

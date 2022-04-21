@@ -174,29 +174,44 @@ public class JCP implements PlugIn {
 				IJ.error("JOGL Canvas currently limited to 6 channels");
 				return;
 			}
-			java.awt.EventQueue.invokeLater(new Runnable() {
-			    @Override
-			    public void run() {
-			    	boolean changes=imp.changes;
-					boolean prompt=false;
-					ij.gui.Roi roi=imp.getRoi();
-					if(roi!=null && roi instanceof ij.gui.PointRoi) {
-						prompt=((ij.gui.PointRoi)roi).promptBeforeDeleting();
-						((ij.gui.PointRoi)roi).promptBeforeDeleting(false);
-					}
-					imp.changes=false;
-					final JOGLImageCanvas jic=new JOGLImageCanvas(imp,doMirror);
-					if(doMirror) {
-						new StackWindow(imp,jic);
-					}else {
+			final JOGLImageCanvas jicnew=new JOGLImageCanvas(imp,doMirror);
+			if(doMirror) {
+				switchWindow(imp,false,jicnew);
+			}else {
+				switchWindow(imp,true,jicnew);
+			}
+		}
+	}
+	
+	public static void switchWindow(ImagePlus imp, boolean isJC, ImageCanvas ic) {
+		java.awt.EventQueue.invokeLater(new Runnable() {
+		    @Override
+		    public void run() {
+		    	boolean isJIC=(ic instanceof JOGLImageCanvas);
+		    	boolean changes=imp.changes;
+				final int mode=imp.getDisplayMode();
+				boolean prompt=false;
+				ij.gui.Roi roi=imp.getRoi();
+				if(roi!=null && roi instanceof ij.gui.PointRoi) {
+					prompt=((ij.gui.PointRoi)roi).promptBeforeDeleting();
+					((ij.gui.PointRoi)roi).promptBeforeDeleting(false);
+				}
+				imp.changes=false;
+				if(isJC) {
+					if(ic instanceof JOGLImageCanvas) {
+						JOGLImageCanvas jic=(JOGLImageCanvas)ic;
 						JCStackWindow win=new JCStackWindow(imp, jic);
 						if(mouseWheelFix)jic.addMouseWheelListener(win);
 					}
-					imp.changes=changes;
-					if(prompt)((ij.gui.PointRoi)roi).promptBeforeDeleting(true);
-			    }
-			});
-		}
+				}else {
+					new StackWindow(imp,ic);
+				}
+				imp.changes=changes;
+				if(prompt)((ij.gui.PointRoi)roi).promptBeforeDeleting(true);
+				imp.setDisplayMode(mode);
+				if(!isJIC && imp.getProperty("JOGLImageCanvas")!=null)imp.setProperty("JOGLImageCanvas", null);
+		    }
+		});
 	}
 	
 	public static void convertToJOGLCanvas(ImagePlus imp) {

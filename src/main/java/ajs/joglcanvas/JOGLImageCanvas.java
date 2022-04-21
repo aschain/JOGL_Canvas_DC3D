@@ -1546,43 +1546,24 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			dispose();
 			return;
 		}
-		boolean changes=imp.changes;
-		boolean prompt=false;
-		ij.gui.Roi roi=imp.getRoi();
-		if(roi!=null && roi instanceof ij.gui.PointRoi) {
-			prompt=((ij.gui.PointRoi)roi).promptBeforeDeleting();
-			((ij.gui.PointRoi)roi).promptBeforeDeleting(false);
-		}
-		final boolean fprompt=prompt;
-		final int mode=imp.getDisplayMode();
-		Runnable r=new Runnable(){
-			public void run() {
-				new StackWindow(imp, new ImageCanvas(imp));
-				if(imp.getProperty("JOGLImageCanvas")!=null)imp.setProperty("JOGLImageCanvas", null);
-				imp.setDisplayMode(mode);
-				imp.changes=changes;
-				if(fprompt)((ij.gui.PointRoi)roi).promptBeforeDeleting(true);
-			}
-		};
-		if(isMirror){
+		if(!isMirror) {
+			glw.destroy();
+		}else{
 			joglEventAdapter.removeMouseMotionListener(this);
 			joglEventAdapter.removeMouseListener(this);
-			if(imp!=null) {
-				java.awt.EventQueue.invokeLater(r);
-				java.awt.EventQueue.invokeLater(new Runnable() {
-					public void run() {
-						if(JCP.debug)log("post new stackwindow, before GLW destroy");
-						glw.destroy();
-						if(JCP.debug)log("after GLW destroy");
-						mirror.dispose();
-						if(JCP.debug)log("after mirror dispose");
-						mirror=null;
-					}
-				});
-			}
-		}else {
-			glw.destroy();
-			java.awt.EventQueue.invokeLater(r);
+		}
+		if(imp!=null)JCP.switchWindow(imp, false, new ImageCanvas(imp));
+		if(isMirror) {
+			java.awt.EventQueue.invokeLater(new Runnable() {
+				public void run() {
+					if(JCP.debug)log("post new stackwindow, before GLW destroy");
+					glw.destroy();
+					if(JCP.debug)log("after GLW destroy");
+					mirror.dispose();
+					if(JCP.debug)log("after mirror dispose");
+					mirror=null;
+				}
+			});
 		}
 	}
 	

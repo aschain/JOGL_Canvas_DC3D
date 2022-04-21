@@ -476,7 +476,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			if(isMirror) {Insets ins=mirror.getInsets(); log("Mirror Insets: tb"+(ins.top+ins.bottom)+" lr"+(ins.left+ins.right));}
 			log("Drbl size w"+drawable.getSurfaceWidth()+" h"+drawable.getSurfaceHeight());
 			com.jogamp.nativewindow.util.Rectangle gb=glw.getBounds();
-			log("glw size  x"+gb.getX()+" y"+gb.getY()+"w"+gb.getWidth()+" h"+gb.getHeight());
+			log("glw size  x"+gb.getX()+" y"+gb.getY()+"w"+gb.getWidth()+" h"+gb.getHeight()+" sw"+glw.getSurfaceWidth()+" sh"+glw.getSurfaceHeight());
 			int[] vps=new int[4];
 			gl.glGetIntegerv(GL_VIEWPORT, vps, 0);
 			//if(dpimag>1.0)
@@ -1664,6 +1664,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	
 	public void setMirrorSize(int width, int height) {
 		if(mirror.getExtendedState()!=Frame.MAXIMIZED_BOTH) {
+			if(icc.getWidth()==width && icc.getHeight()==height)return;
 			java.awt.Insets ins=mirror.getInsets();
 			if(JCP.debug)log("mirror setsize Insets: tb"+(ins.top+ins.bottom)+" lr"+(ins.left+ins.right));
 			mirror.setSize(width+ins.left+ins.right,height+ins.top+ins.bottom);

@@ -858,8 +858,9 @@ public class JCP implements PlugIn {
 								{rr,rr,rr,gr,gr,gr,br,br,br}};
 		}
 	}
-	
+
 	public static void setDebug(boolean b) {debug=b;}
+	public static void setDebug() {debug=true;}
 	public static void setStereoSep(float sep) {stereoSep=sep; Prefs.set("ajs.joglcanvas.stereoSep",stereoSep);}
 
 }

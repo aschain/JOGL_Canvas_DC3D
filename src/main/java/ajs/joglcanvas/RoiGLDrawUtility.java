@@ -76,7 +76,7 @@ public class RoiGLDrawUtility {
 		offx=(float)srcRect.x; offy=(float)srcRect.y;
 		dw=(int)(mag*w+0.5);
 		dh=(int)(mag*h+0.5);
-		px=2f/(float)(int)(mag*h*dpimag+0.5);
+		px=2f/(float)(int)(mag*h+0.5);
 	}
 	
 	private void setGL(GLAutoDrawable drawable) {

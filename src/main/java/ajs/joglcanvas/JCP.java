@@ -58,6 +58,7 @@ import ij.Prefs;
 import ij.WindowManager;
 import ij.gui.GenericDialog;
 import ij.gui.ImageCanvas;
+import ij.gui.ImageWindow;
 import ij.gui.StackWindow;
 import ij.plugin.PlugIn;
 import ij.process.ImageProcessor;
@@ -183,11 +184,14 @@ public class JCP implements PlugIn {
 		}
 	}
 	
-	public static void switchWindow(ImagePlus imp, boolean isJC, ImageCanvas ic) {
+	public static void switchWindow(ImagePlus imp, boolean isJCSW, ImageCanvas ic) {
+		if(imp==null || ic==null)return;
 		java.awt.EventQueue.invokeLater(new Runnable() {
 		    @Override
 		    public void run() {
 		    	boolean isJIC=(ic instanceof JOGLImageCanvas);
+		    	JOGLImageCanvas jic=null;
+		    	if(isJIC)jic=(JOGLImageCanvas)ic;
 		    	boolean changes=imp.changes;
 				final int mode=imp.getDisplayMode();
 				boolean prompt=false;
@@ -197,14 +201,25 @@ public class JCP implements PlugIn {
 					((ij.gui.PointRoi)roi).promptBeforeDeleting(false);
 				}
 				imp.changes=false;
-				if(isJC) {
-					if(ic instanceof JOGLImageCanvas) {
-						JOGLImageCanvas jic=(JOGLImageCanvas)ic;
+				if(isJCSW) {
+					if(isJIC) {
 						JCStackWindow win=new JCStackWindow(imp, jic);
 						if(mouseWheelFix)jic.addMouseWheelListener(win);
 					}
 				}else {
-					new StackWindow(imp,ic);
+					if(isJIC) {
+						final JOGLImageCanvas jicf=jic;
+						new StackWindow(imp,ic) {
+							private static final long serialVersionUID = -8058447651442209605L;
+							@Override
+							public boolean close() {
+								jicf.dispose();
+								return super.close();
+							}
+						};
+					}else {
+						new StackWindow(imp,ic);
+					}
 				}
 				imp.changes=changes;
 				if(prompt)((ij.gui.PointRoi)roi).promptBeforeDeleting(true);

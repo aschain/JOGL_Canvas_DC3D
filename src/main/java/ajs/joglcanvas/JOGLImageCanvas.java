@@ -174,8 +174,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(imp.getNSlices()==1)go3d=false;
 		pixelType3d=getPixelType(imp);
 		isMirror=mirror;
-		if(!isMirror) {setOverlay(imp.getCanvas().getOverlay());}
-		imageState=new ImageState(imp);
+		//if(!isMirror) {setOverlay(imp.getCanvas().getOverlay());}
+		imageState=new ImageState(imp, this);
 		imageState.prevSrcRect=new Rectangle(0,0,0,0);
 		Calibration cal=imp.getCalibration();
 		zmax=(float)(cal.pixelDepth/cal.pixelWidth*(double)imp.getNSlices()/(double)imp.getWidth());
@@ -248,7 +248,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	//GLEventListener methods
 	@Override
 	public void init(GLAutoDrawable drawable) {
-		if(prevwin!=imp.getWindow()) {
+		/*if(prevwin!=imp.getWindow()) {
 			prevwin=imp.getWindow();
 			final JOGLImageCanvas jic=this;
 			java.awt.EventQueue.invokeLater(new Runnable() {
@@ -261,7 +261,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					});
 				}
 			});
-		}
+		}else {if(JCP.debug)log("did not add windowlistener");}*/
 		JCP.version=drawable.getGL().glGetString(GL_VERSION);
 		glos=new JCGLObjects(drawable);
 		setGL(drawable);
@@ -470,7 +470,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		resetGlobalMatrices(rat);
 		
 		if(JCP.debug) {
-			log("OIC Size:  w"+imp.getCanvas().getSize().width+" h"+imp.getCanvas().getSize().height);
+			log("OIC Size:  w"+super.getSize().width+" h"+super.getSize().height);
 			Rectangle b=icc.getBounds();
 			log("NCA Size:  x"+b.x+" y"+b.y+" w"+b.getWidth()+" h"+b.getHeight());
 			if(isMirror) {Insets ins=mirror.getInsets(); log("Mirror Insets: tb"+(ins.top+ins.bottom)+" lr"+(ins.left+ins.right));}
@@ -641,7 +641,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		
 		//Roi and Overlay if not drawn with gl (create roi textures from imageplus)
 		Roi roi=imp.getRoi();
-		ij.gui.Overlay overlay=imp.getCanvas().getOverlay();
+		ij.gui.Overlay overlay=getOverlay();
 		boolean doRoi=false;
 		boolean[] doOv=null;
 		if(!JCP.openglroi) {
@@ -1282,7 +1282,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	}
 	
 	static class ImageState{
-		private ImagePlus imp;
+		private final ImagePlus imp;
+		private final JOGLImageCanvas jic;
 		public Rectangle prevSrcRect;
 		public double prevMag;
 		public MinMax[] minmaxs;
@@ -1292,14 +1293,15 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		public IsChanged isChanged=new IsChanged();
 		public boolean setNextSrcRect=false;
 		
-		public ImageState(ImagePlus imp) {
+		public ImageState(ImagePlus imp, JOGLImageCanvas jic) {
 			this.imp=imp;
+			this.jic=jic;
 			update(0f,0f,0f);
 		}
 		
 		public void update(float dx, float dy, float dz) {
-			prevSrcRect=(Rectangle)imp.getCanvas().getSrcRect().clone();
-			prevMag=imp.getCanvas().getMagnification();
+			prevSrcRect=(Rectangle)jic.getSrcRect().clone();
+			prevMag=jic.getMagnification();
 			minmaxs=MinMax.getMinMaxs(imp.getLuts());
 			prevCal=(Calibration)imp.getCalibration().clone();
 			c=imp.getC(); z=imp.getZ(); t=imp.getT();
@@ -1308,7 +1310,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}
 		
 		public void check(float dx, float dy, float dz) {
-			isChanged.srcRect= (!prevSrcRect.equals(imp.getCanvas().getSrcRect())) || setNextSrcRect || prevMag!=imp.getCanvas().getMagnification();
+			isChanged.srcRect= (!prevSrcRect.equals(jic.getSrcRect())) || setNextSrcRect || prevMag!=jic.getMagnification();
 			MinMax[] newMinmaxs=MinMax.getMinMaxs(imp.getLuts());
 			isChanged.minmax=false;
 			for(int i=0;i<minmaxs.length;i++) {
@@ -1458,9 +1460,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		isMirror=true;
 		mirror=new Frame("JOGL-DC3D Mirror of "+imp.getTitle());
 		mirror.add(icc);
-		mirror.addWindowListener(new WindowAdapter() {
-			public void windowClosing(WindowEvent e) { revert(); }
-		});
+		WindowAdapter wl=new WindowAdapter() {
+			public void windowClosing(WindowEvent e) { if(JCP.debug)log("revertting"); revert(); }
+		};
+		mirror.addWindowListener(wl);
+		//imp.getWindow().addWindowListener(wl);
 		//normally the StackWindow is the MouseWheelListener, 
 		//so the mirror frame will need one.
 		joglEventAdapter.addMouseWheelListener(new MouseAdapter() {

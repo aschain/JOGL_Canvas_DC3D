@@ -46,7 +46,7 @@ public class RoiGLDrawUtility {
 	private JCGLObjects rglos=null;
 	float px=2f/1024f;
 	float w=-1f,h,offx,offy,dw, dh;
-	double mag;
+	float mag;
 	boolean go3d;
 	Color anacolor=null;
 	float dpimag=1f;
@@ -71,7 +71,7 @@ public class RoiGLDrawUtility {
 	
 	private void updateSrcRect() {
 		Rectangle srcRect=imp.getCanvas().getSrcRect();
-		mag=imp.getCanvas().getMagnification();
+		mag=(float)imp.getCanvas().getMagnification();
 		w=(float)srcRect.width; h=(float)srcRect.height;
 		offx=(float)srcRect.x; offy=(float)srcRect.y;
 		dw=(int)(mag*w+0.5);
@@ -337,29 +337,43 @@ public class RoiGLDrawUtility {
 	/**
 	 * Image x coordinate to screen coordinate
 	 */
-	private int sx(float x) {
+	private float sx(float x) {
+		return ((x-offx)*mag);
+	}
+	
+	/**
+	 * Image y coordinate to screen coordinate
+	 */
+	private float sy(float y) {
+		return ((y-offy)*mag);
+	}
+	
+	/**
+	 * Image x coordinate to screen coordinate
+	 */
+	private int sxi(float x) {
 		return (int)((x-offx)*mag);
 	}
 	
 	/**
 	 * Image y coordinate to screen coordinate
 	 */
-	private int sy(float y) {
+	private int syi(float y) {
 		return (int)((y-offy)*mag);
 	}
 	
 	/**
 	 * screen x coordinate (not image) to gl
 	 */
-	private float sglx(int x) {
-		return (((float)x+1f)/dw*2f-1f);
+	private float sglx(float x) {
+		return ((x+1f)/dw*2f-1f);
 	}
 	
 	/**
 	 * screen y coordinate (not image) to gl
 	 */
-	private float sgly(int y) {
-		return ((dh-(float)y)/dh*2f-1f);
+	private float sgly(float y) {
+		return ((dh-y)/dh*2f-1f);
 	}
 	/*
 	public float[] ijToGLCoords(float[] ijcoords, boolean screen) {
@@ -507,7 +521,7 @@ public class RoiGLDrawUtility {
 			if (sizei>LARGE)
 				gl.glLineWidth(dpimag);
 			if (sizei>LARGE && type==DOT)
-				fillOval(sx(x)-sizei/2, sy(y)-sizei/2, sizei, sizei, z, color);
+				fillOval(sxi(x)-sizei/2, syi(y)-sizei/2, sizei, sizei, z, color);
 			else if (sizei>LARGE && type==HYBRID)
 				drawHandle(x,y,z,sizei-4,color, false);
 			else if (sizei>SMALL && type==HYBRID)
@@ -520,24 +534,24 @@ public class RoiGLDrawUtility {
 		if (roi.getShowLabels() && nPoints>1) {
 			int offset = 2;
 			if (nCounters==1) {
-				drawString(""+n, color, sglx(sx(x)+offset), sgly(sy(y)+(offset)), z); //y offset +fontSize;
+				drawString(""+n, color, sglx(sxi(x)+offset), sgly(syi(y)+(offset)), z); //y offset +fontSize;
 			} else if (counters!=null) {
 				drawString(""+counters[n-1], getPointColor(counters[n-1]), sglx(sx(x)+offset), sgly(sy(y)+(offset)), z);//y offset +fontSize
 			}
 		}
 		if ((sizei>TINY||type==DOT) && (type==HYBRID||type==DOT)) {
 			if (sizei>LARGE && type==HYBRID)
-				drawOval(sx(x)-(sizei/2-1), sy(y)-(sizei/2-1), (sizei-2), (sizei-2), z, Color.black);
+				drawOval(sxi(x)-(sizei/2-1), syi(y)-(sizei/2-1), (sizei-2), (sizei-2), z, Color.black);
 			else if (sizei>SMALL && type==HYBRID)
-				drawOval(sx(x)-sizei/2, sy(y)-(sizei/2+1), (sizei), (sizei), z, Color.black);
+				drawOval(sxi(x)-sizei/2, syi(y)-(sizei/2+1), (sizei), (sizei), z, Color.black);
 			else
-				drawOval(sx(x)-(sizei/2+1), sy(y)-(sizei/2+1), (sizei+2), (sizei+2), z, Color.black);
+				drawOval(sxi(x)-(sizei/2+1), syi(y)-(sizei/2+1), (sizei+2), (sizei+2), z, Color.black);
 		}
 		if (type==CIRCLE) {
 			int scaledSize = (sizei+1);
 			if (sizei>LARGE)
 				gl.glLineWidth(2f*dpimag);
-			drawOval(sx(x)-scaledSize, sy(y)-scaledSize, scaledSize, scaledSize, z, color);
+			drawOval(sxi(x)-scaledSize, syi(y)-scaledSize, scaledSize, scaledSize, z, color);
 		}
 		if(!ms)gl.glDisable(GL_MULTISAMPLE);
 	}

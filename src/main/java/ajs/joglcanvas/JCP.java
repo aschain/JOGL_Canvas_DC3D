@@ -177,14 +177,14 @@ public class JCP implements PlugIn {
 			}
 			final JOGLImageCanvas jicnew=new JOGLImageCanvas(imp,doMirror);
 			if(doMirror) {
-				switchWindow(imp,false,jicnew);
+				switchWindow(imp,jicnew);
 			}else {
-				switchWindow(imp,true,jicnew);
+				switchWindow(imp,jicnew);
 			}
 		}
 	}
 	
-	public static void switchWindow(ImagePlus imp, boolean isJCSW, ImageCanvas ic) {
+	public static void switchWindow(ImagePlus imp, ImageCanvas ic) {
 		if(imp==null || ic==null)return;
 		java.awt.EventQueue.invokeLater(new Runnable() {
 		    @Override
@@ -201,25 +201,10 @@ public class JCP implements PlugIn {
 					((ij.gui.PointRoi)roi).promptBeforeDeleting(false);
 				}
 				imp.changes=false;
-				if(isJCSW) {
-					if(isJIC) {
-						JCStackWindow win=new JCStackWindow(imp, jic);
-						if(mouseWheelFix)jic.addMouseWheelListener(win);
-					}
-				}else {
-					if(isJIC) {
-						final JOGLImageCanvas jicf=jic;
-						new StackWindow(imp,ic) {
-							private static final long serialVersionUID = -8058447651442209605L;
-							@Override
-							public boolean close() {
-								jicf.dispose();
-								return super.close();
-							}
-						};
-					}else {
-						new StackWindow(imp,ic);
-					}
+				if(isJIC) {
+					new JCStackWindow(imp, jic);
+				}else{
+					new StackWindow(imp,ic);
 				}
 				imp.changes=changes;
 				if(prompt)((ij.gui.PointRoi)roi).promptBeforeDeleting(true);

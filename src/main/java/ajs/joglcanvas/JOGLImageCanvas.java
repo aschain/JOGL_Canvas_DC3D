@@ -1556,14 +1556,14 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			joglEventAdapter.removeMouseMotionListener(this);
 			joglEventAdapter.removeMouseListener(this);
 		}
-		if(imp!=null)JCP.switchWindow(imp, false, new ImageCanvas(imp));
+		if(imp!=null)JCP.switchWindow(imp, new ImageCanvas(imp));
 		if(isMirror) {
 			java.awt.EventQueue.invokeLater(new Runnable() {
 				public void run() {
 					if(JCP.debug)log("post new stackwindow, before GLW destroy");
-					glw.destroy();
+					if(glw!=null)glw.destroy();
 					if(JCP.debug)log("after GLW destroy");
-					mirror.dispose();
+					if(mirror!=null)mirror.dispose();
 					if(JCP.debug)log("after mirror dispose");
 					mirror=null;
 				}

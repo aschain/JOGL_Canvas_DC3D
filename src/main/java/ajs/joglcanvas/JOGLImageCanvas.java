@@ -164,13 +164,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	public GLContext context;
 	public Point2D.Double oicp=null;
 	private Button menuButton;
-	private ImageWindow prevwin;
 	//private long starttime=0;
 	private boolean onScreenMirrorCursor=false;
 
 	public JOGLImageCanvas(ImagePlus imp, boolean mirror) {
 		super(imp);
-		prevwin=imp.getWindow();
 		if(imp.getNSlices()==1)go3d=false;
 		pixelType3d=getPixelType(imp);
 		isMirror=mirror;
@@ -208,22 +206,17 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			private static final long serialVersionUID = 1256279205085144008L;
 			@Override
 			public void reshape(int x, int y, int width, int height) {
-				//if(isMirror) super.setSize((int)(width*dpimag+0.5),(int)(height*dpimag+0.5));
-				//else { 
-					super.reshape(x,y,width, height);
-					//glw.setPosition(x,y);
-					if(isMirror)
-						java.awt.EventQueue.invokeLater(new Runnable() {public void run() {glw.setSize((int)(width*dpiscale+0.5),(int)(height*dpiscale+0.5));}});
-					else
-						glw.setSize((int)(width*dpiscale+0.5),(int)(height*dpiscale+0.5));
-					Dimension s=new Dimension(width,height);
-					setMinimumSize(s);
-					setPreferredSize(s);
-				//}
+				super.reshape(x,y,width, height);
+				if(isMirror)
+					java.awt.EventQueue.invokeLater(new Runnable() {public void run() {glw.setSize((int)(width*dpiscale+0.5),(int)(height*dpiscale+0.5));}});
+				else
+					glw.setSize((int)(width*dpiscale+0.5),(int)(height*dpiscale+0.5));
+				Dimension s=new Dimension(width,height);
+				setMinimumSize(s);
+				setPreferredSize(s);
 			}
 		};
-		final JOGLImageCanvas jic=this;
-		joglEventAdapter=new JOGLEventAdapter(jic, glw);
+		joglEventAdapter=new JOGLEventAdapter(this, glw);
 		icc.setPreferredSize(new Dimension(imageWidth,imageHeight));
 		glw.addGLEventListener(this);
 		icc.setMinimumSize(new Dimension(10,10));
@@ -271,6 +264,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(ssc[0]!=1.0f) {
 			log("SurfaceScale:"+ssc[0]+" "+ssc[1]);
 		}
+		if(ssc[0]!=1.0f && dpimag==1.0)dpimag=ssc[0];
 		if(ssc[0]!=1.0f || (dpimag!=1.0)) {
 			if(ssc[0]==1.0f)ssc[0]=(float)dpimag;
 			joglEventAdapter.setDPI(ssc[0]);
@@ -1650,7 +1644,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(icc!=null && !isMirror) {
 			int xd=(int)(x*dpimag+0.5), yd=(int)(y*dpimag+0.5);
 			icc.setLocation(xd, yd);
-			//glw.setPosition(xd, yd);
+			//float ssc[]=new float[2];glw.getCurrentSurfaceScale(ssc);
+			//xd=(int)(x*ssc[0]+0.5); yd=(int)(y*ssc[0]+0.5);
+			//if(IJ.isMacintosh())glw.setPosition(xd-x, yd-y);
 		}
 		else super.setLocation(x, y);
 	}

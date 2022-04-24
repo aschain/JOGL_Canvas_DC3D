@@ -24,6 +24,7 @@ import com.jogamp.opengl.util.texture.awt.AWTTextureIO;
 //import com.jogamp.graph.font.FontFactory;
 //import com.jogamp.graph.geom.SVertex;
 
+import ajs.joglcanvas.JCGLObjects.JCBuffer;
 import ajs.joglcanvas.JCGLObjects.JCProgram;
 import ajs.joglcanvas.JOGLImageCanvas.CutPlanesCube;
 import ij.ImagePlus;
@@ -50,6 +51,7 @@ public class RoiGLDrawUtility {
 	boolean go3d;
 	Color anacolor=null;
 	float dpimag=1f;
+	private JCBuffer[] buffers=new JCBuffer[2];
 
 	public RoiGLDrawUtility(ImagePlus imp, GLAutoDrawable drawable, JCProgram program, double dpimag) {
 		this.imp=imp;
@@ -91,6 +93,11 @@ public class RoiGLDrawUtility {
 	
 	public void startDrawing() {
 		rglos.useProgram("color");
+	}
+	
+	public void setBuffers(JCBuffer buffer1, JCBuffer buffer2) {
+		buffers[0]=buffer1;
+		buffers[1]=buffer2;
 	}
 
 	/**
@@ -436,6 +443,11 @@ public class RoiGLDrawUtility {
 	public void drawGLfb(GLAutoDrawable drawable, FloatBuffer fb, int toDraw) {
 		setGL(drawable);
 		if(toDraw==GL_LINE_LOOP || toDraw==GL_LINE_STRIP)gl.glLineWidth(dpimag);
+		if(rglos.glver==2) {
+			rglos.useProgram("color");
+			buffers[0].bindBuffer(1, rglos.getProgram("color"));
+			buffers[1].bindBuffer(2, rglos.getProgram("color"));
+		}
 		rglos.drawVao(toDraw, "roiGL", fb, "color");
 	}
 	
@@ -477,7 +489,7 @@ public class RoiGLDrawUtility {
 	 * @param n		PointRoi number
 	 */
 	private void drawPoint(PointRoi roi, float x, float y, float z, int n) {
-		boolean ms=gl.glIsEnabled(GL_MULTISAMPLE);
+		//boolean ms=gl.glIsEnabled(GL_MULTISAMPLE);
 		//gl.glEnable(GL_MULTISAMPLE);
 		n++;
 		final int TINY=1, SMALL=3, MEDIUM=5, LARGE=7, EXTRA_LARGE=11;
@@ -530,15 +542,6 @@ public class RoiGLDrawUtility {
 				drawHandle(x,y,z,sizei,color, false);
 		}
 		int nPoints=roi.getNCoordinates();
-		//int fontSize=9;
-		if (roi.getShowLabels() && nPoints>1) {
-			int offset = 2;
-			if (nCounters==1) {
-				drawString(""+n, color, sglx(sxi(x)+offset), sgly(syi(y)+(offset)), z); //y offset +fontSize;
-			} else if (counters!=null) {
-				drawString(""+counters[n-1], getPointColor(counters[n-1]), sglx(sx(x)+offset), sgly(sy(y)+(offset)), z);//y offset +fontSize
-			}
-		}
 		if ((sizei>TINY||type==DOT) && (type==HYBRID||type==DOT)) {
 			if (sizei>LARGE && type==HYBRID)
 				drawOval(sxi(x)-(sizei/2-1), syi(y)-(sizei/2-1), (sizei-2), (sizei-2), z, Color.black);
@@ -553,7 +556,16 @@ public class RoiGLDrawUtility {
 				gl.glLineWidth(2f*dpimag);
 			drawOval(sxi(x)-scaledSize, syi(y)-scaledSize, scaledSize, scaledSize, z, color);
 		}
-		if(!ms)gl.glDisable(GL_MULTISAMPLE);
+		//int fontSize=9;
+		if (roi.getShowLabels() && nPoints>1) {
+			int offset = 2;
+			if (nCounters==1) {
+				drawString(""+n, color, sglx(sxi(x)+offset), sgly(syi(y)+(offset)), z); //y offset +fontSize;
+			} else if (counters!=null) {
+				drawString(""+counters[n-1], getPointColor(counters[n-1]), sglx(sx(x)+offset), sgly(sy(y)+(offset)), z);//y offset +fontSize
+			}
+		}
+		//if(!ms)gl.glDisable(GL_MULTISAMPLE);
 	}
 	
 	private Color getPointColor(int index) {
@@ -708,7 +720,7 @@ public class RoiGLDrawUtility {
 	/** x,y are in SCREEN pixel positions, z is in opengl float*/
 	private void drawOval(int x, int y, int width, int height, float z, boolean fill, Color color) {
 		if(imp==null)return;
-		int todraw=GL_LINE_LOOP;
+		int todraw=GL_LINE_STRIP;
 		if(fill)todraw=GL_TRIANGLE_STRIP;
 		drawGL(getGLCoords(getOvalFloatPolygon(new Rectangle(x,y,width,height),72),z,true), color, todraw);
 	}
@@ -786,14 +798,15 @@ public class RoiGLDrawUtility {
 		final double yrad=(double)b.height/2.0;
 		final double x=(double)b.x+xrad;
 		final double y=(double)b.y+yrad;
-		float[] xpoints=new float[n];
-		float[] ypoints=new float[n];
+		float[] xpoints=new float[n+1];
+		float[] ypoints=new float[n+1];
 		for(double i=0;i<360;i+=360/n) {
 			double rad=i*Math.PI/180;
 			xpoints[(int) (i/(360/n))]=(float) (x+(xrad*Math.cos(rad)));
 			ypoints[(int) (i/(360/n))]=(float) (y+(yrad*Math.sin(rad)));
 		}
-		return new FloatPolygon(xpoints,ypoints,n);
+		xpoints[n]=xpoints[0]; ypoints[n]=ypoints[0];
+		return new FloatPolygon(xpoints,ypoints,n+1);
 	}
 	
 	
@@ -876,6 +889,8 @@ public class RoiGLDrawUtility {
 		FloatBuffer vb=GLBuffers.newDirectFloatBuffer(getVecSquare(x, y, z, (float)bounds.width/magor1/w*2f, (float)bounds.height/magor1/h*2f, 0f, 1f, 0.5f, 1f, -1f));
 		ShortBuffer eb=GLBuffers.newDirectShortBuffer(new short[] {0,1,2,2,3,0});
 		rglos.useProgram("text");
+		buffers[0].bindBuffer(1, rglos.getProgram("text"));
+		buffers[1].bindBuffer(2, rglos.getProgram("text"));
 		gl.glEnable(GL_BLEND);
 		rglos.drawTexVaoWithEBOVBO("text", 0, eb, vb);
 		rglos.stopProgram();

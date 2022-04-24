@@ -709,7 +709,12 @@ public class JCGLObjects {
 		public void bindBuffer() {
 			bindBuffer(0);
 		}
+		
 		public void bindBuffer(int binding) {
+			bindBuffer(binding, null);
+		}
+		
+		public void bindBuffer(int binding, JCProgram program) {
 			if(gltype==GL_UNIFORM_BUFFER) {
 				if(glver>2) {
 					if(glver==3 && buffer!=null) {
@@ -719,9 +724,11 @@ public class JCGLObjects {
 					}
 					gl23.glBindBufferBase(gltype, binding, handle);
 				}else {
-					int[] pr=new int[1];gl.glGetIntegerv(GL_CURRENT_PROGRAM, pr,0);
-					//gl3.glUniform1i(gl3.glGetUniformLocation(pr[0], "mytex"),0);
-					JCProgram program=findProgram(pr[0]);
+					int[] pr=new int[1];
+					if(program==null) {
+						gl.glGetIntegerv(GL_CURRENT_PROGRAM, pr,0);
+						program=findProgram(pr[0]);
+					}
 					if(bindName.contentEquals("global") || bindName.contentEquals("proj")) {
 						int loc=(program==null?gl2.glGetUniformLocation(pr[0], "proj"):program.getLocation("proj"));
 						gl2.glUniformMatrix4fv(loc, 2, false, buffer.asFloatBuffer());
@@ -824,8 +831,12 @@ public class JCGLObjects {
     	return programs.get(programName).locations.get(var);
     }
     
-    public int getProgram(String pname) {
+    public int getProgramHandle(String pname) {
     	return programs.get(pname).handle;
+    }
+    
+    public JCProgram getProgram(String pname) {
+    	return programs.get(pname);
     }
     
     public void useProgram(String name) {

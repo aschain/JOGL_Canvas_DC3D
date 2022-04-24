@@ -248,20 +248,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	//GLEventListener methods
 	@Override
 	public void init(GLAutoDrawable drawable) {
-		/*if(prevwin!=imp.getWindow()) {
-			prevwin=imp.getWindow();
-			final JOGLImageCanvas jic=this;
-			java.awt.EventQueue.invokeLater(new Runnable() {
-				@Override
-				public void run() {
-					prevwin.addWindowListener(new WindowAdapter() {
-						public void windowClosing(WindowEvent e) {
-							jic.dispose();
-						}
-					});
-				}
-			});
-		}else {if(JCP.debug)log("did not add windowlistener");}*/
 		JCP.version=drawable.getGL().glGetString(GL_VERSION);
 		glos=new JCGLObjects(drawable);
 		setGL(drawable);
@@ -347,7 +333,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		glos.getUniformBuffer("modelr").loadIdentity();
 		//global written during reshape call
 		
-		rgldu=new RoiGLDrawUtility(imp, drawable,glos.programs.get("roi"), dpimag);
+		rgldu=new RoiGLDrawUtility(imp, drawable,glos.getProgram("roi"), dpimag);
 		
 		//int[] pf=new int[1];
 		//for(int i=1;i<5;i++) {
@@ -1080,9 +1066,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						else anacolor=(stereoi==0)?JCP.leftAnaglyphColor:JCP.rightAnaglyphColor;
 					}
 					gl.glDisable(GL_BLEND);
-					if(glos.glver==2)rgldu.startDrawing();
-					glos.bindUniformBuffer(bname, 1);
-					glos.bindUniformBuffer(go3d?"modelr":"idm", 2);
+					//if(glos.glver==2)rgldu.startDrawing();
+					//glos.bindUniformBuffer(bname, 1);
+					//glos.bindUniformBuffer(go3d?"modelr":"idm", 2);
+					rgldu.setBuffers(glos.getUniformBuffer(bname),glos.getUniformBuffer(go3d?"modelr":"idm"));
 					if(JCP.openglroi) {
 						if(overlay!=null) {
 							for(int i=0;i<overlay.size();i++) {

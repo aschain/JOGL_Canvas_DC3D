@@ -1445,9 +1445,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			public void windowClosing(WindowEvent e) { if(JCP.debug)log("revertting"); revert(); }
 		};
 		mirror.addWindowListener(wl);
-		//imp.getWindow().addWindowListener(wl);
-		//normally the StackWindow is the MouseWheelListener, 
-		//so the mirror frame will need one.
 		joglEventAdapter.addMouseWheelListener(new MouseAdapter() {
 			@Override
 			public void mouseWheelMoved(MouseWheelEvent e) {

@@ -98,6 +98,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private JCGLObjects glos;
 	protected boolean disablePopupMenu;
 	protected double dpimag=1.0;
+	protected float surfaceScale=1.0f;
 	protected boolean myImageUpdated=true;
 	private boolean deletePBOs=false;
 	protected boolean isMirror=false;
@@ -264,6 +265,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(ssc[0]!=1.0f) {
 			log("SurfaceScale:"+ssc[0]+" "+ssc[1]);
 		}
+		surfaceScale=ssc[0];
 		if(ssc[0]!=1.0f && dpimag==1.0)dpimag=ssc[0];
 		if(ssc[0]!=1.0f || (dpimag!=1.0)) {
 			if(ssc[0]==1.0f)ssc[0]=(float)dpimag;
@@ -2311,7 +2313,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(shouldKeep(e)) {
 			if((osx-sx)==0 && (osy-sy)==0) {handlePopupMenu(e);return;}
 			if(JCP.drawCrosshairs>0) {
-				glw.warpPointer((osx), (osy));
+				glw.warpPointer((int)(osx*dpimag/surfaceScale+0.5), (int)(osy*dpimag/surfaceScale+0.5));
 			}
 			if(JCP.debug)log("Pointer warped "+osx+" "+osy);
 		}else {

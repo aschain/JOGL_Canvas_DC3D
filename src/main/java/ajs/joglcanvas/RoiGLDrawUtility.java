@@ -98,6 +98,10 @@ public class RoiGLDrawUtility {
 	public void setBuffers(JCBuffer buffer1, JCBuffer buffer2) {
 		buffers[0]=buffer1;
 		buffers[1]=buffer2;
+		if(rglos.glver>2) {
+			buffers[0].bindBuffer(1, null);
+			buffers[1].bindBuffer(2, null);
+		}
 	}
 
 	/**
@@ -443,8 +447,8 @@ public class RoiGLDrawUtility {
 	public void drawGLfb(GLAutoDrawable drawable, FloatBuffer fb, int toDraw) {
 		setGL(drawable);
 		if(toDraw==GL_LINE_LOOP || toDraw==GL_LINE_STRIP)gl.glLineWidth(dpimag);
+		rglos.useProgram("color");
 		if(rglos.glver==2) {
-			rglos.useProgram("color");
 			buffers[0].bindBuffer(1, rglos.getProgram("color"));
 			buffers[1].bindBuffer(2, rglos.getProgram("color"));
 		}
@@ -889,8 +893,10 @@ public class RoiGLDrawUtility {
 		FloatBuffer vb=GLBuffers.newDirectFloatBuffer(getVecSquare(x, y, z, (float)bounds.width/magor1/w*2f, (float)bounds.height/magor1/h*2f, 0f, 1f, 0.5f, 1f, -1f));
 		ShortBuffer eb=GLBuffers.newDirectShortBuffer(new short[] {0,1,2,2,3,0});
 		rglos.useProgram("text");
-		buffers[0].bindBuffer(1, rglos.getProgram("text"));
-		buffers[1].bindBuffer(2, rglos.getProgram("text"));
+		if(rglos.glver==2) {
+			buffers[0].bindBuffer(1, rglos.getProgram("text"));
+			buffers[1].bindBuffer(2, rglos.getProgram("text"));
+		}
 		gl.glEnable(GL_BLEND);
 		rglos.drawTexVaoWithEBOVBO("text", 0, eb, vb);
 		rglos.stopProgram();

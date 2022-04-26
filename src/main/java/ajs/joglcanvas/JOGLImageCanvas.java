@@ -265,7 +265,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(ssc[0]!=1.0f) {
 			log("SurfaceScale:"+ssc[0]+" "+ssc[1]);
 			surfaceScale=ssc[0];
-			if(dpimag!=1.0)dpimag=surfaceScale;
+			if(dpimag==1.0)dpimag=surfaceScale;
 		}
 		if(dpimag!=1.0) {
 			joglEventAdapter.setDPI((float)dpimag);

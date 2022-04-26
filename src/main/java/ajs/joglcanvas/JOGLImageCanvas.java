@@ -30,6 +30,7 @@ import java.awt.GraphicsEnvironment;
 import java.awt.Insets;
 import java.awt.Menu;
 import java.awt.MenuItem;
+import java.awt.MouseInfo;
 import java.awt.Point;
 import java.awt.PopupMenu;
 import java.awt.Rectangle;
@@ -109,7 +110,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 
 	protected boolean go3d=JCP.go3d;
 	public String renderFunction=JCP.renderFunction;
-	protected int sx,sy;
+	protected int sx,sy, osx, osy;
 	protected float dx=0f,dy=0f,dz=0f, tx=0f, ty=0f, tz=0f, supermag=0f, anglehash;
 	private float[] gamma=null;
 	
@@ -2254,6 +2255,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(shouldKeep(e)) {
 			sx = e.getX();
 			sy = e.getY();
+			osx=sx; osy=sy;
 			anglehash=dx+dy+dz;
 		}else {
 			if(isMirror && isRightClick(e) && Toolbar.getToolId()!=Toolbar.MAGNIFIER) {handlePopupMenu(e);return;}
@@ -2273,10 +2275,17 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			boolean shift=(e.getModifiersEx() & MouseEvent.SHIFT_DOWN_MASK)!=0;
 			//if(JCP.debug) {IJ.log("\\Update2:   Drag took: "+String.format("%5.1f", (float)(System.nanoTime()-dragtime)/1000000f)+"ms"); dragtime=System.nanoTime();}
 			if(go3d){
+				if((e.getX()-osx)==0 && (e.getY()-osy)==0)return;
 				float xd=(float)(e.getX()-sx)/(float)srcRect.width;
 				float yd=(float)(e.getY()-sy)/(float)srcRect.height;
 				glw.confinePointer(true);
-				glw.warpPointer((int)(sx*dpimag/surfaceScale+0.5), (int)(sy*dpimag/surfaceScale+0.5));
+				Point pre=MouseInfo.getPointerInfo().getLocation();
+				glw.warpPointer((int)(osx*dpimag/surfaceScale+0.5),(int)(osy*dpimag/surfaceScale+0.5));
+				Point post=MouseInfo.getPointerInfo().getLocation();
+				if((pre.x-post.x+pre.y-post.y)==0) {
+					//warp not working
+					sx=e.getX(); sy=e.getY();
+				}
 				if(alt||e.getButton()==MouseEvent.BUTTON2) {
 					if(shift) {
 						tz-=yd;
@@ -2312,7 +2321,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(shouldKeep(e)) {
 			if(anglehash==(dx+dy+dz)) {handlePopupMenu(e);return;}
 			if(JCP.drawCrosshairs>0) {
-				glw.warpPointer((int)(sx*dpimag/surfaceScale+0.5), (int)(sy*dpimag/surfaceScale+0.5));
+				glw.warpPointer((int)(osx*dpimag/surfaceScale+0.5), (int)(osy*dpimag/surfaceScale+0.5));
 			}
 			if(JCP.debug)log("Pointer warped "+sx+" "+sy);
 		}else {

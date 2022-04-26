@@ -337,6 +337,16 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		//	log("Best in format for comps:"+i+" Int format:"+pti.glInternalFormat+" my form:"+pti.glFormat+" best:"+pf[0]);
 		//}
 		initAnaglyph();
+		Point pre=MouseInfo.getPointerInfo().getLocation();
+		glw.warpPointer(1,1);
+		Point post=MouseInfo.getPointerInfo().getLocation();
+		if((pre.x-post.x+pre.y-post.y)==0) {
+			//warp not working
+			if(JCP.debug)log("warp not working");
+		}else {
+			warpPointerWorks=true;
+			if(JCP.debug)log("warp working");
+		}
 	}
 	
 	private void init3dTex() {
@@ -2280,21 +2290,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				float xd=(float)(e.getX()-sx)/(float)srcRect.width;
 				float yd=(float)(e.getY()-sy)/(float)srcRect.height;
 				glw.confinePointer(true);
-				if(warpPointerWorks) {
-					glw.warpPointer((int)(osx*dpimag/surfaceScale+0.5),(int)(osy*dpimag/surfaceScale+0.5));
-				}else {
-					Point pre=MouseInfo.getPointerInfo().getLocation();
-					glw.warpPointer((int)(osx*dpimag/surfaceScale+0.5),(int)(osy*dpimag/surfaceScale+0.5));
-					Point post=MouseInfo.getPointerInfo().getLocation();
-					if((pre.x-post.x+pre.y-post.y)==0) {
-						//warp not working
-						log("NW pre"+pre+" post"+post);
-						sx=e.getX(); sy=e.getY();
-					}else {
-						warpPointerWorks=true;
-						log("YW pre"+pre+" post"+post);
-					}
-				}
+				glw.warpPointer((int)(osx*dpimag/surfaceScale+0.5),(int)(osy*dpimag/surfaceScale+0.5));
+				if(!warpPointerWorks) {sx=e.getX(); sy=e.getY();}
 				if(alt||e.getButton()==MouseEvent.BUTTON2) {
 					if(shift) {
 						tz-=yd;

@@ -109,8 +109,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 
 	protected boolean go3d=JCP.go3d;
 	public String renderFunction=JCP.renderFunction;
-	protected int sx,sy, osx, osy;
-	protected float dx=0f,dy=0f,dz=0f, tx=0f, ty=0f, tz=0f, supermag=0f;
+	protected int sx,sy;
+	protected float dx=0f,dy=0f,dz=0f, tx=0f, ty=0f, tz=0f, supermag=0f, anglehash;
 	private float[] gamma=null;
 	
 	private PopupMenu dcpopup=null;
@@ -2254,7 +2254,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(shouldKeep(e)) {
 			sx = e.getX();
 			sy = e.getY();
-			osx=sx; osy=sy;
+			anglehash=dx+dy+dz;
 		}else {
 			if(isMirror && isRightClick(e) && Toolbar.getToolId()!=Toolbar.MAGNIFIER) {handlePopupMenu(e);return;}
 			super.mousePressed(e);
@@ -2275,7 +2275,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			if(go3d){
 				float xd=(float)(e.getX()-sx)/(float)srcRect.width;
 				float yd=(float)(e.getY()-sy)/(float)srcRect.height;
-				sx=e.getX(); sy=e.getY();
+				glw.confinePointer(true);
+				glw.warpPointer((int)(sx*dpimag/surfaceScale+0.5), (int)(sy*dpimag/surfaceScale+0.5));
 				if(alt||e.getButton()==MouseEvent.BUTTON2) {
 					if(shift) {
 						tz-=yd;
@@ -2307,12 +2308,13 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	
 	@Override
 	public void mouseReleased(MouseEvent e) {
+		glw.confinePointer(false);
 		if(shouldKeep(e)) {
-			if((osx-sx)==0 && (osy-sy)==0) {handlePopupMenu(e);return;}
+			if(anglehash==(dx+dy+dz)) {handlePopupMenu(e);return;}
 			if(JCP.drawCrosshairs>0) {
-				glw.warpPointer((int)(osx*dpimag/surfaceScale+0.5), (int)(osy*dpimag/surfaceScale+0.5));
+				glw.warpPointer((int)(sx*dpimag/surfaceScale+0.5), (int)(sy*dpimag/surfaceScale+0.5));
 			}
-			if(JCP.debug)log("Pointer warped "+osx+" "+osy);
+			if(JCP.debug)log("Pointer warped "+sx+" "+sy);
 		}else {
 			super.mouseReleased(e);
 		}

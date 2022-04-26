@@ -168,6 +168,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private Button menuButton;
 	//private long starttime=0;
 	private boolean onScreenMirrorCursor=false;
+	private boolean warpPointerWorks=false;
 
 	public JOGLImageCanvas(ImagePlus imp, boolean mirror) {
 		super(imp);
@@ -2279,12 +2280,20 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				float xd=(float)(e.getX()-sx)/(float)srcRect.width;
 				float yd=(float)(e.getY()-sy)/(float)srcRect.height;
 				glw.confinePointer(true);
-				Point pre=MouseInfo.getPointerInfo().getLocation();
-				glw.warpPointer((int)(osx*dpimag/surfaceScale+0.5),(int)(osy*dpimag/surfaceScale+0.5));
-				Point post=MouseInfo.getPointerInfo().getLocation();
-				if((pre.x-post.x+pre.y-post.y)==0) {
-					//warp not working
-					sx=e.getX(); sy=e.getY();
+				if(warpPointerWorks) {
+					glw.warpPointer((int)(osx*dpimag/surfaceScale+0.5),(int)(osy*dpimag/surfaceScale+0.5));
+				}else {
+					Point pre=MouseInfo.getPointerInfo().getLocation();
+					glw.warpPointer((int)(osx*dpimag/surfaceScale+0.5),(int)(osy*dpimag/surfaceScale+0.5));
+					Point post=MouseInfo.getPointerInfo().getLocation();
+					if((pre.x-post.x+pre.y-post.y)==0) {
+						//warp not working
+						log("NW pre"+pre+" post"+post);
+						sx=e.getX(); sy=e.getY();
+					}else {
+						warpPointerWorks=true;
+						log("YW pre"+pre+" post"+post);
+					}
 				}
 				if(alt||e.getButton()==MouseEvent.BUTTON2) {
 					if(shift) {
@@ -2323,7 +2332,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			if(JCP.drawCrosshairs>0) {
 				glw.warpPointer((int)(osx*dpimag/surfaceScale+0.5), (int)(osy*dpimag/surfaceScale+0.5));
 			}
-			if(JCP.debug)log("Pointer warped "+sx+" "+sy);
+			if(JCP.debug)log("Pointer warped "+osx+" "+osy);
 		}else {
 			super.mouseReleased(e);
 		}

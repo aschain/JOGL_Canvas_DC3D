@@ -2289,10 +2289,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				if((e.getX()-osx)==0 && (e.getY()-osy)==0)return;
 				float xd=(float)(e.getX()-sx)/(float)srcRect.width;
 				float yd=(float)(e.getY()-sy)/(float)srcRect.height;
+				if(JCP.debug)log("D"+xd+"x"+yd+"y sx"+sx+" sy"+sy);
 				if(warpPointerWorks) {
 					glw.confinePointer(true);
 					glw.warpPointer((int)(osx*dpimag/surfaceScale+0.5),(int)(osy*dpimag/surfaceScale+0.5));
-				}{sx=e.getX(); sy=e.getY();}
+				}else{sx=e.getX(); sy=e.getY();}
 				if(alt||e.getButton()==MouseEvent.BUTTON2) {
 					if(shift) {
 						tz-=yd;

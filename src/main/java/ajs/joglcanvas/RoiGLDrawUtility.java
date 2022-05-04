@@ -112,8 +112,12 @@ public class RoiGLDrawUtility {
 	 * @param anacolor should be null if not anaglyph
 	 * @param go3d
 	 */
-	public void drawRoiGL(GLAutoDrawable drawable, Roi roi, boolean isRoi, Color anacolor, boolean go3d) {
+	public void drawRoiGL(GLAutoDrawable drawable, Roi roi, boolean isOverlay, Color anacolor, boolean go3d) {
 		if(roi==null)return;
+		int sls=imp.getNSlices(), ch=imp.getC(), sl=imp.getZ(), fr=imp.getT();
+		int rch=roi.getCPosition(), rsl=roi.getZPosition(), rfr=roi.getTPosition();
+		if(!(rfr==0 || rfr==fr))return;
+		if(!go3d && !((rch==0 || ch==rch) && (rsl==0 || rsl==sl)))return;
 		if(roi instanceof ShapeRoi) {
 			Roi[] rois=((ShapeRoi)roi).getRois();
 			for(Roi r : rois) {
@@ -126,10 +130,6 @@ public class RoiGLDrawUtility {
 		//gl.glEnable(GL_MULTISAMPLE);
 		this.go3d=go3d;
 		this.anacolor=anacolor;
-		int sls=imp.getNSlices(), ch=imp.getC(), sl=imp.getZ(), fr=imp.getT();
-		int rch=roi.getCPosition(), rsl=roi.getZPosition(), rfr=roi.getTPosition();
-		if(!(rfr==0 || rfr==fr))return;
-		if(!go3d && !((rch==0 || ch==rch) && (rsl==0 || rsl==sl)))return;
 		int tp=roi.getType();
 		if(go3d) {
 			CutPlanesCube fc=JCP.getJOGLImageCanvas(imp).getCutPlanesCube();
@@ -143,7 +143,7 @@ public class RoiGLDrawUtility {
 		setGL(drawable);
 		updateSrcRect();
 		gl.glLineWidth(dpimag);
-		boolean drawHandles=isRoi;
+		boolean drawHandles=!isOverlay;
 		//if(isRoi && roi.getState()==Roi.CONSTRUCTING)drawHandles=false;
 
 		float z=0f;
@@ -154,7 +154,7 @@ public class RoiGLDrawUtility {
 		}
 		
 		if(roi instanceof TextRoi){
-			drawTextRoiString((TextRoi)roi, z, !isRoi);
+			drawTextRoiString((TextRoi)roi, z, isOverlay);
 			if(!drawHandles)return;
 		}
 

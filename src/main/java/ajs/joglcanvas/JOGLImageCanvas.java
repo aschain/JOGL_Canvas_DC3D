@@ -503,7 +503,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				0, 0, 0, 1f
 			}, 16*Buffers.SIZEOF_FLOAT);
 		if(go3d) {
-			float nearZ = 1f, IOD=JCP.stereoSep, g_initial_fov=(float)Math.toRadians(fov);
+			float nearZ = 0.5f, IOD=JCP.stereoSep, g_initial_fov=(float)Math.toRadians(fov);
 			//up vector
 			// , depthZ=5f
 			//mirror the parameters with the right eye
@@ -945,12 +945,13 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						}
 						lim*=24;
 					}else { //front or back
-						for(float csl=(int)(cutPlanes.z()*zrat);csl<(int)(cutPlanes.d()*zrat);csl+=1.0f) {
-							float z=csl;
-							if(reverse) z=(cutPlanes.d()*(float)zrat)-(csl-(int)(cutPlanes.z()*(float)zrat));//z=((float)zmaxsls-csl-1f);
+						int zr=(int)(cutPlanes.z()*zrat), dr=(int)(cutPlanes.d()*zrat);
+						for(int csl=zr;csl<dr;csl++) {
+							int z=csl;
+							if(reverse) z=dr-(csl-zr);//z=((float)zmaxsls-csl-1f);
 							for(int i=0;i<4;i++) {
-								vertb.putFloat(initVerts[i*6]); vertb.putFloat(initVerts[i*6+1]); vertb.putFloat(((float)zmaxsls-2f*z)/imageWidth); 
-								vertb.putFloat(initVerts[i*6+3]); vertb.putFloat(initVerts[i*6+4]); vertb.putFloat((z+0.5f)/zmaxsls); 
+								vertb.putFloat(initVerts[i*6]); vertb.putFloat(initVerts[i*6+1]); vertb.putFloat((float)(zmaxsls-2*z)/imageWidth); 
+								vertb.putFloat(initVerts[i*6+3]); vertb.putFloat(initVerts[i*6+4]); vertb.putFloat(((float)z)/zmaxsls); 
 							}
 							lim++;
 						}
@@ -1078,11 +1079,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					if(JCP.openglroi) {
 						if(overlay!=null) {
 							for(int i=0;i<overlay.size();i++) {
-								rgldu.drawRoiGL(drawable, overlay.get(i), false, anacolor, go3d);
+								rgldu.drawRoiGL(drawable, overlay.get(i), true, anacolor, go3d);
 							}
 						}
 						if(roi!=null)
-							rgldu.drawRoiGL(drawable, roi, true, anacolor, go3d);
+							rgldu.drawRoiGL(drawable, roi, false, anacolor, go3d);
 					}
 					if(drawCrosshairs) {
 						float left=-1f, right=1f, top=-1f, bottom=1f, front=sls*zf, back=(-sls+2)*zf, oix=(float)screenXD(oicp.getX()), oiy=(float)screenYD(oicp.getY());
@@ -1671,7 +1672,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			icc.repaint();
 		}
 		else if(gl!=null) setPaintPending(false);
-		if(isMirror) super.repaint();
+		if(isMirror) {
+			if(!imp.isHyperStack())imp.updateImage();
+			super.repaint();
+		}
 	}
 	
 	@Override
@@ -1700,7 +1704,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			updateMirror();
 			repaintLater();
 		}
-		if(isMirror)super.repaint(x,y,width,height);
+		if(isMirror) {
+			super.repaint(x,y,width,height);
+		}
 	}
 
 	@Override
@@ -1718,7 +1724,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	@Override
 	public void setCursor(Cursor cursor) {
 		if(icc!=null && !isMirror)icc.setCursor(cursor);
-		else super.setCursor(cursor);
+		if(isMirror || icc==null) super.setCursor(cursor);
 	}
 
 	/* called in super() disable so I don't have to remove them*/

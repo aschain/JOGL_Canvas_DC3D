@@ -176,11 +176,7 @@ public class JCP implements PlugIn {
 				return;
 			}
 			final JOGLImageCanvas jicnew=new JOGLImageCanvas(imp,doMirror);
-			if(doMirror) {
-				switchWindow(imp,jicnew);
-			}else {
-				switchWindow(imp,jicnew);
-			}
+			switchWindow(imp,jicnew);
 		}
 	}
 	

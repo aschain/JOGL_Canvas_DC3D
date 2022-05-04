@@ -2,12 +2,7 @@ package ajs.joglcanvas;
 
 import java.awt.Component;
 import java.awt.Container;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
-
 import javax.swing.JFrame;
-
-import ij.IJ;
 import ij.ImagePlus;
 import ij.gui.StackWindow;
 
@@ -31,12 +26,9 @@ public class JCStackWindow extends StackWindow {
 	        		if(wincs[i] instanceof JOGLImageCanvas) {c.remove(i); c.add(jic.icc, i);}
 	        }
 			repaint();
+			if(JCP.mouseWheelFix)jic.addMouseWheelListener(this);
 		}
-		if(JCP.mouseWheelFix)jic.addMouseWheelListener(this);
-	}
-	
-	public JCStackWindow(ImagePlus imp) {
-		this(imp,new JOGLImageCanvas(imp, false));
+		setTitle(imp.getTitle());
 	}
 	
 	@Override

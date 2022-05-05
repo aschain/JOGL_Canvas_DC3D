@@ -88,7 +88,7 @@ public class JCP implements PlugIn {
 	public static boolean doFrustum=Prefs.get("ajs.joglcanvas.doFrustum", false);
 	public static boolean qbfullscreen=Prefs.get("ajs.joglcanvas.qbfullscreen", false);
 	public static int drawCrosshairs=(int)Prefs.get("ajs.joglcanvas.drawCrosshairs", 0);
-	public static boolean mouseWheelFix=Prefs.get("ajs.joglcanvas.mouseWheelFix", false);
+	public static boolean mouseWheelFix=Prefs.get("ajs.joglcanvas.mouseWheelFix", IJ.isMacOSX() || IJ.isLinux());
 	public static boolean quiet=Prefs.get("ajs.joglcanvas.quiet", false);
 	public static boolean debug=false;
 	private static final float[][] duboisColors = new float[][] {

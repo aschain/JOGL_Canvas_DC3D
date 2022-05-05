@@ -26,7 +26,7 @@ public class JCCutPlanes extends JCAdjuster {
 		super("Cut Planes", jic);
 		CutPlanesCube cpfc=jic.getCutPlanesCube();
 		int[] whd=new int[] {imp.getWidth(),imp.getHeight(),imp.getNSlices()};
-		this.c= new int[] {cpfc.x(),cpfc.y(),cpfc.z(),cpfc.w(),cpfc.h(),cpfc.d()};
+		this.c= new int[] {cpfc.x()+1,cpfc.y()+1,cpfc.z()+1,cpfc.w(),cpfc.h(),cpfc.d()};
 		setLayout(new GridBagLayout());
 		GridBagConstraints c= new GridBagConstraints();
 		c.gridx=0;
@@ -37,7 +37,7 @@ public class JCCutPlanes extends JCAdjuster {
 		add(new Label("Cut Planes"),c);
 		for(int i=0;i<cps.length;i++) {
 			c.gridy++;
-			nsps[i]=new NumberScrollPanel(this.c[i],((i>2)?1:0),whd[(i>2)?(i-3):i]+(i>2?1:0),cps[i],0);
+			nsps[i]=new NumberScrollPanel(this.c[i],1,whd[(i>2)?(i-3):i]+1,cps[i],0);
 			add(nsps[i], c);
 			nsps[i].addAdjustmentListener(this);
 			nsps[i].setFocusable(false);
@@ -48,7 +48,7 @@ public class JCCutPlanes extends JCAdjuster {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				for(int i=0;i<3;i++) {
-					nsps[i].setFloatValue(0);
+					nsps[i].setFloatValue(1);
 					nsps[i+3].setFloatValue((i==0?imp.getWidth():(i==1?imp.getHeight():imp.getNSlices())));
 				}
 				update();
@@ -72,9 +72,9 @@ public class JCCutPlanes extends JCAdjuster {
 	
 	private void update() {
 		int i=0;
-		c[i]=(int)nsps[i++].getFloatValue();
-		c[i]=(int)nsps[i++].getFloatValue();
-		c[i]=(int)nsps[i++].getFloatValue();
+		c[i]=(int)nsps[i++].getFloatValue()-1;
+		c[i]=(int)nsps[i++].getFloatValue()-1;
+		c[i]=(int)nsps[i++].getFloatValue()-1;
 		c[i]=(int)nsps[i++].getFloatValue();
 		c[i]=(int)nsps[i++].getFloatValue();
 		c[i]=(int)nsps[i].getFloatValue();
@@ -89,22 +89,22 @@ public class JCCutPlanes extends JCAdjuster {
 			NumberScrollPanel nsp=(NumberScrollPanel)source;
 			switch(nsp.getLabel()) {
 			case 'X':
-				if(nsp.getFloatValue()>=nsps[3].getFloatValue())nsps[3].setFloatValue(nsp.getFloatValue()+1f);
+				if(nsp.getFloatValue()>nsps[3].getFloatValue())nsps[3].setFloatValue(nsp.getFloatValue());
 				break;
 			case 'Y':
-				if(nsp.getFloatValue()>=nsps[4].getFloatValue())nsps[4].setFloatValue(nsp.getFloatValue()+1f);
+				if(nsp.getFloatValue()>nsps[4].getFloatValue())nsps[4].setFloatValue(nsp.getFloatValue());
 				break;
 			case 'Z':
-				if(nsp.getFloatValue()>=nsps[5].getFloatValue())nsps[5].setFloatValue(nsp.getFloatValue()+1f);
+				if(nsp.getFloatValue()>nsps[5].getFloatValue())nsps[5].setFloatValue(nsp.getFloatValue());
 				break;
 			case 'W':
-				if(nsp.getFloatValue()<=nsps[0].getFloatValue())nsps[0].setFloatValue(nsp.getFloatValue()-1f);
+				if(nsp.getFloatValue()<nsps[0].getFloatValue())nsps[0].setFloatValue(nsp.getFloatValue());
 				break;
 			case 'H':
-				if(nsp.getFloatValue()<=nsps[1].getFloatValue())nsps[1].setFloatValue(nsp.getFloatValue()-1f);
+				if(nsp.getFloatValue()<nsps[1].getFloatValue())nsps[1].setFloatValue(nsp.getFloatValue());
 				break;
 			case 'D':
-				if(nsp.getFloatValue()<=nsps[2].getFloatValue())nsps[2].setFloatValue(nsp.getFloatValue()-1f);
+				if(nsp.getFloatValue()<nsps[2].getFloatValue())nsps[2].setFloatValue(nsp.getFloatValue());
 				break;
 			}
 		}

@@ -949,10 +949,12 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						int zr=(int)(cutPlanes.z()*zrat), dr=(int)(cutPlanes.d()*zrat);
 						for(int csl=zr;csl<dr;csl++) {
 							int z=csl;
-							if(reverse) z=dr-(csl-zr+1);//z=((float)zmaxsls-csl-1f);
+							if(reverse) z=dr-(csl-zr+1);
+							//float cz=((float)z-0.5f*(float)zrat)/zmaxsls;
+							float cz=((float)z)/(float)zmaxsls;
 							for(int i=0;i<4;i++) {
 								vertb.putFloat(initVerts[i*6]); vertb.putFloat(initVerts[i*6+1]); vertb.putFloat((float)(zmaxsls-2*z)/imageWidth); 
-								vertb.putFloat(initVerts[i*6+3]); vertb.putFloat(initVerts[i*6+4]); vertb.putFloat(((float)z)/zmaxsls); 
+								vertb.putFloat(initVerts[i*6+3]); vertb.putFloat(initVerts[i*6+4]); vertb.putFloat(cz); 
 							}
 							lim++;
 						}
@@ -1473,7 +1475,15 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}
 		@Override
 		public void layoutContainer(Container parent) {
-			parent.getComponent(0).setLocation(parent.getInsets().left, parent.getInsets().top);
+			//parent.getComponent(0).setLocation(parent.getInsets().left, parent.getInsets().top);
+			java.awt.EventQueue.invokeLater(new Runnable() {public void run() {
+				parent.getComponent(0).setLocation(parent.getInsets().left, parent.getInsets().top);
+				if(mirrorMagUnlock) {
+					Dimension dim=parent.getSize();
+					Insets ins=parent.getInsets();
+					parent.getComponent(0).setSize(dim.width-ins.left-ins.right, dim.height-ins.top-ins.bottom);
+				}
+			}});
 		}
 		
 	}

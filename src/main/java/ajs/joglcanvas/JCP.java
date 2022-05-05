@@ -579,7 +579,7 @@ public class JCP implements PlugIn {
 		wrappedBuffers=gd.getNextBoolean();
 		Prefs.set("ajs.joglcanvas.wrappedBuffers", wrappedBuffers);
 		mouseWheelFix=gd.getNextBoolean();
-		Prefs.set("ajs.joglcanvas.mouseWheelfix", mouseWheelFix);
+		Prefs.set("ajs.joglcanvas.mouseWheelFix", mouseWheelFix);
 		quiet=gd.getNextBoolean();
 		Prefs.set("ajs.joglcanvas.quiet", quiet);
 		debug=gd.getNextBoolean();

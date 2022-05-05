@@ -198,6 +198,7 @@ public class JCP implements PlugIn {
 				}
 				imp.changes=false;
 				if(isJIC) {
+					imp.setProperty("JOGLImageCanvas",jic);
 					new JCStackWindow(imp, jic);
 				}else{
 					new StackWindow(imp,ic);

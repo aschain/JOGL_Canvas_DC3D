@@ -28,6 +28,7 @@ import java.awt.GraphicsConfiguration;
 import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
 import java.awt.Insets;
+import java.awt.LayoutManager;
 import java.awt.Menu;
 import java.awt.MenuItem;
 import java.awt.MouseInfo;
@@ -948,7 +949,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						int zr=(int)(cutPlanes.z()*zrat), dr=(int)(cutPlanes.d()*zrat);
 						for(int csl=zr;csl<dr;csl++) {
 							int z=csl;
-							if(reverse) z=dr-(csl-zr);//z=((float)zmaxsls-csl-1f);
+							if(reverse) z=dr-(csl-zr+1);//z=((float)zmaxsls-csl-1f);
 							for(int i=0;i<4;i++) {
 								vertb.putFloat(initVerts[i*6]); vertb.putFloat(initVerts[i*6+1]); vertb.putFloat((float)(zmaxsls-2*z)/imageWidth); 
 								vertb.putFloat(initVerts[i*6+3]); vertb.putFloat(initVerts[i*6+4]); vertb.putFloat(((float)z)/zmaxsls); 
@@ -1449,9 +1450,38 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		repaint();
 	}
 	
+	class JCLayout implements LayoutManager{
+
+		@Override
+		public void addLayoutComponent(String name, Component comp) {
+		}
+		@Override
+		public void removeLayoutComponent(Component comp) {
+		}
+		@Override
+		public Dimension preferredLayoutSize(Container parent) {
+			Dimension dim=new Dimension(0,0);
+			Insets ins=parent.getInsets();
+			Dimension cdim=parent.getComponent(0).getSize();
+			dim.width+=ins.left+ins.right+cdim.width;
+			dim.height+=ins.top+ins.bottom+cdim.height;
+			return dim;
+		}
+		@Override
+		public Dimension minimumLayoutSize(Container parent) {
+			return preferredLayoutSize(parent);
+		}
+		@Override
+		public void layoutContainer(Container parent) {
+			parent.getComponent(0).setLocation(parent.getInsets().left, parent.getInsets().top);
+		}
+		
+	}
+	
 	private void createMirror() {
 		isMirror=true;
 		mirror=new Frame("JOGL-DC3D Mirror of "+imp.getTitle());
+		mirror.setLayout(new JCLayout());
 		mirror.add(icc);
 		WindowAdapter wl=new WindowAdapter() {
 			public void windowClosing(WindowEvent e) { if(JCP.debug)log("revertting"); revert(); }

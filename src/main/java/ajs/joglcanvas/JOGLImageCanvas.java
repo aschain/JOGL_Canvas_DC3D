@@ -13,6 +13,7 @@ import ij.gui.ScrollbarWithLabel;
 import ij.gui.StackWindow;
 import ij.gui.Toolbar;
 import ij.measure.Calibration;
+import ij.process.ImageProcessor;
 import ij.process.LUT;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Point2D;
@@ -341,6 +342,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		Point pre=MouseInfo.getPointerInfo().getLocation();
 		glw.warpPointer(1,1);
 		Point post=MouseInfo.getPointerInfo().getLocation();
+		glw.warpPointer(pre.x,pre.y);
 		if((pre.x-post.x+pre.y-post.y)==0) {
 			//warp not working
 			if(JCP.debug)log("warp not working");
@@ -815,12 +817,15 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					if(active[i] && !(cmode!=IJ.COMPOSITE && imp.getC()!=(i+1))) {
 						if(cmode==IJ.GRAYSCALE)color=7;
 						else color=(((rgb & 0x00ff0000)==0x00ff0000)?1:0) + (((rgb & 0x0000ff00)==0x0000ff00)?2:0) + (((rgb & 0x000000ff)==0x000000ff)?4:0);
+						if(imp.isThreshold()&& chs==1 && i==0 && imp.getProcessor().getLutUpdateMode()!=ImageProcessor.NO_LUT_UPDATE){
+							color=9f;
+						}
 					}
 					if(bitd<32) {
 						min=(float)(Math.round(luts[i].min)/topmax);
 						max=(float)(Math.round(luts[i].max)/topmax);
 					}else {
-						if(sb.minmaxs==null) { 
+						if(sb.minmaxs==null) {
 							min=(float)luts[i].min;
 							max=(float)luts[i].max;
 						}else{
@@ -831,6 +836,12 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					}
 					if(min==max) {if(min==0){max+=(1/topmax);}else{min-=(1/topmax);}}
 					if(inv) {float temp=max; max=min; min=temp;}
+				}else if(imp.isThreshold() && chs==1 && i==1){
+					ImageProcessor ip=imp.getProcessor();
+					min=(float)ip.getMinThreshold();
+					max=(float)ip.getMaxThreshold();
+					min/=topmax;max/=topmax;
+					color=(float)(10+imp.getProcessor().getLutUpdateMode());
 				}
 			}
 			lutMatrixPointer.putFloat(min);

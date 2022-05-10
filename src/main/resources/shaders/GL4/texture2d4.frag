@@ -19,9 +19,36 @@ void main(){
 	for(int i=0;i<6;i++){
 		vec4 lut=luts[i];
 		int rgb=int(lut.b);
+		if(rgb>9)rgb=0;
 		if(rgb>0){
 			bool color[3];
 			vec4 texColor=texture(mytex[i], texCoord.rg);
+			if(rgb>8){
+				vec4 thresh=luts[1];
+				int ltype=int(thresh.b);
+				rgb=7;
+				if(ltype>12){
+					if(texColor.r<thresh.r){
+						outputColor.b=1.0;
+						rgb=0;
+					}else if(texColor.r>thresh.g){
+						outputColor.g=1.0;
+						rgb=0;
+					}
+				}else if(ltype>10){
+					if((texColor.r<thresh.g) && (texColor.r>thresh.r)){
+						outputColor.r=1.0;
+						outputColor.g=1.0;
+						outputColor.b=1.0;
+					}
+					rgb=0;
+				}else if(ltype>9){
+					if((texColor.r<thresh.g) && (texColor.r>thresh.r)){
+						outputColor.r=1.0;
+						rgb=0;
+					}
+				}
+			}
 			if(rgb>7){
 				outputColor.r=texColor.g;
 				outputColor.g=texColor.b;

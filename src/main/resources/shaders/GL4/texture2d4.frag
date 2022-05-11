@@ -6,7 +6,7 @@ precision highp int;
 layout(std140, column_major) uniform;
 
 layout (binding = 3) uniform lutblock{
-	vec4 luts[6];
+	vec4 luts[12];
 };
 in vec3 texCoord;
 // Outgoing final color.
@@ -24,7 +24,7 @@ void main(){
 			bool color[3];
 			vec4 texColor=texture(mytex[i], texCoord.rg);
 			if(rgb>8){
-				vec4 thresh=luts[1];
+				vec4 thresh=luts[i+6];
 				int ltype=int(thresh.b);
 				rgb=7;
 				if(ltype>12){

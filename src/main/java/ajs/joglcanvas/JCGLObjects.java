@@ -739,7 +739,7 @@ public class JCGLObjects {
 					}
 					if(bindName.contentEquals("lut")) {
 						int loc=(program==null?gl2.glGetUniformLocation(pr[0], "luts"):program.getLocation("luts"));
-						gl2.glUniform4fv(loc, 6, buffer.asFloatBuffer());
+						gl2.glUniform4fv(loc, 12, buffer.asFloatBuffer());
 					}
 				}
 				return;

@@ -2,7 +2,7 @@
 
 varying vec3 texCoord;
 
-uniform vec4 luts[6];
+uniform vec4 luts[12];
 
 uniform sampler3D mytex[6];
 
@@ -22,7 +22,7 @@ void main(){
 			else if(i==4)texColor=texture3D(mytex[4], texCoord);
 			else if(i==5)texColor=texture3D(mytex[5], texCoord);
 			if(rgb>8){
-				vec4 thresh=luts[1];
+				vec4 thresh=luts[i+6];
 				int ltype=int(thresh.b);
 				rgb=7;
 				if(ltype>12){

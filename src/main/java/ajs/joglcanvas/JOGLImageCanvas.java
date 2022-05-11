@@ -323,7 +323,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		glos.newBuffer(GL_UNIFORM_BUFFER, "model", 16 * Buffers.SIZEOF_FLOAT, null);
 		glos.newBuffer(GL_UNIFORM_BUFFER, "modelr", 16 * Buffers.SIZEOF_FLOAT, null);
 		glos.getUniformBuffer("modelr").setBindName("model");
-		glos.newBuffer(GL_UNIFORM_BUFFER, "lut", 6*4 * Buffers.SIZEOF_FLOAT, null);
+		glos.newBuffer(GL_UNIFORM_BUFFER, "lut", 12*4 * Buffers.SIZEOF_FLOAT, null);
 		glos.newBuffer(GL_UNIFORM_BUFFER, "idm", 16 * Buffers.SIZEOF_FLOAT, id);
 
 		glos.getUniformBuffer("model").loadIdentity();
@@ -789,9 +789,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			if((supermag+magnification)>24)supermag=24f-(float)magnification;
 		}
 		myImageUpdated=false;
-		
 		if(imageState.isChanged.minmax) needDraw=true;
-		//setluts
+		
+		//setluts and threshold
 		ByteBuffer lutMatrixPointer=glos.getDirectBuffer(GL_UNIFORM_BUFFER, "lut");
 		((Buffer)lutMatrixPointer).rewind();
 		LUT[] luts=imp.getLuts();
@@ -802,7 +802,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		int bitd=imp.getBitDepth();
 		double topmax=Math.pow(2, bitd==24?8:bitd)-1.0;
 		for(int i=0;i<6;i++) {
-			float min=0,max=0,color=0;
+			float min=0,max=0,color=0,tmin=0,tmax=0,lutType=0;
 			if(luts==null || luts.length==0 ||bitd==24) {
 				max=1f;
 				color=i==0?8:0;//(i==0?1:i==1?2:i==2?4:0);
@@ -814,11 +814,15 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						if((luts[i].getRGB(0)&0x00ffffff)>0)rgb=luts[i].getRGB(0);
 						inv=true;
 					}
-					if(active[i] && !(cmode!=IJ.COMPOSITE && imp.getC()!=(i+1))) {
+					if(active[i] && (cmode==IJ.COMPOSITE || imp.getC()==(i+1))) {
 						if(cmode==IJ.GRAYSCALE)color=7;
 						else color=(((rgb & 0x00ff0000)==0x00ff0000)?1:0) + (((rgb & 0x0000ff00)==0x0000ff00)?2:0) + (((rgb & 0x000000ff)==0x000000ff)?4:0);
-						if(imp.isThreshold()&& chs==1 && i==0 && imp.getProcessor().getLutUpdateMode()!=ImageProcessor.NO_LUT_UPDATE){
+						if(imp.isThreshold()&& (chs==1 || cmode==IJ.GRAYSCALE || cmode==IJ.COLOR) && imp.getProcessor().getLutUpdateMode()!=ImageProcessor.NO_LUT_UPDATE){
 							color=9f;
+							ImageProcessor ip=imp.getProcessor();
+							tmin=(float)(ip.getMinThreshold()/topmax);
+							tmax=(float)(ip.getMaxThreshold()/topmax);
+							lutType=(float)(10+imp.getProcessor().getLutUpdateMode());
 						}
 					}
 					if(bitd<32) {
@@ -836,18 +840,16 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					}
 					if(min==max) {if(min==0){max+=(1/topmax);}else{min-=(1/topmax);}}
 					if(inv) {float temp=max; max=min; min=temp;}
-				}else if(imp.isThreshold() && chs==1 && i==1){
-					ImageProcessor ip=imp.getProcessor();
-					min=(float)ip.getMinThreshold();
-					max=(float)ip.getMaxThreshold();
-					min/=topmax;max/=topmax;
-					color=(float)(10+imp.getProcessor().getLutUpdateMode());
 				}
 			}
-			lutMatrixPointer.putFloat(min);
-			lutMatrixPointer.putFloat(max);
-			lutMatrixPointer.putFloat(color);
-			lutMatrixPointer.putFloat((gamma==null || gamma.length<=i)?0f:gamma[i]); //padding for vec3 std140
+			lutMatrixPointer.putFloat(i*4*Float.BYTES,min);
+			lutMatrixPointer.putFloat((i*4+1)*Float.BYTES,max);
+			lutMatrixPointer.putFloat((i*4+2)*Float.BYTES,color);
+			lutMatrixPointer.putFloat((i*4+3)*Float.BYTES,(gamma==null || gamma.length<=i)?0f:gamma[i]); //padding for vec3 std140
+			lutMatrixPointer.putFloat((i+6)*4*Float.BYTES,tmin);
+			lutMatrixPointer.putFloat(((i+6)*4+1)*Float.BYTES,tmax);
+			lutMatrixPointer.putFloat(((i+6)*4+2)*Float.BYTES,lutType);
+			lutMatrixPointer.putFloat(((i+6)*4+3)*Float.BYTES,0f); //padding
 		}
 		((Buffer)lutMatrixPointer).rewind();
 		

@@ -171,6 +171,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	//private long starttime=0;
 	private boolean onScreenMirrorCursor=false;
 	private boolean warpPointerWorks=false;
+	final private boolean stereoEnabled;
 
 	public JOGLImageCanvas(ImagePlus imp, boolean mirror) {
 		super(imp);
@@ -206,6 +207,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		Screen screen=NewtFactory.createScreen(display, 0);
 		screen.addReference();
 		glw=GLWindow.create(glc);
+		stereoEnabled=glc.getStereo();
 		final double dpiscale=dpimag;
 		icc=new NewtCanvasAWT(glw){
 			private static final long serialVersionUID = 1256279205085144008L;
@@ -1446,19 +1448,38 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	public void toggle3d() {
 		set3d(!go3d);
 	}
-
+	
 	public void set3d(boolean newboo) {
+		set3d(newboo, true);
+	}
+
+	public void set3d(boolean newboo, boolean repaint) {
 		if(imp.getNSlices()==1)newboo=false;
 		if(go3d==newboo)return;
 		threeDupdated=true;
 		myImageUpdated=true;
 		go3d=newboo;
 		disablePopupMenu=go3d;
-		repaint();
+		if(repaint)repaint();
 	}
 	
 	public void setStereo(StereoType stereoTypeChoice) {
+		if(stereoTypeChoice==StereoType.QUADBUFFER && !stereoEnabled) {
+			if(IJ.showMessageWithCancel("QuadBuffer","Stereo must be enabled in preferences before \n creating JOGLcanvas to use quadbuffer. \n Activate and restart now?")) {
+				JCP.preferStereo=true;
+				revert();
+				java.awt.EventQueue.invokeLater(new Runnable() {
+					@Override
+					public void run() {
+						JOGLImageCanvas jic=JCP.convertToJOGLCanvas(imp,isMirror);
+						jic.setStereo(StereoType.QUADBUFFER);
+					}
+				});
+			}
+			return;
+		}
 		stereoType=stereoTypeChoice;
+		if(!(stereoType==StereoType.OFF))set3d(true, false);
 		stereoUpdated=true;
 		myImageUpdated=true;
 		if(JCP.qbfullscreen && stereoType==StereoType.QUADBUFFER)setFullscreen(true);
@@ -2348,10 +2369,12 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				if((e.getX()-osx)==0 && (e.getY()-osy)==0)return;
 				float xd=(float)(e.getX()-sx)/(float)srcRect.width;
 				float yd=(float)(e.getY()-sy)/(float)srcRect.height;
-				if(JCP.debug)log("D"+xd+"x"+yd+"y sx"+sx+" sy"+sy);
+				if(JCP.debug)log("D "+e.getX()+"x "+e.getY()+"y  sx"+sx+" sy"+sy);
 				if(warpPointerWorks) {
 					glw.confinePointer(true);
-					glw.warpPointer((int)(osx*dpimag/surfaceScale+0.5),(int)(osy*dpimag/surfaceScale+0.5));
+					int wx=(int)(osx*dpimag/surfaceScale+0.5), wy=(int)(osy*dpimag/surfaceScale+0.5);
+					glw.warpPointer(wx,wy);
+					if((Math.abs(e.getX()-sx) >10) || (Math.abs(e.getY()-sy) >10)) return;
 				}else{sx=e.getX(); sy=e.getY();}
 				if(alt||e.getButton()==MouseEvent.BUTTON2) {
 					if(shift) {

@@ -160,24 +160,26 @@ public class JCP implements PlugIn {
 		}
 	}
 
-	private static void convertToJOGLCanvas(ImagePlus imp, boolean doMirror) {
-		if(imp==null)return;
+	public static JOGLImageCanvas convertToJOGLCanvas(ImagePlus imp, boolean doMirror) {
+		if(imp==null)return null;
 		JOGLImageCanvas jic=getJOGLImageCanvas(imp);
 		if(jic!=null) {
 			boolean isMirror=jic.isMirror;
 			jic.revert();
-			if(isMirror==doMirror) return;
+			if(isMirror==doMirror) return null;
 		}
 		if(IJ.isLinux())System.setProperty("jogl.disable.openglcore", "true"); //avoids this bug https://github.com/processing/processing/issues/5476
 		String classname= imp.getWindow().getClass().getSimpleName();
 		if(classname.equals("ImageWindow") || classname.equals("StackWindow")) {
 			if(imp.getNChannels()>6) {
 				IJ.error("JOGL Canvas currently limited to 6 channels");
-				return;
+				return null;
 			}
 			final JOGLImageCanvas jicnew=new JOGLImageCanvas(imp,doMirror);
 			switchWindow(imp,jicnew);
+			return jicnew;
 		}
+		return null;
 	}
 	
 	public static void switchWindow(ImagePlus imp, ImageCanvas ic) {
@@ -519,7 +521,7 @@ public class JCP implements PlugIn {
 		gd.addChoice("Default 3d Render Type", new String[] {"MAX","ALPHA"}, renderFunction);
 		gd.addChoice("Default Undersampling for 3D", new String[] {"None","2","4","6"},undersample==1?"None":(""+undersample));
 		gd.addCheckbox("3D and Stereoscopic settings", false);
-		gd.addCheckbox("Prefer active stereo over high dynamic range", preferStereo);
+		gd.addCheckbox("Enable active stereo (quadbuffer w/ shutter glasses)", preferStereo);
 		gd.addCheckbox("Open 10-bit test image", false);
 		gd.addMessage("Advanced Settings:");
 		gd.addCheckbox("Draw ROI with OpenGL (in progress)", openglroi);
@@ -791,7 +793,6 @@ public class JCP implements PlugIn {
 			@Override
 			public void itemStateChanged(ItemEvent e)  {
 				doFrustum=e.getStateChange()==ItemEvent.SELECTED;
-				Prefs.set("ajs.joglcanvas.doFrustum",doFrustum);
 				canvas.repaint();
 				if(jic!=null) {jic.setStereoUpdated(); jic.repaint();}
 			}
@@ -804,7 +805,6 @@ public class JCP implements PlugIn {
 			@Override
 			public void itemStateChanged(ItemEvent e)  {
 				qbfullscreen=e.getStateChange()==ItemEvent.SELECTED;
-				Prefs.set("ajs.joglcanvas.qbfullscreen",doFrustum);
 			}
 		});
 		c.gridy++; c.gridx=0; c.gridwidth=4; panel.add(cb,c);
@@ -826,9 +826,12 @@ public class JCP implements PlugIn {
 				Prefs.set("ajs.joglcanvas.rightAnaglyphColor",rightAnaglyphColor.getRGB());
 				Prefs.set("ajs.joglcanvas.dubois", dubois);
 				Prefs.set("ajs.joglcanvas.stereoSep", stereoSep);
+				Prefs.set("ajs.joglcanvas.qbfullscreen",qbfullscreen);
+				Prefs.set("ajs.joglcanvas.doFrustum",doFrustum);
 				fillAnaColors();
 				asettings.dispose();
 				if(jic!=null) {jic.setStereoUpdated(); jic.repaint();}
+				Prefs.savePreferences();
 			}
 		});
 		bpanel.add(button);

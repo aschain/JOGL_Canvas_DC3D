@@ -20,7 +20,6 @@ public class JOGLEventAdapter implements MouseListener, KeyListener {
 	private ArrayList<java.awt.event.MouseWheelListener> mouseWheelListeners=new ArrayList<java.awt.event.MouseWheelListener>();
 	private final ArrayList<java.awt.event.KeyListener> keyListeners=new ArrayList<java.awt.event.KeyListener>();
 	private float dpimag=1.0f;
-	public static boolean verbose=false;
 	private Point sourceLoc=null;
 	private AtomicBoolean running=new AtomicBoolean();
 	static private final int MAX_MOUSE_BUTTONS=java.awt.MouseInfo.getNumberOfButtons();
@@ -247,12 +246,13 @@ public class JOGLEventAdapter implements MouseListener, KeyListener {
 		}
 		else res=new java.awt.event.MouseEvent(source, eventTypeNEWT2AWT(e.getEventType()), e.getWhen(), newtModifiers2awt(e.getModifiers(),true), 
 					x, y, sx, sy, (int)e.getClickCount(), (int)e.getButton()==3, (int)e.getButton());
-		if(JCP.debug && verbose) {
+		/*
+		if(JCP.debug) {
 			System.out.println("--");
 			System.out.println("newt:"+e);
 			System.out.println("awt:"+res);
 		}
-		
+		*/
 		return res;
 	}
 	

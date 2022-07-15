@@ -2371,10 +2371,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				float yd=(float)(e.getY()-sy)/(float)srcRect.height;
 				if(JCP.debug)log("D "+e.getX()+"x "+e.getY()+"y  sx"+sx+" sy"+sy);
 				if(warpPointerWorks) {
-					glw.confinePointer(true);
 					int wx=(int)(osx*dpimag/surfaceScale+0.5), wy=(int)(osy*dpimag/surfaceScale+0.5);
 					glw.warpPointer(wx,wy);
-					if((Math.abs(e.getX()-sx) >10) || (Math.abs(e.getY()-sy) >10)) return;
 				}else{sx=e.getX(); sy=e.getY();}
 				if(alt||e.getButton()==MouseEvent.BUTTON2) {
 					if(shift) {
@@ -2407,13 +2405,12 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	
 	@Override
 	public void mouseReleased(MouseEvent e) {
-		glw.confinePointer(false);
 		if(shouldKeep(e)) {
 			if(anglehash==(dx+dy+dz)) {handlePopupMenu(e);return;}
 			if(JCP.drawCrosshairs>0) {
 				glw.warpPointer((int)(osx*dpimag/surfaceScale+0.5), (int)(osy*dpimag/surfaceScale+0.5));
+				if(JCP.debug)log("Pointer warped "+osx+" "+osy);
 			}
-			if(JCP.debug)log("Pointer warped "+osx+" "+osy);
 		}else {
 			super.mouseReleased(e);
 		}

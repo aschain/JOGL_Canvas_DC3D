@@ -68,7 +68,7 @@ public class RoiGLDrawUtility {
 		rglos.programs.put("text",program);
 		updateSrcRect();
 		setGL(drawable);
-		this.dpimag=(float)dpimag;
+		setDPI((float)dpimag);
 	}
 	
 	private void updateSrcRect() {
@@ -102,6 +102,10 @@ public class RoiGLDrawUtility {
 			buffers[0].bindBuffer(1, null);
 			buffers[1].bindBuffer(2, null);
 		}
+	}
+	
+	public void setDPI(float dpi) {
+		dpimag=dpi;
 	}
 
 	/**

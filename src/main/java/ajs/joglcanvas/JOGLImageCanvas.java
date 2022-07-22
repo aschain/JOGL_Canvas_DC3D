@@ -208,16 +208,16 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		screen.addReference();
 		glw=GLWindow.create(glc);
 		stereoEnabled=glc.getStereo();
-		final double dpiscale=dpimag;
 		icc=new NewtCanvasAWT(glw){
 			private static final long serialVersionUID = 1256279205085144008L;
 			@Override
 			public void reshape(int x, int y, int width, int height) {
 				super.reshape(x,y,width, height);
-				if(isMirror)
-					java.awt.EventQueue.invokeLater(new Runnable() {public void run() {glw.setSize((int)(width*dpiscale+0.5),(int)(height*dpiscale+0.5));}});
-				else
-					glw.setSize((int)(width*dpiscale+0.5),(int)(height*dpiscale+0.5));
+				if(isMirror) {
+					if(dpimag!=1.0) {java.awt.EventQueue.invokeLater(new Runnable() {public void run() {glw.setSize((int)(width*dpimag+0.5),(int)(height*dpimag+0.5));}});}
+				}else {
+					if(dpimag!=1.0) {glw.setSize((int)(width*dpimag+0.5),(int)(height*dpimag+0.5));}
+				}
 				Dimension s=new Dimension(width,height);
 				setMinimumSize(s);
 				setPreferredSize(s);
@@ -262,7 +262,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		
 		if(dpimag!=1.0) {
 			double pd=dpimag;
-			if(dpimag==(double)drawable.getSurfaceWidth()/(double)((int)glw.getWidth())) dpimag=1.0;
+			if(dpimag==(double)drawable.getSurfaceWidth()/(double)((int)glw.getWidth())) setGuiDPI(1.0);
 			if(dpimag!=pd)log("new DPImag: "+dpimag);
 		}
 		
@@ -271,11 +271,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(ssc[0]!=1.0f) {
 			log("SurfaceScale:"+ssc[0]+" "+ssc[1]);
 			surfaceScale=ssc[0];
-			if(dpimag==1.0)dpimag=surfaceScale;
-		}
-		if(dpimag!=1.0) {
-			joglEventAdapter.setDPI((float)dpimag);
-			if(JCP.debug)log("Set JEA to "+dpimag);
+			if(dpimag==1.0)setGuiDPI(surfaceScale);
 		}
 		gl.glClearColor(0f, 0f, 0f, 0f);
 		gl.glDisable(GL_DEPTH_TEST);
@@ -457,6 +453,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		//width=(int)((double)width*dpimag+0.5);
 		//height=(int)((double)height*dpimag+0.5);float rat=1.0f;
 		float rat=1.0f;
+		if(isMirror)
+			setGuiDPI(icc.getGraphicsConfiguration().getDefaultTransform().getScaleX());	
+		else
+			setGuiDPI(imp.getWindow().getGraphicsConfiguration().getDefaultTransform().getScaleX());
+		if(JCP.debug)log("Dpimag now "+dpimag);
 		if(go3d && stereoType==StereoType.CARDBOARD) {
 			Rectangle r=getCBViewportAspectRectangle(x,y,width,height);
 			gl.glViewport(r.x, r.y, r.width, r.height);
@@ -1512,11 +1513,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			//parent.getComponent(0).setLocation(parent.getInsets().left, parent.getInsets().top);
 			java.awt.EventQueue.invokeLater(new Runnable() {public void run() {
 				parent.getComponent(0).setLocation(parent.getInsets().left, parent.getInsets().top);
-				if(mirrorMagUnlock) {
+				//if(mirrorMagUnlock) {
 					Dimension dim=parent.getSize();
 					Insets ins=parent.getInsets();
 					parent.getComponent(0).setSize(dim.width-ins.left-ins.right, dim.height-ins.top-ins.bottom);
-				}
+				//}
 			}});
 		}
 		
@@ -1531,6 +1532,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			public void windowClosing(WindowEvent e) { if(JCP.debug)log("revertting"); revert(); }
 		};
 		mirror.addWindowListener(wl);
+		mirror.setResizable(mirrorMagUnlock);
 		joglEventAdapter.addMouseWheelListener(new MouseAdapter() {
 			@Override
 			public void mouseWheelMoved(MouseWheelEvent e) {
@@ -1562,6 +1564,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(!isMirror)return;
 		if(imp==null) {dispose();return;}
 		if(mirror==null || !mirror.isVisible() || glw.isFullscreen())return;
+		log("glww: "+glw.getSurfaceWidth()+" gw: "+getWidth());
 		if(!mirrorMagUnlock) {
 			int glww=glw.getSurfaceWidth(), glwh=glw.getSurfaceHeight();
 			int w=getWidth(), h=getHeight();
@@ -1572,6 +1575,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	
 	public void setMirrorMagUnlock(boolean set) {
 		mirrorMagUnlock=set;
+		mirror.setResizable(mirrorMagUnlock);
 		updateMirror();
 	}
 	
@@ -1717,7 +1721,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			java.awt.Insets ins=mirror.getInsets();
 			if(JCP.debug)log("mirror setsize Insets: tb"+(ins.top+ins.bottom)+" lr"+(ins.left+ins.right));
 			mirror.setSize(width+ins.left+ins.right,height+ins.top+ins.bottom);
-			icc.setSize(width, height);
+			//icc.setSize(width, height);
 		}
 	}
 	
@@ -2041,7 +2045,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				JCP.usePBOforSlices=true;
 			}
 		}else if("guidpi".equals(cmd)){
-			dpimag=IJ.getNumber("Manual set GUI dpi", 2.0);
+			double tempdpi=IJ.getNumber("Manual set GUI dpi", dpimag);
+			if(tempdpi!=IJ.CANCELED)
+				setGuiDPI(tempdpi);
 		}else if(((Menu)((MenuItem)e.getSource()).getParent()).getLabel().equals("Stereoscopic 3d")) {
 			int stTypeChoice=0;
 			for(int i=0;i<stereoTypeStrings.length;i++) {
@@ -2478,6 +2484,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	
 	public void setGuiDPI(double dpi) {
 		dpimag=dpi;
+		if(joglEventAdapter!=null)joglEventAdapter.setDPI((float)dpi);
+		if(rgldu!=null)rgldu.setDPI((float)dpi);
 	}
 	
 	public void setStereoUpdated() {

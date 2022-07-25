@@ -2,6 +2,7 @@ package ajs.joglcanvas;
 
 import java.awt.Component;
 import java.awt.Point;
+import java.awt.geom.Rectangle2D;
 import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -23,6 +24,7 @@ public class JOGLEventAdapter implements MouseListener, KeyListener {
 	private Point sourceLoc=null;
 	private AtomicBoolean running=new AtomicBoolean();
 	static private final int MAX_MOUSE_BUTTONS=java.awt.MouseInfo.getNumberOfButtons();
+	private Rectangle2D.Double adjRect=null;
 	
 	/**
 	 * 
@@ -46,8 +48,20 @@ public class JOGLEventAdapter implements MouseListener, KeyListener {
 	public JOGLEventAdapter(JOGLImageCanvas jic, com.jogamp.newt.Window win) {
 		this(jic.icc, win, jic, jic, null, jic);
 	}
-	
+	/**
+	 * Set the GUI DPI scale in case it does not match with AWT
+	 * @param dpi
+	 */
 	public void setDPI(float dpi) {dpimag=dpi;}
+	
+	/**
+	 * Allows for adjusting the mouse location
+	 * adjRect is x,y -offset, w,h - scale
+	 * @param r
+	 */
+	public void setAdjRect(Rectangle2D.Double r) {
+		adjRect=r;
+	}
 	
 	public void addMouseListener(java.awt.event.MouseListener mouseListener) {
 		if(mouseListener!=null) mouseListeners.add(mouseListener);
@@ -194,7 +208,7 @@ public class JOGLEventAdapter implements MouseListener, KeyListener {
 			sourceLoc=source.getLocation(sourceLoc);
 			running.set(false);
 		}
-		return convertME(e, source, dpimag, sourceLoc);
+		return convertME(e, source, dpimag, sourceLoc, adjRect);
 	}
 	private java.awt.event.KeyEvent convertKE(KeyEvent e){
 		return convertKE(e, source);
@@ -217,7 +231,7 @@ public class JOGLEventAdapter implements MouseListener, KeyListener {
 				p=source.getLocationOnScreen();
 			}catch(Exception ex) {}
 		}
-		return convertME(e,source,dpimag,p);
+		return convertME(e,source,dpimag,p, null);
 	}
 	
 	/**
@@ -228,7 +242,7 @@ public class JOGLEventAdapter implements MouseListener, KeyListener {
 	 * @param dpimag	To correct for dpi magnification if necessary (use 1.0f if not)
 	 * @return			The AWT MouseEvent
 	 */
-	public static java.awt.event.MouseEvent convertME(MouseEvent e, Component source, float dpimag, Point sourceLoc){
+	public static java.awt.event.MouseEvent convertME(MouseEvent e, Component source, float dpimag, Point sourceLoc, Rectangle2D.Double adjRect){
 		java.awt.event.MouseEvent res=null;
 		int x=(int)(e.getX()/dpimag),
 			y=(int)(e.getY()/dpimag),
@@ -236,6 +250,10 @@ public class JOGLEventAdapter implements MouseListener, KeyListener {
 		if(sourceLoc!=null) {
 			sx=x+sourceLoc.x;
 			sy=y+sourceLoc.y;
+		}
+		if(adjRect!=null) {
+			x+=(int)adjRect.x; y+=(int)adjRect.y;
+			x=(int)((double)x*adjRect.width); y=(int)((double)y*adjRect.height);
 		}
 		if(e.getEventType() ==MouseEvent.EVENT_MOUSE_WHEEL_MOVED) {
 			float rot=e.getRotation()[1];

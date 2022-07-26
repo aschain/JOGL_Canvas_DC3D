@@ -110,11 +110,12 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private boolean mirrorMagUnlock=false;
 	private ImageState imageState;
 	private boolean[] ltr=null;
+	private boolean mouseDragged=false;
 
 	protected boolean go3d=JCP.go3d;
 	public String renderFunction=JCP.renderFunction;
 	protected int sx,sy, osx, osy;
-	protected float dx=0f,dy=0f,dz=0f, tx=0f, ty=0f, tz=0f, supermag=0f, anglehash;
+	protected float dx=0f,dy=0f,dz=0f, tx=0f, ty=0f, tz=0f, supermag=0f;
 	private float[] gamma=null;
 	
 	private PopupMenu dcpopup=null;
@@ -1965,9 +1966,12 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 
 			addMI(threeDmenu,"Update 3d Image","update");
 			addMI(threeDmenu,"Reset 3d view","reset3d");
-			addMI(threeDmenu,"Adjust Cut Planes","adjust3d");
-			addMI(threeDmenu,"Adjust Contrast/Gamma","gamma");
-			addMI(threeDmenu,"Adjust Rot-Trans","rottrans");
+			
+			menu=new Menu("Adjustments");
+			addMI(menu,"Adjust Cut Planes","adjust3d");
+			addMI(menu,"Adjust Contrast/Gamma","gamma");
+			addMI(menu,"Adjust Rot-Trans","rottrans");
+			threeDmenu.add(menu);
 			
 			menu=new Menu("Stereoscopic 3d");
 			for(int i=0;i<stereoTypeStrings.length;i++) {
@@ -2364,7 +2368,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			sx = e.getX();
 			sy = e.getY();
 			osx=sx; osy=sy;
-			anglehash=dx+dy+dz;
 		}else {
 			if(isMirror && isRightClick(e) && Toolbar.getToolId()!=Toolbar.MAGNIFIER) {handlePopupMenu(e);return;}
 			super.mousePressed(e);
@@ -2378,6 +2381,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	@Override
 	public void mouseDragged(MouseEvent e) {
 		if(shouldKeep(e)) {
+			mouseDragged=true;
 			boolean alt=(e.getModifiersEx() & MouseEvent.ALT_DOWN_MASK)!=0;
 			boolean ctrl=(e.getModifiersEx() & (MouseEvent.CTRL_DOWN_MASK | MouseEvent.META_DOWN_MASK))!=0;
 			boolean shift=(e.getModifiersEx() & MouseEvent.SHIFT_DOWN_MASK)!=0;
@@ -2394,13 +2398,15 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				if(alt||e.getButton()==MouseEvent.BUTTON2) {
 					if(shift) {
 						tz-=yd;
+						imageState.setNextSrcRect=true;
 					}else dz+=yd*90f;
 				}else if(shift) {
 					if(ctrl) {
-						supermag-=yd*magnification;
+						setSuperMag(supermag-yd*(float)magnification);
 					}else {
 						tx+=xd;
 						ty-=yd;
+						imageState.setNextSrcRect=true;
 					}
 				}else {
 					dx+=xd*90f;
@@ -2423,7 +2429,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	@Override
 	public void mouseReleased(MouseEvent e) {
 		if(shouldKeep(e)) {
-			if(anglehash==(dx+dy+dz)) {handlePopupMenu(e);return;}
+			if(!mouseDragged) {handlePopupMenu(e);return;}
 			if(JCP.drawCrosshairs>0) {
 				glw.warpPointer((int)(joglEventAdapter.getDejustedX(osx)*dpimag/surfaceScale+0.5), (int)(joglEventAdapter.getDejustedY(osy)*dpimag/surfaceScale+0.5));
 				if(JCP.debug)log("Pointer warped "+joglEventAdapter.getDejustedX(osx)+" "+joglEventAdapter.getDejustedY(osy));
@@ -2431,10 +2437,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}else {
 			super.mouseReleased(e);
 		}
+		mouseDragged=false;
 	}
 	
 	public void resetAngles() {
-		dx=0f; dy=0f; dz=0f; tx=0f; ty=0f; tz=0f;
+		dx=0f; dy=0f; dz=0f; tx=0f; ty=0f; tz=0f; supermag=0f;
 		repaint();
 	}
 	
@@ -2578,71 +2585,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			stwin.pack();
 		}
 	}
-	
-	/**
-	 * Adds an update button the the window.
-	 * The 3D image takes some time to load into memory,
-	 * So it is not updated on every draw.  In case the user
-	 * changes the image (cut, paste, draw, fill, process),
-	 * The user can then press the update button (or type
-	 * u) to update the 3d image.
-	 * @param show
-	 */
-	/*public void showUpdateButton(boolean show) {
-		boolean nowin=(imp==null || imp.getWindow()==null || !(imp.getWindow() instanceof StackWindow));
-		if(updateButton!=null && (!show || nowin)) {
-			Container parent=updateButton.getParent();
-			if(parent!=null) {parent.remove(updateButton);}
-			updateButton=null;
-		}
-		if(nowin)return;
-		StackWindow stwin=(StackWindow) imp.getWindow();
-		if(show && updateButton!=null) {
-			if(updateButton.getParent()!=null && updateButton.getParent().getParent()==stwin && updateButton.isEnabled())return;
-		}
-		ScrollbarWithLabel scr=null;
-		Component[] comps=stwin.getComponents();
-		for(int i=0;i<comps.length;i++) {
-			if(comps[i] instanceof ij.gui.ScrollbarWithLabel) {
-				scr=(ScrollbarWithLabel)comps[i];
-				scr.addAdjustmentListener(new AdjustmentListener() {
-					@Override
-					public void adjustmentValueChanged(AdjustmentEvent e) {
-						sbAdjusting=e.getValueIsAdjusting();
-					}
-				});
-			}
-		}
-		if(scr!=null) {
-			//Remove any orphaned updateButtons, like with a crashed JOGLImageCanvas
-			comps=scr.getComponents();
-			for(int i=0;i<comps.length;i++) {
-				if(comps[i] instanceof Button) {
-					String label=((Button)comps[i]).getLabel();
-					if(label.equals("Update")||label.equals("Updating...")) {
-						scr.remove(comps[i]);
-					}
-				}
-			}
-			
-			if(show) {
-				updateButton= new Button("Update");
-				updateButton.addActionListener(new ActionListener() {
-					public void actionPerformed(ActionEvent e) {
-						updateButton.setLabel("Updating...");
-						updateButton.setEnabled(false);
-						updateButton.repaint();
-						if(isMirror && mirror==null) {showUpdateButton(false);return;}
-						myImageUpdated=true; repaint();
-					}
-				});
-				updateButton.setFocusable(false);
-				scr.add(updateButton,BorderLayout.EAST);
-			}
-			stwin.pack();
-		}
-	}
-	*/
 	
 	/**
 	 * Perhaps this could be integrated with plugins like CLIJ

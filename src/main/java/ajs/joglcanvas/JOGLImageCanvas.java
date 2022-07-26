@@ -103,7 +103,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	protected boolean disablePopupMenu;
 	protected double dpimag=1.0;
 	protected float surfaceScale=1.0f;
-	private double ratio=1.0;
 	protected boolean myImageUpdated=true;
 	private boolean deletePBOs=false;
 	protected boolean isMirror=false;
@@ -459,28 +458,29 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	public void reshape(GLAutoDrawable drawable, int x, int y, int width, int height) {
 		if(JCP.debug) log("Reshaping:x"+x+" y"+y+" w"+width+" h"+height);
 		setDPImag(drawable);
+		double ratio=1.0;
 		if(go3d && stereoType==StereoType.CARDBOARD) {
 			Rectangle r=getCBViewportAspectRectangle(x,y,width,height);
 			gl.glViewport(r.x, r.y, r.width, r.height);
-			ratio=1.0;
 		}else {
 			ratio=((float)drawable.getSurfaceWidth()/drawable.getSurfaceHeight())/((float)srcRect.width/srcRect.height);
 		}
-		resetGlobalMatrices();
+		resetGlobalMatrices(drawable);
 		if(isMirror) {
-			Rectangle2D.Double adjRect=null;
-			if(ratio>1.0) {
-				double mag=(double)glw.getSurfaceHeight()/getHeight();
-				double xoffset=((double)glw.getSurfaceWidth()-(double)getWidth()*mag)/2.0;
-				//y=(int)((double)y/mag);
-				//x=(int)( ((double)x-xoffset)/glw.getSurfaceWidth()*getWidth());
-			}
-			if(ratio<1.0) {
-				double mag=(double)glw.getSurfaceWidth()/getWidth();
-				double yoffset=((double)glw.getSurfaceHeight()-(double)getHeight()*mag)/2.0;
-				//x=(int)((double)x/mag);
-				//y=(int)( ((double)y-yoffset)/glw.getSurfaceHeight()*getHeight());
-			}
+			if(drawable.getSurfaceWidth()!=getWidth() || drawable.getSurfaceHeight()!=getHeight()) {
+				double mag=1.0, xoffset=0, yoffset=0;
+				if(ratio>1.0) {
+					mag=(double)drawable.getSurfaceHeight()/getHeight();
+					xoffset=((double)drawable.getSurfaceWidth()-(double)getWidth()*mag)/2.0;
+				}
+				if(ratio<=1.0) {
+					mag=(double)drawable.getSurfaceWidth()/getWidth();
+					yoffset=((double)drawable.getSurfaceHeight()-(double)getHeight()*mag)/2.0;
+				}
+				Rectangle2D.Double adjRect=new Rectangle2D.Double(-xoffset,-yoffset,1/mag,1/mag);
+				if(JCP.debug) log("adjRect "+adjRect);
+				joglEventAdapter.setAdjRect(adjRect);
+			}else joglEventAdapter.setAdjRect(null);
 		}
 		
 		if(JCP.debug) {
@@ -509,7 +509,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	/**
 	 * @param rat ratio of ratios: drawable w/h : srcRect w/h
 	 */
-	private void resetGlobalMatrices() {
+	private void resetGlobalMatrices(GLAutoDrawable drawable) {
+		double ratio=((double)drawable.getSurfaceWidth()/drawable.getSurfaceHeight())/((double)srcRect.width/srcRect.height);
 		float sx=1f, sy=1f;
 		if(ratio>1.0f) sx=(float)(1.0/ratio);  else sy=(float)ratio;
 		//FloatUtil.makeOrtho(new float[16], 0, false, -1f/sx, 1f/sx, -1f/sy, 1f/sy, -1f/sx, 1f/sx);
@@ -561,11 +562,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				glos.getUniformBuffer(bname).loadMatrix(g_view_matrix, 16*Buffers.SIZEOF_FLOAT);
 			}
 		}
-	}
-	
-	private void resetGlobalMatrices(GLAutoDrawable drawable) {
-		ratio=((double)drawable.getSurfaceWidth()/drawable.getSurfaceHeight())/((double)srcRect.width/srcRect.height);
-		resetGlobalMatrices();
 	}
 
 	@Override
@@ -1916,18 +1912,14 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			//if (disablePopupMenu) return;
 			glw.setPointerVisible(true);
 			if (IJ.debugMode) log("show popup: " + (e.isPopupTrigger()?"true":"false"));
-			int x = e.getX();
-			int y = e.getY();
 			Roi roi = imp.getRoi();
 			if (roi!=null && roi.getState()==Roi.CONSTRUCTING) {
 				return;
 			}
 
 			if (dcpopup!=null) {
-				//x=(int)(x/dpimag);
-				//y=(int)(y/dpimag);
 				icc.add(dcpopup);
-				dcpopup.show(icc,x,y);
+				dcpopup.show(icc,joglEventAdapter.getDejustedX(e.getX()),joglEventAdapter.getDejustedY(e.getY()));
 			}
 			glw.setPointerVisible(JCP.drawCrosshairs>0);
 		}
@@ -2394,9 +2386,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				if((e.getX()-osx)==0 && (e.getY()-osy)==0)return;
 				float xd=(float)(e.getX()-sx)/(float)srcRect.width;
 				float yd=(float)(e.getY()-sy)/(float)srcRect.height;
-				if(JCP.debug && verbose)log("Dragged "+e.getX()+"x "+e.getY()+"y  sx"+sx+" sy"+sy);
+				if(JCP.debug)log("Dragged "+e.getX()+"x "+e.getY()+"y  sx"+sx+" sy"+sy);
 				if(warpPointerWorks) {
-					int wx=(int)(osx*dpimag/surfaceScale+0.5), wy=(int)(osy*dpimag/surfaceScale+0.5);
+					int wx=(int)(joglEventAdapter.getDejustedX(osx)*dpimag/surfaceScale+0.5), wy=(int)(joglEventAdapter.getDejustedY(osy)*dpimag/surfaceScale+0.5);
 					glw.warpPointer(wx,wy);
 				}else{sx=e.getX(); sy=e.getY();}
 				if(alt||e.getButton()==MouseEvent.BUTTON2) {
@@ -2433,8 +2425,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(shouldKeep(e)) {
 			if(anglehash==(dx+dy+dz)) {handlePopupMenu(e);return;}
 			if(JCP.drawCrosshairs>0) {
-				glw.warpPointer((int)(osx*dpimag/surfaceScale+0.5), (int)(osy*dpimag/surfaceScale+0.5));
-				if(JCP.debug)log("Pointer warped "+osx+" "+osy);
+				glw.warpPointer((int)(joglEventAdapter.getDejustedX(osx)*dpimag/surfaceScale+0.5), (int)(joglEventAdapter.getDejustedY(osy)*dpimag/surfaceScale+0.5));
+				if(JCP.debug)log("Pointer warped "+joglEventAdapter.getDejustedX(osx)+" "+joglEventAdapter.getDejustedY(osy));
 			}
 		}else {
 			super.mouseReleased(e);

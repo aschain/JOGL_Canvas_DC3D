@@ -115,7 +115,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	protected boolean go3d=JCP.go3d;
 	public String renderFunction=JCP.renderFunction;
 	protected int sx,sy, osx, osy;
-	protected float dx=0f,dy=0f,dz=0f, tx=0f, ty=0f, tz=0f, supermag=0f;
+	protected float dx=0f,dy=0f,dz=0f, tx=0f, ty=0f, tz=0f, supermag=0f, zNear=JCP.zNear, zFar=JCP.zFar;
 	private float[] gamma=null;
 	
 	private PopupMenu dcpopup=null;
@@ -173,6 +173,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private boolean onScreenMirrorCursor=false;
 	private boolean warpPointerWorks=false;
 	final private boolean stereoEnabled;
+	private boolean one3Dslice=false;
 
 	public JOGLImageCanvas(ImagePlus imp, boolean mirror) {
 		super(imp);
@@ -262,6 +263,11 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}
 		if(dpimag!=newdpi)
 			setDPImag(newdpi);
+	}
+	
+	public void setOne3Dslice(boolean boo) {
+		one3Dslice=boo;
+		this.resetGlobalMatrices(null);
 	}
 
 	//GLEventListener methods
@@ -511,25 +517,29 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	 * @param rat ratio of ratios: drawable w/h : srcRect w/h
 	 */
 	private void resetGlobalMatrices(GLAutoDrawable drawable) {
-		double ratio=((double)drawable.getSurfaceWidth()/drawable.getSurfaceHeight())/((double)srcRect.width/srcRect.height);
+		double ratio=1.0;
+		if(drawable!=null)ratio=((double)drawable.getSurfaceWidth()/drawable.getSurfaceHeight())/((double)srcRect.width/srcRect.height);
+		else ratio=((double)glw.getSurfaceWidth()/glw.getSurfaceHeight())/((double)srcRect.width/srcRect.height);
 		float sx=1f, sy=1f;
 		if(ratio>1.0f) sx=(float)(1.0/ratio);  else sy=(float)ratio;
-		//FloatUtil.makeOrtho(new float[16], 0, false, -1f/sx, 1f/sx, -1f/sy, 1f/sy, -1f/sx, 1f/sx);
+		float znear=zNear, zfar=zFar;
+		if(one3Dslice) {znear=-2/(float)imageWidth; zfar=-znear;}
+		float[] viewmatrix=FloatUtil.makeOrtho(new float[16], 0, false, -1f/sx, 1f/sx, -1f/sy, 1f/sy, znear/sx, zfar/sx);
 		
 		//clear "projection" matrix
 		glos.getUniformBuffer("global").loadIdentity();
 		//set the second, "view" matrix to the ratio scale
-		float[] viewmatrix=new float[] {
-				sx, 0, 0, 0,
-				0, sy, 0, 0,
-				0, 0, -sx, 0,
-				0, 0, 0, 1f
-			};
+		//float[] viewmatrix=new float[] {
+		//		sx, 0, 0, 0,
+		//		0, sy, 0, 0,
+		//		0, 0, -sx, 0,
+		//		0, 0, 0, 1f
+		//	};
 		glos.getUniformBuffer("global").loadMatrix(viewmatrix, 16*Buffers.SIZEOF_FLOAT);
 		if(go3d) {
 			float xrat=1f, yrat=1f;
 			if(ratio>1.0)xrat=(float)ratio;else yrat=(float)ratio;
-			float nearZ = 0.5f, depthZ=5f, IOD=JCP.stereoSep, g_initial_fov=(float)Math.toRadians(fov);
+			float nearZ = zNear-JCP.zNear+1f, depthZ=zFar-JCP.zNear+1f, IOD=JCP.stereoSep, g_initial_fov=(float)Math.toRadians(fov);
 			double frustumshift = (IOD/2)*nearZ/depthZ;
 			float ftop = (float)Math.tan(g_initial_fov/2)*nearZ;
 			float fbottom = -ftop;
@@ -546,13 +556,14 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				float fright =(float)(xrat*ftop+frustumshift*left_right_direction);
 				float fleft =-fright;
 				float[] g_projection_matrix=null;
-				if(JCP.doFrustum) {
+				if(JCP.doFrustum && !one3Dslice) {
 					g_projection_matrix = FloatUtil.makeFrustum(new float[16], 0, false, fleft, fright, fbottom/yrat, ftop/yrat, nearZ, depthZ);
 					frustumZshift=-1.35f*(zmax+1f);//-1f-(3.33f*zmax);
 				} else {
 					//g_projection_matrix=FloatUtil.makeIdentity(new float[16]);
 					g_projection_matrix=viewmatrix;
 					frustumZshift=1f+zmax;
+					if(one3Dslice)frustumZshift=1f-zmax;
 				}
 			  // update the view matrix
 				float[] eye=new float[] {left_right_direction*IOD/2, 0, 1};
@@ -924,7 +935,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				//roi model matrix
 				scX=(float)imageWidth/srcRect.width;
 				scY=(float)imageHeight/srcRect.height;
-				FloatUtil.multMatrix(rotate,FloatUtil.makeTranslation(new float[16], false, tx*scX, ty*scY, tz*scX));
+				if(tx!=0 || ty!=0 || tz!=0)FloatUtil.multMatrix(rotate,FloatUtil.makeTranslation(new float[16], false, tx*scX, ty*scY, tz*scX));
 				if(supermag!=0f) {
 					float tsm=(scX+supermag)/scX;
 					rotate=FloatUtil.multMatrix(FloatUtil.makeScale(new float[16], false, tsm, tsm, tsm), rotate);
@@ -2430,10 +2441,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	public void mouseReleased(MouseEvent e) {
 		if(shouldKeep(e)) {
 			if(!mouseDragged) {handlePopupMenu(e);return;}
-			if(JCP.drawCrosshairs>0) {
-				glw.warpPointer((int)(joglEventAdapter.getDejustedX(osx)*dpimag/surfaceScale+0.5), (int)(joglEventAdapter.getDejustedY(osy)*dpimag/surfaceScale+0.5));
-				if(JCP.debug)log("Pointer warped "+joglEventAdapter.getDejustedX(osx)+" "+joglEventAdapter.getDejustedY(osy));
-			}
+			//if(JCP.drawCrosshairs>0) {
+			glw.warpPointer((int)(joglEventAdapter.getDejustedX(osx)*dpimag/surfaceScale+0.5), (int)(joglEventAdapter.getDejustedY(osy)*dpimag/surfaceScale+0.5));
+			if(JCP.debug)log("Pointer warped "+joglEventAdapter.getDejustedX(osx)+" "+joglEventAdapter.getDejustedY(osy));
+			//}
 		}else {
 			super.mouseReleased(e);
 		}
@@ -2455,9 +2466,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			if(isMirror && e.getSource()==icc) {
 				onScreenMirrorCursor=true;
 			}else onScreenMirrorCursor=false;
-			if(JCP.drawCrosshairs>0) {setImageCursorPosition(e);}
+			if(JCP.drawCrosshairs>0) {setImageCursorPosition(e); repaintLater();}
 			super.mouseMoved(e);
-			repaintLater();
 		//}
 	}
 	
@@ -2497,7 +2507,14 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		if(eas==null || eas.length!=6) {resetAngles(); return;}
 		dx=eas[0]; dy=eas[1]; dz=eas[2];
 		tx=eas[3]; ty=eas[4]; tz=eas[5];
-		repaint();
+		imageState.setNextSrcRect=true;
+	}
+	
+	public void setNearFar(float[] nearfar) {
+		zNear=nearfar[0];
+		zFar=nearfar[1];
+		resetGlobalMatrices(null);
+		imageState.setNextSrcRect=true;
 	}
 	
 	public void setDPImag(double dpi) {

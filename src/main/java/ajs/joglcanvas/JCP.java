@@ -91,6 +91,7 @@ public class JCP implements PlugIn {
 	public static boolean mouseWheelFix=Prefs.get("ajs.joglcanvas.mouseWheelFix", IJ.isMacOSX() || IJ.isLinux());
 	public static boolean quiet=Prefs.get("ajs.joglcanvas.quiet", false);
 	public static boolean debug=false;
+	public static float zNear=-2f, zFar=2f;
 	private static final float[][] duboisColors = new float[][] {
 		 {0.456f, -0.04f, -0.015f,
 		 0.5f, -0.038f, -0.021f,

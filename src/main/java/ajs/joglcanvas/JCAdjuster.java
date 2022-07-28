@@ -31,14 +31,14 @@ public abstract class JCAdjuster extends PlugInDialog implements AdjustmentListe
 	}
 	
 	protected void setToDefaultLocation() {
-		Container win=jic.getParent();
+		Container win=jic.icc.getParent();
 		Rectangle b=win.getBounds();
 		setLocation(new Point(b.x+b.width+10,b.y+5));
 	}
 
 	@Override
 	public void adjustmentValueChanged(AdjustmentEvent e) {
-		if(jic.icc==null)dispose();
+		if(jic.icc==null || !jic.icc.isVisible())dispose();
 	}
 	
 	@SuppressWarnings("serial")

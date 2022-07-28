@@ -1,12 +1,15 @@
 package ajs.joglcanvas;
 
 import java.awt.Button;
+import java.awt.Checkbox;
 import java.awt.Frame;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.TextArea;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.ItemEvent;
+import java.awt.event.ItemListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
@@ -29,6 +32,8 @@ public class JCRecorder implements PlugIn, BIScreenGrabber {
 	private volatile boolean stop=false;
 	private JCRecorderBox recbox;
 	private JOGLImageCanvas dcic;
+	private boolean crosshairs=false;
+	private int prevCrosshairs;
 	
 	@Override
 	public void run(String arg) {
@@ -41,7 +46,9 @@ public class JCRecorder implements PlugIn, BIScreenGrabber {
 		if(imp==null) {IJ.noImage();return;}
 		dcic=JCP.getJOGLImageCanvas(imp);
 		if(dcic==null){IJ.showMessage("Image is not DeepColor");return;}
-		dcic.getParent().requestFocus();
+		dcic.icc.getParent().requestFocus();
+		prevCrosshairs=JCP.drawCrosshairs;
+		JCP.drawCrosshairs=0;
 		recbox=new JCRecorderBox(this);
 	}
 	
@@ -116,6 +123,79 @@ public class JCRecorder implements PlugIn, BIScreenGrabber {
 		}).start();
 	}
 	
+	public void genStack() {
+		if(saving.get())return;
+		saving.set(true);
+		recbox.setStopEnabled(true);
+		recbox.setStartEnabled(false);
+		dcic.setBIScreenGrabber(this);
+		stop=false;
+		(new Thread() {
+			public void run() {
+				boolean start=true;
+		        long startTime = System.nanoTime();
+		        long elapsedTime=startTime;
+		        long waitTime=0;
+		        long fn=0;
+		        String mystatus="";
+				ImageStack newimgst=null;
+				String title;
+				int tn=0;
+				ImagePlus imp=dcic.getImage();
+				do{tn++;title=imp.getTitle()+"-genstack"+IJ.pad(tn, 2);}while(WindowManager.getImage(title)!=null);
+				dcic.setOne3Dslice(true);
+				float slice=2/(float)imp.getWidth();
+				float[] preveas=dcic.getEulerAngles();
+
+				for(float z=-1f;z<1f;z+=slice) {
+					if(stop)break;
+					float[] eas=dcic.getEulerAngles();
+					eas[5]=z;
+					dcic.setEulerAngles(eas);
+					dcic.repaint();
+			        do{
+			        	// sleep for min frame rate milliseconds
+			        	try {
+			        		Thread.sleep(1L);
+			        	} catch (InterruptedException e) {
+			        		// ignore
+			        	}
+		        		waitTime=System.nanoTime()-elapsedTime;
+			        	elapsedTime=System.nanoTime();
+		        		recbox.setStatus(mystatus+" Idle: "+(waitTime/1000000000L)+"s");
+				        if(waitTime>(60L*1000000000L))stop=true;
+			        }while (!stop && !updated && dcic.getPaintPending());
+		        	if(updated) {
+			        	currImage = convertToType(currImage, BufferedImage.TYPE_3BYTE_BGR);
+			        	mystatus="Frame: "+(fn++)+" Time: "+(((float)elapsedTime-(float)startTime)/1000000000f)+"s";
+			        	recbox.setStatus(mystatus);
+			        	ImagePlus adderimg=new ImagePlus("add image",currImage);
+			        	if(start) {
+			        		newimgst=new ImageStack(adderimg.getWidth(),adderimg.getHeight());
+			        		start=false;
+			        	}
+		        		newimgst.addSlice(mystatus, adderimg.getProcessor());
+		    			adderimg.close();
+			        	updated=false;
+		        	}else {
+		        		IJ.log(mystatus+" missed frame "+z);
+		        		recbox.setStatus(mystatus+" missed frame "+z);
+		        	}
+		        }
+
+				dcic.setEulerAngles(preveas);
+				dcic.setOne3Dslice(false);
+				dcic.repaint();
+        		(new ImagePlus(title,newimgst)).show();
+		        saving.set(false);
+		        stop=false;
+		        recbox.setStatus(mystatus+"\nCompleted genstack");
+				recbox.setStopEnabled(false);
+				recbox.setStartEnabled(true);
+			}
+		}).start();
+	}
+	
 	public static BufferedImage convertToType(BufferedImage sourceImage,
             int targetType) {
 
@@ -164,6 +244,7 @@ public class JCRecorder implements PlugIn, BIScreenGrabber {
 			c.gridx=0;c.gridy=0;
 			c.gridwidth=2;
 			status=new TextArea("Idle...",5,55,TextArea.SCROLLBARS_NONE);
+			status.setEditable(false);
 			add(status,c);
 			c.gridy=1;
 			c.gridwidth=1;
@@ -184,6 +265,25 @@ public class JCRecorder implements PlugIn, BIScreenGrabber {
 				}
 			});
 			add(stopButton,c);
+			Checkbox cb=new Checkbox("Record crosshairs?", crosshairs);
+			cb.addItemListener(new ItemListener() {
+				public void itemStateChanged(ItemEvent e) {
+					crosshairs=e.getStateChange()==ItemEvent.SELECTED;
+					if(!crosshairs)JCP.drawCrosshairs=0;
+					else JCP.drawCrosshairs=prevCrosshairs;
+				}
+			});
+			c.gridy++;
+			c.gridx=0;
+			add(cb,c);
+			Button b=new Button("Generate z-stack");
+			b.addActionListener(new ActionListener() {
+				public void actionPerformed(ActionEvent e) {
+					recorder.genStack();
+				}
+			});
+			c.gridx++;
+			add(b,c);
 			setVisible(true);
 		}
 		

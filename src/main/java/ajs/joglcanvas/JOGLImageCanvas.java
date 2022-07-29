@@ -523,7 +523,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		float sx=1f, sy=1f;
 		if(ratio>1.0f) sx=(float)(1.0/ratio);  else sy=(float)ratio;
 		float znear=zNear, zfar=zFar;
-		if(one3Dslice) {znear=-2/(float)imageWidth; zfar=-znear;}
+		//if(one3Dslice) {znear=-2/(float)imageWidth; zfar=-znear;}
 		float[] viewmatrix=FloatUtil.makeOrtho(new float[16], 0, false, -1f/sx, 1f/sx, -1f/sy, 1f/sy, znear/sx, zfar/sx);
 		
 		//clear "projection" matrix
@@ -562,8 +562,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				} else {
 					//g_projection_matrix=FloatUtil.makeIdentity(new float[16]);
 					g_projection_matrix=viewmatrix;
-					frustumZshift=1f+zmax;
-					if(one3Dslice)frustumZshift=1f-zmax;
+					frustumZshift=1f;
+					//if(one3Dslice)frustumZshift=1f;
 				}
 			  // update the view matrix
 				float[] eye=new float[] {left_right_direction*IOD/2, 0, 1};
@@ -905,7 +905,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			//and order of drawing slices depending on rotation
 			if(go3d) {
 				//Set up matricies
-				rotate=FloatUtil.makeRotationEuler(new float[16], 0, dy*FloatUtil.PI/180f, (float)dx*FloatUtil.PI/180f, (float)dz*FloatUtil.PI/180f);
+				rotate=FloatUtil.makeRotationEuler(new float[16], 0, dy*FloatUtil.PI/180f, dx*FloatUtil.PI/180f, dz*FloatUtil.PI/180f);
 				//log("\\Update0:X x"+Math.round(100.0*matrix[0])/100.0+" y"+Math.round(100.0*matrix[1])/100.0+" z"+Math.round(100.0*matrix[2])/100.0);
 				//log("\\Update1:Y x"+Math.round(100.0*matrix[4])/100.0+" y"+Math.round(100.0*matrix[5])/100.0+" z"+Math.round(100.0*matrix[6])/100.0);
 				//log("\\Update2:Z x"+Math.round(100.0*matrix[8])/100.0+" y"+Math.round(100.0*matrix[9])/100.0+" z"+Math.round(100.0*matrix[10])/100.0);
@@ -2510,6 +2510,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		imageState.setNextSrcRect=true;
 	}
 	
+	/**
+	 * 
+	 * @param nearfar
+	 */
 	public void setNearFar(float[] nearfar) {
 		zNear=nearfar[0];
 		zFar=nearfar[1];

@@ -15,11 +15,14 @@ import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import com.jogamp.opengl.math.FloatUtil;
+
 import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.Macro;
 import ij.WindowManager;
+import ij.gui.YesNoCancelDialog;
 import ij.plugin.PlugIn;
 
 public class JCRecorder implements PlugIn, BIScreenGrabber {
@@ -123,12 +126,28 @@ public class JCRecorder implements PlugIn, BIScreenGrabber {
 		}).start();
 	}
 	
-	public void genStack() {
+	public void genStack(Button b) {
 		if(saving.get())return;
 		saving.set(true);
 		recbox.setStopEnabled(true);
 		recbox.setStartEnabled(false);
+		b.setEnabled(false);
 		dcic.setBIScreenGrabber(this);
+		ImagePlus imp=dcic.getImage();
+		boolean dofrmst=false;
+		if(imp.getNFrames()>1) {
+			YesNoCancelDialog yn=new YesNoCancelDialog(recbox, "Multi frames", "Do all frames?", "All frames", "Just Frame "+imp.getT());
+			if(yn.cancelPressed()) {
+				saving.set(false);
+		        stop=false;
+		        recbox.setStatus("\nGenstack cancelled");
+				recbox.setStopEnabled(false);
+				recbox.setStartEnabled(true);
+				b.setEnabled(true);
+			}
+			dofrmst=yn.yesPressed();
+		}
+		final boolean dofrms=dofrmst;
 		stop=false;
 		(new Thread() {
 			public void run() {
@@ -144,46 +163,72 @@ public class JCRecorder implements PlugIn, BIScreenGrabber {
 				ImagePlus imp=dcic.getImage();
 				do{tn++;title=imp.getTitle()+"-genstack"+IJ.pad(tn, 2);}while(WindowManager.getImage(title)!=null);
 				dcic.setOne3Dslice(true);
-				float slice=2/(float)imp.getWidth();
+				float slice=2f*dcic.zmax/imp.getNSlices();
 				float[] preveas=dcic.getEulerAngles();
 
-				for(float z=-1f;z<1f;z+=slice) {
+				int endfr=imp.getT(),stfr=endfr-1;
+				if(dofrms) {stfr=0;endfr=imp.getNFrames();}
+				float[] eas=dcic.getEulerAngles();
+				float[] rotation=FloatUtil.makeRotationEuler(new float[16], 0, eas[1]*FloatUtil.PI/180f, eas[0]*FloatUtil.PI/180f, eas[2]*FloatUtil.PI/180f);
+				float[] vecs=new float[] {
+						-1f,-1f,dcic.zmax, 0f,
+						1f,-1f,dcic.zmax, 0f,
+						-1f,1f,dcic.zmax, 0f,
+						1f,1f,dcic.zmax, 0f,
+						-1f,-1f,-dcic.zmax, 0f,
+						1f,-1f,-dcic.zmax, 0f,
+						-1f,1f,-dcic.zmax, 0f,
+						1f,1f,-dcic.zmax, 0f,
+						};
+				float[] vec=new float[4];
+				float[] ans=new float[4];
+				float max=-dcic.zmax;
+				for(int i=0;i<(vecs.length/4);i++) {
+					vec[0]=vecs[i*4+0]; vec[1]=vecs[i*4+1]; vec[2]=vecs[i*4+2]; vec[3]=vecs[i*4+3];
+					FloatUtil.multMatrixVec(rotation, vec, ans);
+					max=Math.max(max, ans[2]);
+				}
+				updated=false;
+				for(int fr=stfr;fr<endfr;fr++) {
+					if(dofrms)imp.setT(fr+1);
+					for(float z=-max;z<max;z+=slice) {
+						if(stop)break;
+						float front=z+slice/2f;
+						dcic.setNearFar(new float[] {front,front+2f/imp.getWidth()});
+						dcic.repaint();
+				        do{
+				        	// sleep for min frame rate milliseconds
+				        	//try {
+				        	//	Thread.sleep(1L);
+				        	//} catch (InterruptedException e) {
+				        	//	// ignore
+				        	//}
+			        		waitTime=System.nanoTime()-elapsedTime;
+				        	elapsedTime=System.nanoTime();
+			        		//recbox.setStatus(mystatus+" Idle: "+(waitTime/1000000000L)+"s");
+					        if(waitTime>(60L*1000000000L))stop=true;
+				        }while (!stop && !updated);
+			        	if(updated) {
+				        	currImage = convertToType(currImage, BufferedImage.TYPE_3BYTE_BGR);
+				        	mystatus="Frame: "+(fn++)+" Time: "+(((float)elapsedTime-(float)startTime)/1000000000f)+"s";
+				        	recbox.setStatus(mystatus);
+				        	ImagePlus adderimg=new ImagePlus("add image",currImage);
+				        	if(start) {
+				        		newimgst=new ImageStack(adderimg.getWidth(),adderimg.getHeight());
+				        		start=false;
+				        	}
+			        		newimgst.addSlice(mystatus, adderimg.getProcessor());
+			    			adderimg.close();
+				        	updated=false;
+			        	}else {
+			        		IJ.log(mystatus+" missed frame "+z);
+			        		recbox.setStatus(mystatus+" missed frame "+z);
+			        	}
+			        }
 					if(stop)break;
-					float[] eas=dcic.getEulerAngles();
-					eas[5]=z;
-					dcic.setEulerAngles(eas);
-					dcic.repaint();
-			        do{
-			        	// sleep for min frame rate milliseconds
-			        	try {
-			        		Thread.sleep(1L);
-			        	} catch (InterruptedException e) {
-			        		// ignore
-			        	}
-		        		waitTime=System.nanoTime()-elapsedTime;
-			        	elapsedTime=System.nanoTime();
-		        		recbox.setStatus(mystatus+" Idle: "+(waitTime/1000000000L)+"s");
-				        if(waitTime>(60L*1000000000L))stop=true;
-			        }while (!stop && !updated && dcic.getPaintPending());
-		        	if(updated) {
-			        	currImage = convertToType(currImage, BufferedImage.TYPE_3BYTE_BGR);
-			        	mystatus="Frame: "+(fn++)+" Time: "+(((float)elapsedTime-(float)startTime)/1000000000f)+"s";
-			        	recbox.setStatus(mystatus);
-			        	ImagePlus adderimg=new ImagePlus("add image",currImage);
-			        	if(start) {
-			        		newimgst=new ImageStack(adderimg.getWidth(),adderimg.getHeight());
-			        		start=false;
-			        	}
-		        		newimgst.addSlice(mystatus, adderimg.getProcessor());
-		    			adderimg.close();
-			        	updated=false;
-		        	}else {
-		        		IJ.log(mystatus+" missed frame "+z);
-		        		recbox.setStatus(mystatus+" missed frame "+z);
-		        	}
-		        }
+				}
 
-				dcic.setEulerAngles(preveas);
+				dcic.setNearFar(new float[] {-2f,2f});
 				dcic.setOne3Dslice(false);
 				dcic.repaint();
         		(new ImagePlus(title,newimgst)).show();
@@ -192,15 +237,14 @@ public class JCRecorder implements PlugIn, BIScreenGrabber {
 		        recbox.setStatus(mystatus+"\nCompleted genstack");
 				recbox.setStopEnabled(false);
 				recbox.setStartEnabled(true);
+				b.setEnabled(true);
 			}
 		}).start();
 	}
 	
 	public static BufferedImage convertToType(BufferedImage sourceImage,
             int targetType) {
-
         BufferedImage image;
-
         // if the source image is already the target type, return the source
         // image
         if (sourceImage.getType() == targetType) {
@@ -213,9 +257,7 @@ public class JCRecorder implements PlugIn, BIScreenGrabber {
                     sourceImage.getHeight(), targetType);
             image.getGraphics().drawImage(sourceImage, 0, 0, null);
         }
-
         return image;
-
     }
 	
 	class JCRecorderBox extends Frame {
@@ -279,7 +321,7 @@ public class JCRecorder implements PlugIn, BIScreenGrabber {
 			Button b=new Button("Generate z-stack");
 			b.addActionListener(new ActionListener() {
 				public void actionPerformed(ActionEvent e) {
-					recorder.genStack();
+					recorder.genStack(b);
 				}
 			});
 			c.gridx++;

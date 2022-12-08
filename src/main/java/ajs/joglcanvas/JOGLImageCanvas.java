@@ -593,7 +593,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		imp.unlock();
 	}
 	
-	private void log(String string) {
+	public static void log(String string) {
 		java.awt.EventQueue.invokeLater(new Runnable() {
 			@Override
 			public void run() {
@@ -745,7 +745,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}
 		
 		//make sure image PBO is set up
-		if(glos.getPboLength("image")!=(chs*frms) || deletePBOs) {
+		if(glos.getPboLength("image")!=chs*(sb.isFrameStack?1:frms) || deletePBOs) {
 			glos.newPbo("image", chs*(sb.isFrameStack?1:frms));
 			sb.resetSlices();
 			deletePBOs=false;
@@ -765,7 +765,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						for(int isl=0;isl<sls;isl++) {
 							if(!sb.isSliceUpdated(isl, ifr)) {
 								glos.getPbo("image").updateSubRgbaPBO(ifr*chs+i, sb.getSliceBuffer(i+1, isl+1, ifr+1),0, isl*sb.sliceSize, sb.sliceSize, sb.bufferSize);
-								if(i==(chs-1))sb.updateSlice(isl,ifr);
+								if(i==(chs-1)) {sb.updateSlice(isl,ifr); log("updateSlice sl"+isl+" fr"+ifr);}
 							}
 						}
 					}
@@ -1081,7 +1081,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				glos.drawToTexture("temp", stereoi, width, height, tempFramebuffers[0], tempFramebuffers[1], pixelType3d);
 				glos.clearColorDepth();
 			}
-			boolean drawCrosshairs=JCP.drawCrosshairs>0 && oicp!=null  && (isMirror || go3d);
+			boolean drawCrosshairs=(JCP.drawCrosshairs>0 && oicp!=null  && (isMirror || go3d));
 			if(roi!=null || overlay!=null || drawCrosshairs) { 
 				//if(go3d)log(FloatUtil.matrixToString(null, "rot2: ", "%10.4f", rotate, 0, 4, 4, false).toString());
 				float z=0f;
@@ -1933,7 +1933,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				icc.add(dcpopup);
 				dcpopup.show(icc,joglEventAdapter.getDejustedX(e.getX()),joglEventAdapter.getDejustedY(e.getY()));
 			}
-			glw.setPointerVisible(JCP.drawCrosshairs>0);
+			//boolean drawCrosshairs=(JCP.drawCrosshairs>0 && oicp!=null  && (isMirror || go3d));
+			//glw.setPointerVisible(!drawCrosshairs);
 		}
 	}
 
@@ -2431,7 +2432,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			if(isMirror && e.getSource()==icc) {
 				onScreenMirrorCursor=true;
 			}else onScreenMirrorCursor=false;
-			if(JCP.drawCrosshairs>0) {setImageCursorPosition(e);}
+			boolean drawCrosshairs=(JCP.drawCrosshairs>0 && (isMirror || go3d));
+			if(drawCrosshairs) {setImageCursorPosition(e);}
 			super.mouseDragged(e);
 		}
 		repaintLater();
@@ -2466,7 +2468,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			if(isMirror && e.getSource()==icc) {
 				onScreenMirrorCursor=true;
 			}else onScreenMirrorCursor=false;
-			if(JCP.drawCrosshairs>0) {setImageCursorPosition(e); repaintLater();}
+			boolean drawCrosshairs=(JCP.drawCrosshairs>0  && (isMirror || go3d));
+			if(drawCrosshairs) {setImageCursorPosition(e); repaintLater();}
 			super.mouseMoved(e);
 		//}
 	}

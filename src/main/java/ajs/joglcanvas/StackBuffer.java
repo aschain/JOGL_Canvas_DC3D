@@ -83,13 +83,11 @@ public class StackBuffer {
 	}
 	
 	public boolean isSliceUpdated(int sl, int fr) {
-		if(isFrameStack)return updatedSlices[fr];
-		else return updatedSlices[fr*imp.getNSlices()+sl];
+		return updatedSlices[fr*imp.getNSlices()+sl];
 	}
 	
 	public void updateSlice(int sl, int fr) {
-		if(isFrameStack)updatedSlices[fr]=true;
-		else updatedSlices[fr*imp.getNSlices()+sl]=true;
+		updatedSlices[fr*imp.getNSlices()+sl]=true;
 	}
 		
 	/**

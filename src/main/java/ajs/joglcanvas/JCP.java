@@ -16,6 +16,7 @@ import javax.swing.event.ChangeListener;
 
 import static com.jogamp.opengl.GL.GL_VERSION;
 
+import java.awt.AWTEvent;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
@@ -521,7 +522,8 @@ public class JCP implements PlugIn {
 		gd.addCheckbox("3D on by default?", go3d);
 		gd.addChoice("Default 3d Render Type", new String[] {"MAX","ALPHA"}, renderFunction);
 		gd.addChoice("Default Undersampling for 3D", new String[] {"None","2","4","6"},undersample==1?"None":(""+undersample));
-		gd.addCheckbox("3D and Stereoscopic settings", false);
+		gd.addCheckbox("Perspective instead of orthoscopic projection?", doFrustum);
+		gd.addCheckbox("Stereoscopic settings", false);
 		gd.addCheckbox("Enable active stereo (quadbuffer w/ shutter glasses)", preferStereo);
 		gd.addCheckbox("Open 10-bit test image", false);
 		gd.addMessage("Advanced Settings:");
@@ -533,6 +535,21 @@ public class JCP implements PlugIn {
 		gd.addCheckbox("Fix if mouse wheel is not working for converted canvas", mouseWheelFix);
 		gd.addCheckbox("Don't print to log on startup, etc", quiet);
 		gd.addCheckbox("Show some extra debug info", debug);
+		gd.addDialogListener(new ij.gui.DialogListener() {
+			@Override
+			public boolean dialogItemChanged(GenericDialog gd, AWTEvent e) {
+				if(e!=null && e.getSource() instanceof java.awt.Checkbox) {
+					java.awt.Checkbox cb=((java.awt.Checkbox)e.getSource());
+					if(cb.getLabel().contentEquals("Perspective instead of orthoscopic projection?")) {
+						doFrustum=cb.getState();
+						JOGLImageCanvas jic=getJOGLImageCanvas(WindowManager.getCurrentImage());
+						if(jic!=null) {jic.setStereoUpdated(); jic.repaint();}
+					}
+				}
+				return true;
+			}
+			
+		});
 		gd.showDialog();
 		
 		if(gd.wasCanceled())return;
@@ -569,6 +586,8 @@ public class JCP implements PlugIn {
 		String newus=gd.getNextChoice();
 		undersample=newus.equals("None")?1:Integer.parseInt(newus);
 		Prefs.set("ajs.joglcanvas.undersample", (double)undersample);
+		doFrustum=gd.getNextBoolean();
+		Prefs.set("ajs.joglcanvas.doFrustum",doFrustum);
 		boolean doana=gd.getNextBoolean();
 		preferStereo=gd.getNextBoolean();
 		Prefs.set("ajs.joglcanvas.preferStereo", preferStereo);
@@ -789,7 +808,7 @@ public class JCP implements PlugIn {
 		c.gridx=3; c.gridwidth=1; c.anchor=GridBagConstraints.CENTER; panel.add(sepsl,c);
 
 		c.gridy++; c.gridx=0; c.gridwidth=4; panel.add(new JLabel(" "),c);
-		cb=new JCheckBox("Perspective instead of orthogonal projection",doFrustum);
+		/*cb=new JCheckBox("Perspective instead of orthogonal projection",doFrustum);
 		cb.addItemListener(new ItemListener() {
 			@Override
 			public void itemStateChanged(ItemEvent e)  {
@@ -799,7 +818,7 @@ public class JCP implements PlugIn {
 			}
 		});
 		
-		c.gridy++; c.gridx=0; c.gridwidth=4; panel.add(cb,c);
+		c.gridy++; c.gridx=0; c.gridwidth=4; panel.add(cb,c);*/
 		c.gridy++; c.gridx=0; c.gridwidth=4; panel.add(new JLabel(" "),c);
 		cb=new JCheckBox("Auto fullscreen on OpenGL Quad buffer stereo",qbfullscreen);
 		cb.addItemListener(new ItemListener() {
@@ -828,7 +847,6 @@ public class JCP implements PlugIn {
 				Prefs.set("ajs.joglcanvas.dubois", dubois);
 				Prefs.set("ajs.joglcanvas.stereoSep", stereoSep);
 				Prefs.set("ajs.joglcanvas.qbfullscreen",qbfullscreen);
-				Prefs.set("ajs.joglcanvas.doFrustum",doFrustum);
 				fillAnaColors();
 				asettings.dispose();
 				if(jic!=null) {jic.setStereoUpdated(); jic.repaint();}

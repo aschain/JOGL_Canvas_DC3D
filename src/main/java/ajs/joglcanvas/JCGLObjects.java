@@ -172,7 +172,6 @@ public class JCGLObjects {
 		loadTexFromPbo(sameName, pn, sameName, 0, width, height, depth, offsetSlice, type, COMPS, endian, linear);
 	}
 	
-	//public void loadTexFromPbo(int poop, int texHandle, int pboHandle, int width, int height, int depth, int offsetSlice, PixelType type, int COMPS, boolean endian, boolean linear) {
 	public void loadTexFromPbo(String pboName, int pn, String texName, int tn, int width, int height, int depth, int offsetSlice, PixelType type, int COMPS, boolean endian, boolean linear) {
 			
 		int texHandle=getTextureHandle(texName, tn), pboHandle=getPboHandle(pboName, pn);

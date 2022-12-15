@@ -41,6 +41,7 @@ import com.jogamp.opengl.util.glsl.ShaderProgram;
 
 import ajs.joglcanvas.JOGLImageCanvas.PixelType;
 import ij.IJ;
+import ij.Prefs;
 
 public class JCGLObjects {
 	
@@ -193,7 +194,7 @@ public class JCGLObjects {
 			gl23.glTexSubImage3D(GL_TEXTURE_3D, 0, 0, 0, 0, width, height, depth, pinfo.glFormat, pinfo.glPixelSize, offsetSlice*pinfo.components*width*height*pinfo.sizeBytes);
 		else
 			gl23.glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, pinfo.glFormat, pinfo.glPixelSize, offsetSlice*pinfo.components*width*height*pinfo.sizeBytes);
-
+		
 		int magtype=linear?GL_LINEAR:GL_NEAREST;
 		gl.glTexParameteri(textype, GL_TEXTURE_MAG_FILTER, magtype);
 		gl.glTexParameteri(textype, GL_TEXTURE_MIN_FILTER, magtype);//GL_NEAREST_MIPMAP_LINEAR
@@ -208,8 +209,8 @@ public class JCGLObjects {
 		gl.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 	}
 	
-	public void drawTexVao(String name, int glElementBufferType, int count, int chs) {
-		drawTexVao(name, 0, glElementBufferType, count, chs);
+	public void drawTexVao(String name, int glElementBufferType, int count, int chs, boolean forceInterpolate) {
+		drawTexVao(name, 0, glElementBufferType, count, chs, forceInterpolate);
 	}
 	
 	public void drawTexVao(String name, int index, Buffer vertexBuffer) {
@@ -251,7 +252,7 @@ public class JCGLObjects {
 	
 	public void drawTexVaoWithEBOVBO(String name, int index, Buffer elementBuffer, Buffer vertexBuffer) {
 		bindEBOVBO(name, elementBuffer, vertexBuffer);
-		drawTexVao(name, index, getGLType(elementBuffer), elementBuffer.capacity(), 1);
+		drawTexVao(name, index, getGLType(elementBuffer), elementBuffer.capacity(), 1, false);
 		unBindEBOVBO(name);
 	}
 	
@@ -268,7 +269,7 @@ public class JCGLObjects {
 		if(buffers.containsKey(name+GL_ARRAY_BUFFER))gl.glBindBuffer(GL_ARRAY_BUFFER, 0);
 	}
 
-	public void drawTexVao(String name, int texIndex, int glElementBufferType, int count, int chs) {
+	public void drawTexVao(String name, int texIndex, int glElementBufferType, int count, int chs, boolean forceInterpolate) {
 		int gltype=getTexture(name).is3d?GL_TEXTURE_3D:GL_TEXTURE_2D;
 		//gl23.glEnable(gltype);
 		//gl3.glActiveTexture(GL_TEXTURE0);
@@ -283,6 +284,10 @@ public class JCGLObjects {
 			//if(glver==2)gl2.glEnable(gltype);
 			gl.glBindTexture(gltype, getTextureHandle(name, texIndex+i));
 			tns[i]=i;
+			if(forceInterpolate) {
+				gl.glTexParameteri(gltype, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+				gl.glTexParameteri(gltype, GL_TEXTURE_MIN_FILTER, GL_LINEAR);//GL_NEAREST_MIPMAP_LINEAR
+			}
 		}
 		gl.glActiveTexture(GL_TEXTURE0);
 		gl23.glUniform1iv(gl23.glGetUniformLocation(pr[0], "mytex"),chs, tns,0);

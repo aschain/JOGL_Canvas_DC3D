@@ -173,6 +173,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private boolean onScreenMirrorCursor=false;
 	private boolean warpPointerWorks=false;
 	final private boolean stereoEnabled;
+	final private float[] anaidm=new float[] {1,0,0,0,1,0,0,0,1};
 	private boolean one3Dslice=false;
 
 	public JOGLImageCanvas(ImagePlus imp, boolean mirror) {
@@ -315,7 +316,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		glos.newBuffer(GL_ARRAY_BUFFER, "roiGraphic");
 		glos.newBuffer(GL_ELEMENT_ARRAY_BUFFER, "roiGraphic");
 		glos.newVao("roiGraphic", 3, GL_FLOAT, 3, GL_FLOAT);
-		glos.newProgram("roi", "shaders", "roiTexture", "roiTexture");
+		glos.newProgram("roi", "shaders", "texture", "roiTexture");
 
 		FloatBuffer id=GLBuffers.newDirectFloatBuffer(FloatUtil.makeIdentity(new float[16]));
 		FloatBuffer aid=GLBuffers.newDirectFloatBuffer(new float[] {
@@ -414,7 +415,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		gl.glGenFramebuffers(1, stereoFramebuffers, 0);
 		gl.glGenRenderbuffers(1, stereoFramebuffers, 1);
 		
-		glos.newProgram("anaglyph", "shaders", "roiTexture", "anaglyph");
+		glos.newProgram("anaglyph", "shaders", "texture", "anaglyph");
 		glos.addLocation("anaglyph", "ana");
 		glos.addLocation("anaglyph", "dubois");
 
@@ -765,7 +766,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						for(int isl=0;isl<sls;isl++) {
 							if(!sb.isSliceUpdated(isl, ifr)) {
 								glos.getPbo("image").updateSubRgbaPBO(ifr*chs+i, sb.getSliceBuffer(i+1, isl+1, ifr+1),0, isl*sb.sliceSize, sb.sliceSize, sb.bufferSize);
-								if(i==(chs-1)) {sb.updateSlice(isl,ifr); log("updateSlice sl"+isl+" fr"+ifr);}
+								if(i==(chs-1)) {sb.updateSlice(isl,ifr);}
 							}
 						}
 					}
@@ -1014,6 +1015,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		//Potential stereo diffs
 		int views=1;
 		if(go3d && stereoType.ordinal()>0)views=2;
+		gl.glDrawBuffer(GL_BACK);
+		glos.clearColorDepth();
 
 		int width=drawable.getSurfaceWidth(), height=drawable.getSurfaceHeight();
 		for(int stereoi=0;stereoi<views;stereoi++) {
@@ -1050,7 +1053,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					glos.bindUniformBuffer(bname, 1);
 					glos.bindUniformBuffer("model", 2);
 					glos.bindUniformBuffer("lut", 3);
-					glos.drawTexVao("image3d",GL_UNSIGNED_SHORT, lim/4, chs);
+					glos.drawTexVao("image3d",GL_UNSIGNED_SHORT, lim/4, chs, false);
 					glos.unBindBuffer(GL_UNIFORM_BUFFER, 1);
 					glos.unBindBuffer(GL_UNIFORM_BUFFER, 2);
 					glos.unBindBuffer(GL_UNIFORM_BUFFER, 3);
@@ -1059,35 +1062,39 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				}
 			}else {
 				//gl.glDrawBuffer(GL_BACK);
-				
-				glos.drawToTexture("anaglyph", stereoi, imageWidth, imageHeight, stereoFramebuffers[0], stereoFramebuffers[1], getPixelType(imp));
+				int[] vps=new int[4];
+				gl.glGetIntegerv(GL_VIEWPORT, vps, 0);
+				glos.drawToTexture("anaglyph", 0, imp.getWidth(), imp.getHeight(), stereoFramebuffers[0], stereoFramebuffers[1], getPixelType(imp));
+				gl.glViewport(0, 0, imp.getWidth(), imp.getHeight());
 				glos.clearColorDepth();
 				
 				gl.glDisable(GL_BLEND);
-				//Projection matrix binding
-				//drawing the 2d image
+				//drawing the whole image with lut processesing to anaglyph texture, using no projection or model transformations
+				//to correct for min/max
 				glos.useProgram("image2d"); 
 				glos.bindUniformBuffer("globalidm", 1);
 				glos.bindUniformBuffer("idm", 2);
 				glos.bindUniformBuffer("lut", 3);
-				glos.drawTexVao("image2d",GL_UNSIGNED_BYTE, lim/4, chs);
+				glos.drawTexVao("image2d",GL_UNSIGNED_BYTE, lim/4, chs, false);
 				glos.unBindBuffer(GL_UNIFORM_BUFFER, 1);
 				glos.unBindBuffer(GL_UNIFORM_BUFFER, 2);
 				glos.unBindBuffer(GL_UNIFORM_BUFFER, 3);
 				glos.stopProgram();
 				
-				gl.glDrawBuffer(GL_BACK);
-				glos.clearColorDepth();
+				//draw
+				gl.glBindFramebuffer(GL_FRAMEBUFFER, 0);
+				gl.glBindRenderbuffer(GL_RENDERBUFFER, 0);
+				gl.glViewport(vps[0], vps[1], vps[2], vps[3]);
+				gl.glDisable(GL_BLEND);
 				glos.useProgram("anaglyph");
 				glos.bindUniformBuffer(bname, 1);
 				glos.bindUniformBuffer("model", 2);
-				gl.glUniformMatrix3fv(glos.getLocation("anaglyph", "ana"), 1, false, new float[] {1,0,0,0,1,0,0,0,1}, 0);
+				gl.glUniformMatrix3fv(glos.getLocation("anaglyph", "ana"), 1, false, anaidm, 0);
 				gl.glUniform1f(glos.getLocation("anaglyph", "dubois"), 1f);
-				glos.drawTexVao("anaglyph",0, GL_UNSIGNED_BYTE, 6, 1); 
+				glos.drawTexVao("anaglyph",0, GL_UNSIGNED_BYTE, 6, 1, Prefs.interpolateScaledImages); 
 				glos.unBindBuffer(GL_UNIFORM_BUFFER,1);
 				glos.unBindBuffer(GL_UNIFORM_BUFFER,2);
 				glos.stopProgram();
-				gl.glFinish();
 			}
 
 			//Draw roi and overlay and cursor crosshairs
@@ -1204,12 +1211,12 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					}else {
 						glos.bindUniformBuffer("globalidm", 1);
 					}
-					gl.glUniformMatrix3fv(glos.getLocation("anaglyph", "ana"), 1, false, new float[] {1,0,0,0,1,0,0,0,1}, 0);
+					gl.glUniformMatrix3fv(glos.getLocation("anaglyph", "ana"), 1, false, anaidm, 0);
 					gl.glUniform1f(glos.getLocation("anaglyph", "dubois"), 1f);
 				}
 				glos.bindUniformBuffer("idm", 2);
-				glos.drawTexVao("anaglyph",stereoi, GL_UNSIGNED_BYTE, 6, 1); 
-				glos.drawTexVao("temp",stereoi, GL_UNSIGNED_BYTE, 6, 1); 
+				glos.drawTexVao("anaglyph",stereoi, GL_UNSIGNED_BYTE, 6, 1, false); 
+				glos.drawTexVao("temp",stereoi, GL_UNSIGNED_BYTE, 6, 1, false); 
 				glos.unBindBuffer(GL_UNIFORM_BUFFER,1);
 				glos.unBindBuffer(GL_UNIFORM_BUFFER,2);
 				gl.glFinish();

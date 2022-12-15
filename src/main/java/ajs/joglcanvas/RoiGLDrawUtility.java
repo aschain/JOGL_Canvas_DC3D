@@ -166,6 +166,12 @@ public class RoiGLDrawUtility {
 		}
 
 		FloatPolygon fp=roi.getFloatPolygon();
+		if(roi.isLine()) {
+			for(int i=0;i<fp.npoints;i++) {
+				fp.xpoints[i]+=0.5f;
+				fp.ypoints[i]+=0.5f;
+			}
+		}
 		
 		if(tp==Roi.POINT) {
 			PointRoi proi=(PointRoi)roi;

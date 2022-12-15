@@ -46,8 +46,8 @@ public class StackBuffer {
 		int oldbsize=bufferSize;
 		isFrameStack=frms>1&&sls==1;
 		if(isFrameStack) {sls=frms;frms=1;}
-		bufferWidth=tex4div(imp.getWidth()/undersample);
-		bufferHeight=tex4div(imp.getHeight()/undersample);
+		bufferWidth=JOGLImageCanvas.tex4div(imp.getWidth()/undersample);
+		bufferHeight=JOGLImageCanvas.tex4div(imp.getHeight()/undersample);
 		okDirect=imp.getWidth()==bufferWidth;
 		sliceSize=bufferWidth*bufferHeight;
 		bufferSize=sliceSize*sls;
@@ -76,10 +76,6 @@ public class StackBuffer {
 	
 	public void resetSlices() {
 		updatedSlices=new boolean[imp.getNFrames()*imp.getNSlices()];
-	}
-	
-	private int tex4div(int wh) {
-		return wh+((wh%4)>0?(4-wh%4):0);
 	}
 	
 	public boolean isSliceUpdated(int sl, int fr) {

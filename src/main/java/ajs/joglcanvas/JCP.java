@@ -91,6 +91,7 @@ public class JCP implements PlugIn {
 	public static int drawCrosshairs=(int)Prefs.get("ajs.joglcanvas.drawCrosshairs", 0);
 	public static boolean mouseWheelFix=Prefs.get("ajs.joglcanvas.mouseWheelFix", IJ.isMacOSX() || IJ.isLinux());
 	public static boolean quiet=Prefs.get("ajs.joglcanvas.quiet", false);
+	public static boolean tex4=true;
 	public static boolean debug=false;
 	public static float zNear=-2f, zFar=2f;
 	private static final float[][] duboisColors = new float[][] {
@@ -534,6 +535,7 @@ public class JCP implements PlugIn {
 		gd.addCheckbox("Use image arrays wrapped in a buffer for video memory", wrappedBuffers);
 		gd.addCheckbox("Fix if mouse wheel is not working for converted canvas", mouseWheelFix);
 		gd.addCheckbox("Don't print to log on startup, etc", quiet);
+		gd.addCheckbox("Textures must be multiples of 4", tex4);
 		gd.addCheckbox("Show some extra debug info", debug);
 		gd.addDialogListener(new ij.gui.DialogListener() {
 			@Override
@@ -603,6 +605,7 @@ public class JCP implements PlugIn {
 		mouseWheelFix=gd.getNextBoolean();
 		Prefs.set("ajs.joglcanvas.mouseWheelFix", mouseWheelFix);
 		quiet=gd.getNextBoolean();
+		tex4=gd.getNextBoolean();
 		Prefs.set("ajs.joglcanvas.quiet", quiet);
 		debug=gd.getNextBoolean();
 		

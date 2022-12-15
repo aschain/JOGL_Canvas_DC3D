@@ -1014,9 +1014,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		//Potential stereo diffs
 		int views=1;
 		if(go3d && stereoType.ordinal()>0)views=2;
-		
-		gl.glDrawBuffer(GL_BACK);
-		glos.clearColorDepth();
 
 		int width=drawable.getSurfaceWidth(), height=drawable.getSurfaceHeight();
 		for(int stereoi=0;stereoi<views;stereoi++) {
@@ -1061,18 +1058,36 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 
 				}
 			}else {
+				//gl.glDrawBuffer(GL_BACK);
+				
+				glos.drawToTexture("anaglyph", stereoi, imageWidth, imageHeight, stereoFramebuffers[0], stereoFramebuffers[1], getPixelType(imp));
+				glos.clearColorDepth();
+				
 				gl.glDisable(GL_BLEND);
 				//Projection matrix binding
 				//drawing the 2d image
 				glos.useProgram("image2d"); 
-				glos.bindUniformBuffer(bname, 1);
-				glos.bindUniformBuffer("model", 2);
+				glos.bindUniformBuffer("globalidm", 1);
+				glos.bindUniformBuffer("idm", 2);
 				glos.bindUniformBuffer("lut", 3);
 				glos.drawTexVao("image2d",GL_UNSIGNED_BYTE, lim/4, chs);
 				glos.unBindBuffer(GL_UNIFORM_BUFFER, 1);
 				glos.unBindBuffer(GL_UNIFORM_BUFFER, 2);
 				glos.unBindBuffer(GL_UNIFORM_BUFFER, 3);
 				glos.stopProgram();
+				
+				gl.glDrawBuffer(GL_BACK);
+				glos.clearColorDepth();
+				glos.useProgram("anaglyph");
+				glos.bindUniformBuffer(bname, 1);
+				glos.bindUniformBuffer("model", 2);
+				gl.glUniformMatrix3fv(glos.getLocation("anaglyph", "ana"), 1, false, new float[] {1,0,0,0,1,0,0,0,1}, 0);
+				gl.glUniform1f(glos.getLocation("anaglyph", "dubois"), 1f);
+				glos.drawTexVao("anaglyph",0, GL_UNSIGNED_BYTE, 6, 1); 
+				glos.unBindBuffer(GL_UNIFORM_BUFFER,1);
+				glos.unBindBuffer(GL_UNIFORM_BUFFER,2);
+				glos.stopProgram();
+				gl.glFinish();
 			}
 
 			//Draw roi and overlay and cursor crosshairs
@@ -1281,8 +1296,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		private void updateCoords() {
 			vx=(float)x/imp.getWidth()*2f-1f; vy=(float)y/imp.getHeight()*2f-1f; vz=-((float)z/imp.getNSlices()*2f-1f);
 			vw=(float)w/imp.getWidth()*2f-1f; vh=(float)h/imp.getHeight()*2f-1f; vd=-((float)d/imp.getNSlices()*2f-1f);
-			tx=(float)x/imp.getWidth(); ty=(float)y/imp.getHeight(); tz=(float)z/imp.getNSlices();
-			tw=(float)w/imp.getWidth(); th=(float)h/imp.getHeight(); td=(float)d/imp.getNSlices();
+			tx=(float)x/imp.getWidth()*twm; ty=(float)y/imp.getHeight()*thm; tz=(float)z/imp.getNSlices();
+			tw=(float)w/imp.getWidth()*twm; th=(float)h/imp.getHeight()*thm; td=(float)d/imp.getNSlices();
 		}
 		
 		public float[] getVertCoords() {
@@ -1292,10 +1307,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		public float[] getInitCoords() {
 			if(initCoords!=null) {return initCoords;}
 			initCoords=new float[] {
-					vx, -vh, vd*zmax,   tx,     th*thm, td,
-					vw, -vh, vz*zmax,   tw*twm, th*thm, tz,
-					vw, -vy, vz*zmax,   tw*twm, ty,     tz,
-					vx, -vy, vd*zmax,   tx,     ty,     td
+					vx, -vh, vd*zmax,   tx, th, td,
+					vw, -vh, vz*zmax,   tw, th, tz,
+					vw, -vy, vz*zmax,   tw, ty, tz,
+					vx, -vy, vd*zmax,   tx, ty, td
 			};
 			return initCoords;
 		}
@@ -1310,7 +1325,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			if(glx<-1f)glx=-1f; if(glx>1f)glx=1f; if(gly<-1f)gly=-1f; if(gly>1f)gly=1f;
 			float glw=((w-offx)/srw+0.5f/dw)*2f-1f, glh=(((srh-(h-offy))/srh-0.5f/dh)*2f-1f);
 			if(glw<-1f)glw=-1f; if(glw>1f)glw=1f; if(glh<-1f)glh=-1f; if(glh>1f)glh=1f;
-			float tx=(glx+1f)/2f, ty=(gly+1f)/2f, tw=(glw+1f)/2f, th=(glh+1f)/2f;
+			float tx=(glx+1f)/2f*twm, ty=(gly+1f)/2f*thm, tw=(glw+1f)/2f*twm, th=(glh+1f)/2f*thm;
 			screenCoords=new float[] {
 					glx, gly, 0f, tx, ty, 0.5f,
 					glw, gly, 0f, tw, ty, 0.5f,
@@ -1408,8 +1423,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		repaint();
 	}
 	
-	private int tex4div(int wh) {
-		return wh+((wh%4)>0?(4-wh%4):0);
+	public static int tex4div(int wh) {
+		return JCP.tex4?(wh+((wh%4)>0?(4-wh%4):0)):wh;
 	}
 	
 	public void set3dPixelType(PixelType newtype) {

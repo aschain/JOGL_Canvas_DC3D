@@ -492,7 +492,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}
 		
 		if(JCP.debug) {
-			log("OIC Size:  w"+super.getSize().width+" h"+super.getSize().height);
+			log("OIC Size:  w"+super.getSize().width+" h"+super.getSize().height+" srcRect w"+srcRect.width+" h"+srcRect.height);
 			Rectangle b=icc.getBounds();
 			log("NCA Size:  x"+b.x+" y"+b.y+" w"+b.getWidth()+" h"+b.getHeight());
 			if(isMirror) {Insets ins=mirror.getInsets(); log("Mirror Insets: tb"+(ins.top+ins.bottom)+" lr"+(ins.left+ins.right));}

@@ -125,8 +125,9 @@ public class RoiGLDrawUtility {
 		if(roi instanceof ShapeRoi) {
 			Roi[] rois=((ShapeRoi)roi).getRois();
 			for(Roi r : rois) {
-				if(!(r instanceof ShapeRoi))drawRoiGL(drawable, r, true, anacolor, go3d);
-				else drawRoiGL(drawable, ((ShapeRoi)r).shapeToRoi(), true, anacolor, go3d);
+				if(r instanceof ShapeRoi) r=((ShapeRoi)r).shapeToRoi();
+				r.setPosition(rch, rsl, rfr);
+				drawRoiGL(drawable, r, true, anacolor, go3d);
 			}
 			return;
 		}

@@ -1,12 +1,10 @@
 package ajs.joglcanvas;
 
 import java.awt.Button;
-import java.awt.Container;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.Label;
-import java.awt.Point;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.AdjustmentEvent;
@@ -137,7 +135,7 @@ public class JCRotator extends JCAdjuster implements MouseMotionListener {
 		add(b,c);
 		pack();
 		setToDefaultLocation();
-		show();
+		setVisible(true);
 		final JCRotator jcr=this;
 		(new Thread() {
 			public void run() {

@@ -1,20 +1,15 @@
 package ajs.joglcanvas;
 
 import java.awt.Button;
-import java.awt.Container;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.Label;
-import java.awt.Point;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.AdjustmentEvent;
-import java.awt.event.FocusEvent;
-import java.awt.event.FocusListener;
 
 import ij.CompositeImage;
-import ij.IJ;
 import ij.ImageListener;
 import ij.ImagePlus;
 import ij.process.FloatProcessor;
@@ -36,7 +31,7 @@ public class JCBrightness extends JCAdjuster implements ImageListener {
 		dmaxs=new double[chs]; dmins=new double[chs];
 		cmaxs=new double[chs]; cmins=new double[chs];
 		LUT[] luts=imp.getLuts();
-		if(luts==null || luts.length==0) {luts=new LUT[] {imp.getProcessor().getLut()};}
+		if(luts==null)luts=new LUT[0];
 		for(int ch=0;ch<chs;ch++) {
 			for(int sl=0;sl<(imp.getNSlices());sl++) {
 				for(int fr=0;fr<(imp.getNFrames());fr++) {
@@ -75,13 +70,17 @@ public class JCBrightness extends JCAdjuster implements ImageListener {
 			c.anchor=GridBagConstraints.CENTER;
 			c.gridheight=1;
 			c.gridx=1;
-			LUT lut=(i>=luts.length?luts[0]:luts[i]);
-			cmins[i]=lut.min; cmaxs[i]=lut.max;
-			mins[i]=new NumberScrollPanel((float)lut.min,(float)dmins[i],(float)dmaxs[i],'m',exp);
+			LUT lut=(i>=luts.length?null:luts[i]);
+			if(lut==null) {
+				cmins[i]=imp.getProcessor().getMin(); cmaxs[i]=imp.getProcessor().getMax();
+			}else {
+				cmins[i]=lut.min; cmaxs[i]=lut.max;
+			}
+			mins[i]=new NumberScrollPanel((float)cmins[i],(float)dmins[i],(float)dmaxs[i],'m',exp);
 			add(mins[i], c);
 			mins[i].setFocusable(false);
 			c.gridy++;
-			maxs[i]=new NumberScrollPanel((float)lut.max,(float)dmins[i]+1f/(float)Math.pow(10f,(float)exp),(float)dmaxs[i]+1f/(float)Math.pow(10f,(float)exp),'M',exp);
+			maxs[i]=new NumberScrollPanel((float)cmaxs[i],(float)dmins[i]+1f/(float)Math.pow(10f,(float)exp),(float)dmaxs[i]+1f/(float)Math.pow(10f,(float)exp),'M',exp);
 			add(maxs[i], c);
 			maxs[i].setFocusable(false);
 			mins[i].addAdjustmentListener(this);
@@ -129,16 +128,21 @@ public class JCBrightness extends JCAdjuster implements ImageListener {
 		pack();
 		setToDefaultLocation();
 		ImagePlus.addImageListener(this);
-		show();
+		setVisible(true);
 	}
 	
 	public void updateMinMaxScrollbars() {
 		for(int i=0;i<mins.length;i++) {if(mins[i].getValueIsAdjusting())return; if(maxs[i].getValueIsAdjusting())return;}
 		LUT[] luts=imp.getLuts();
-		if(luts==null || luts.length==0) {luts=new LUT[] {imp.getProcessor().getLut()};}
+		ImageProcessor ip=imp.getProcessor();
 		for(int i=0;i<mins.length;i++) {
-			mins[i].setFloatValue((float)luts[i].min);
-			maxs[i].setFloatValue((float)luts[i].max);
+			if(luts==null || luts.length==0 || luts[i]==null) {
+				mins[i].setFloatValue((float)ip.getMin());
+				maxs[i].setFloatValue((float)ip.getMax());
+			}else {
+				mins[i].setFloatValue((float)luts[i].min);
+				maxs[i].setFloatValue((float)luts[i].max);
+			}
 		}
 	}
 	

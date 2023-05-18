@@ -21,6 +21,10 @@ import ij.plugin.frame.PlugInDialog;
 
 public abstract class JCAdjuster extends PlugInDialog implements AdjustmentListener {
 	
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 7892017963997342879L;
 	ImagePlus imp;
 	JOGLImageCanvas jic;
 

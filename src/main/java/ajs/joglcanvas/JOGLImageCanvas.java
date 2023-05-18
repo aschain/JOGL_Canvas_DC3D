@@ -1523,6 +1523,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					@Override
 					public void run() {
 						JOGLImageCanvas jic=JCP.convertToJOGLCanvas(imp,isMirror);
+						jic.set3d(true,false);
 						jic.setStereo(StereoType.QUADBUFFER);
 					}
 				});
@@ -2026,6 +2027,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			if(isMirror)addCMI(menu, "Resizable Mirror", mirrorMagUnlock);
 			addCMI(menu, "Fullscreen", !(glw==null || !glw.isFullscreen()));
 			addMI(menu, "Toggle Right Click 3d Control", "rightclick");
+			if(imp.getNSlices()==1)addMI(menu,"Adjust Contrast/Gamma","gamma");
 			addMI(menu, "JOGL Canvas Preferences", "prefs");
 			addMI(menu, "Revert to Normal Window", "revert");
 			dcpopup.add(menu);

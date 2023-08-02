@@ -126,20 +126,34 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	final private FloatBuffer[] zoomIndVerts=new FloatBuffer[] {GLBuffers.newDirectFloatBuffer(4*3+4*4),GLBuffers.newDirectFloatBuffer(4*3+4*4)};
 	private int lim;
 	private int undersample=JCP.undersample;
-	enum StereoType{OFF, CARDBOARD, ANAGLYPH, HSBS, QUADBUFFER};
-	private static String[] stereoTypeStrings;
-	static {
-		StereoType[] sts=StereoType.values();
-		stereoTypeStrings=new String[sts.length];
-		for(int i=0;i<sts.length;i++) {
-			String str=sts[i].name();
-			if(i==0) str="Stereo off";
-			else if(sts[i]==StereoType.CARDBOARD)str="Google Cardboard-SBS";
-			else if(sts[i]==StereoType.ANAGLYPH)str="Anaglyph";
-			else if (sts[i]==StereoType.QUADBUFFER)str="OpenGL Quad Buffers";
-			stereoTypeStrings[i]=str;
+	public enum StereoType{
+		OFF("Stereo off"), 
+		CARDBOARD("Google Cardboard-SBS"), 
+		ANAGLYPH("Anaglyph"), 
+		HSBS("Half Side-by-side"), 
+		QUADBUFFER("OpenGL Quad Buffers");
+		
+		private final String description;
+		StereoType(String description){
+			this.description=description;
 		}
-	}
+		public String getDescription() {return description;}
+		public static String[] getAllDescriptions() {
+			StereoType[] sts=StereoType.values();
+			String[] all=new String[sts.length];
+			for(int i=0;i<sts.length;i++) {
+				all[i]=sts[i].getDescription();
+			}
+			return all;
+		}
+		public static StereoType getStereoType(String description) {
+			StereoType[] sts=StereoType.values();
+			for(int i=0;i<sts.length;i++) {
+				if(sts[i].getDescription().contentEquals(description)) return sts[i];
+			}
+			return StereoType.OFF;
+		}
+	};
 	private static final float CB_MAXSIZE=4f;
 	private static final float CB_TRANSLATE=0.5f;
 	private StereoType stereoType=StereoType.OFF;
@@ -2009,8 +2023,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			threeDmenu.add(menu);
 			
 			menu=new Menu("Stereoscopic 3d");
-			for(int i=0;i<stereoTypeStrings.length;i++) {
-				addMI(menu,stereoTypeStrings[i],stereoTypeStrings[i]);
+			StereoType[] sts=StereoType.values();
+			for(int i=0;i<sts.length;i++) {
+				addMI(menu,sts[i].getDescription(),sts[i].getDescription());
 			}
 			threeDmenu.add(menu);
 			addMI(threeDmenu, "Save image or movie", "Recorder");
@@ -2097,11 +2112,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			if(tempdpi!=IJ.CANCELED)
 				setDPImag(tempdpi);
 		}else if(((Menu)((MenuItem)e.getSource()).getParent()).getLabel().equals("Stereoscopic 3d")) {
-			int stTypeChoice=0;
-			for(int i=0;i<stereoTypeStrings.length;i++) {
-				if(cmd.equals(stereoTypeStrings[i]))stTypeChoice=i;
-			}
-			StereoType stTc=StereoType.values()[stTypeChoice];
+			StereoType stTc=StereoType.getStereoType(cmd);
 			setStereo((stereoType==stTc)?StereoType.OFF:stTc);
 		}
 		mi3d.setLabel(go3d?"Turn 3d off":"Turn 3d on");

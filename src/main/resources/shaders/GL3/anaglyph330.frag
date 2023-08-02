@@ -9,12 +9,12 @@ in vec3 texCoord;
 // Outgoing final color.
 out vec4 outputColor;
 
-uniform highp sampler3D mytex;
+uniform highp sampler2D mytex;
 uniform highp mat3 ana;
 uniform float dubois;
 
 void main(){
-	vec4 texColor=texture(mytex, texCoord);
+	vec4 texColor=texture(mytex, texCoord.rg);
 	if(dubois<0.8){
 		texColor.r=max(max(texColor.r,texColor.g),texColor.b);
 		texColor.g=0.0;

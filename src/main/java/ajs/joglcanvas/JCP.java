@@ -16,6 +16,7 @@ import javax.swing.event.ChangeListener;
 
 import static com.jogamp.opengl.GL.GL_VERSION;
 
+import java.awt.AWTEvent;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
@@ -33,6 +34,8 @@ import java.awt.event.ItemListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
@@ -56,6 +59,8 @@ import ij.Prefs;
 import ij.WindowManager;
 import ij.gui.GenericDialog;
 import ij.gui.ImageCanvas;
+import ij.gui.ImageWindow;
+import ij.gui.StackWindow;
 import ij.plugin.PlugIn;
 import ij.process.ImageProcessor;
 
@@ -73,14 +78,22 @@ public class JCP implements PlugIn {
 	public static Color leftAnaglyphColor=new Color((int) Prefs.get("ajs.joglcanvas.leftAnaglyphColor",Color.RED.getRGB()));
 	public static Color rightAnaglyphColor=new Color((int) Prefs.get("ajs.joglcanvas.rightAnaglyphColor",Color.CYAN.getRGB()));
 	public static boolean dubois=Prefs.get("ajs.joglcanvas.dubois", false);
-	public static int stereoSep=(int)Prefs.get("ajs.joglcanvas.stereoSep", 5.0);
+	public static float stereoSep=(float)Prefs.get("ajs.joglcanvas.stereoSep", 0.05);
 	public static String version="";
 	public static String defaultVersion="";
 	public static String glslVersion="",glslDefVersion="";
 	public static float[][] anaColors;
-	public static boolean go3d=Prefs.get("ajs.joglcanvas.go3d", false);;
+	public static boolean go3d=Prefs.get("ajs.joglcanvas.go3d", false);
+	public static boolean preferStereo=Prefs.get("ajs.joglcanvas.preferStereo", false);
 	public static boolean wrappedBuffers=Prefs.get("ajs.joglcanvas.wrappedBuffers", true);
+	public static boolean doFrustum=Prefs.get("ajs.joglcanvas.doFrustum", false);
+	public static boolean qbfullscreen=Prefs.get("ajs.joglcanvas.qbfullscreen", false);
+	public static int drawCrosshairs=(int)Prefs.get("ajs.joglcanvas.drawCrosshairs", 0);
+	public static boolean mouseWheelFix=Prefs.get("ajs.joglcanvas.mouseWheelFix", IJ.isMacOSX() || IJ.isLinux());
+	public static boolean quiet=Prefs.get("ajs.joglcanvas.quiet", false);
+	public static boolean tex4=true;
 	public static boolean debug=false;
+	public static float zNear=-2f, zFar=2f;
 	private static final float[][] duboisColors = new float[][] {
 		 {0.456f, -0.04f, -0.015f,
 		 0.5f, -0.038f, -0.021f,
@@ -126,56 +139,81 @@ public class JCP implements PlugIn {
 
 	}
 	
+	public static void log(String text) {
+		if(quiet && !debug)IJ.showStatus(text);
+		else IJ.log(text);
+	}
+	
 	public static void startListener() {
 		if(listenerInstance!=null) {
-			IJ.log("Restarting JOGL Canvas DC3D service...");
+			log("Restarting JOGL Canvas DC3D service...");
 			ImagePlus.removeImageListener(listenerInstance);
 			listenerInstance=null;
 		}
 		listenerInstance=new JOGLCanvasService();
 		ImagePlus.addImageListener(listenerInstance);
-		IJ.log("JOGL Canvas DC3D service started...");
+		log("JOGL Canvas DC3D service started...");
 	}
 	
 	public static void stopListener() {
 		if(listenerInstance!=null) {
 			ImagePlus.removeImageListener(listenerInstance);
 			listenerInstance=null;
-			IJ.log("JOGL Canvas DC3D service stopped...");
+			log("JOGL Canvas DC3D service stopped...");
 		}
 	}
 
-	private static void convertToJOGLCanvas(ImagePlus imp, boolean doMirror) {
-		if(imp==null)return;
+	public static JOGLImageCanvas convertToJOGLCanvas(ImagePlus imp, boolean doMirror) {
+		if(imp==null)return null;
 		JOGLImageCanvas jic=getJOGLImageCanvas(imp);
 		if(jic!=null) {
 			boolean isMirror=jic.isMirror;
 			jic.revert();
-			if(isMirror==doMirror) return;
+			if(isMirror==doMirror) return null;
 		}
 		if(IJ.isLinux())System.setProperty("jogl.disable.openglcore", "true"); //avoids this bug https://github.com/processing/processing/issues/5476
 		String classname= imp.getWindow().getClass().getSimpleName();
 		if(classname.equals("ImageWindow") || classname.equals("StackWindow")) {
 			if(imp.getNChannels()>6) {
 				IJ.error("JOGL Canvas currently limited to 6 channels");
-				return;
+				return null;
 			}
-			if(doMirror) {
-				java.awt.EventQueue.invokeLater(new Runnable() {
-				    @Override
-				    public void run() {
-						new JOGLImageCanvas(imp, true);
-				    }
-				});
-			}else {
-				java.awt.EventQueue.invokeLater(new Runnable() {
-				    @Override
-				    public void run() {
-						new JCStackWindow(imp);
-				    }
-				});
-			}
+			final JOGLImageCanvas jicnew=new JOGLImageCanvas(imp,doMirror);
+			switchWindow(imp,jicnew);
+			return jicnew;
 		}
+		return null;
+	}
+	
+	public static void switchWindow(ImagePlus imp, ImageCanvas ic) {
+		if(imp==null || ic==null)return;
+		java.awt.EventQueue.invokeLater(new Runnable() {
+		    @Override
+		    public void run() {
+		    	boolean isJIC=(ic instanceof JOGLImageCanvas);
+		    	JOGLImageCanvas jic=null;
+		    	if(isJIC)jic=(JOGLImageCanvas)ic;
+		    	boolean changes=imp.changes;
+				final int mode=imp.getDisplayMode();
+				boolean prompt=false;
+				ij.gui.Roi roi=imp.getRoi();
+				if(roi!=null && roi instanceof ij.gui.PointRoi) {
+					prompt=((ij.gui.PointRoi)roi).promptBeforeDeleting();
+					((ij.gui.PointRoi)roi).promptBeforeDeleting(false);
+				}
+				imp.changes=false;
+				if(isJIC) {
+					imp.setProperty("JOGLImageCanvas",jic);
+					new JCStackWindow(imp, jic);
+				}else{
+					new StackWindow(imp,ic);
+				}
+				imp.changes=changes;
+				if(prompt)((ij.gui.PointRoi)roi).promptBeforeDeleting(true);
+				imp.setDisplayMode(mode);
+				if(!isJIC && imp.getProperty("JOGLImageCanvas")!=null)imp.setProperty("JOGLImageCanvas", null);
+		    }
+		});
 	}
 	
 	public static void convertToJOGLCanvas(ImagePlus imp) {
@@ -188,10 +226,12 @@ public class JCP implements PlugIn {
 	}
 	
 	public static JOGLImageCanvas getJOGLImageCanvas(ImagePlus imp) {
+		if(imp==null)return null;
 		ImageCanvas ic=imp.getCanvas();
 		if(ic instanceof JOGLImageCanvas)return (JOGLImageCanvas)ic;
 		Object jic=imp.getProperty("JOGLImageCanvas");
-		return (JOGLImageCanvas)jic;
+		if(jic instanceof JOGLImageCanvas)return (JOGLImageCanvas)jic;
+		return null;
 	}
 	
 	public static void addJCPopups() {
@@ -298,13 +338,27 @@ public class JCP implements PlugIn {
 	
 	public static void openTestImage() {
 		int w=1024,h=512;
-		IJ.newImage("JCP test image", "16-bit", w, h, 1);
-		ImagePlus testimp=WindowManager.getCurrentImage();
+		int min=1538, addmax=1024, ipmax=4096;
+		int n=4, fac=2;
+		ImagePlus testimp=IJ.createImage("JCP test image", "16-bit", w, h, 1);
 		ImageProcessor ip=testimp.getProcessor();
-		for(int y=0;y<h;y++) {ip.set(0,y,0);ip.set(w-1,y,65535);}
-		for(int x=1;x<w-1;x++)for(int y=0;y<h;y++)ip.set(x,y,16448+x*4096/w);
-		ip.setMinAndMax(0, 65535);
-		testimp.updateAndRepaintWindow();
+		int[] divs=new int[n];
+		for(int i=0;i<n;i++){divs[i]=(int)Math.pow(2, fac*i);}
+		for(int y=0;y<h;y++) {ip.set(0,y,0);ip.set(w-1,y,ipmax-1);}
+		int end=w-1; //w-1
+		for(int x=1;x<end;x++){
+			int value=min+x*addmax/w;
+			for(int y=0;y<h;y++) {
+				// first nth 12bit, further nth part is 12-(n*4) bit
+				int div=divs[y*n/h];
+				value=(int)(((double)value+0.5*(double)div)/div)*div;
+				ip.set(x,y,value);
+			}
+		}
+		ip.setMinAndMax(0, ipmax-1);
+		testimp.setColor(new Color(255,255,255));
+		for(int ni=0;ni<n;ni++)ip.drawString(""+(12-(ni*fac))+"-bit", 0, ip.getFontMetrics().getHeight()+ni*h/n);
+		testimp.show();
 	}
 	
 	public static GLCapabilities getGLCapabilities() {
@@ -333,7 +387,7 @@ public class JCP implements PlugIn {
 		}
 		if(defaultBitString==null || defaultBitString.equals("default")) return null;
 		setGLCapabilities(glCapabilities, defaultBitString);
-		IJ.log("Starting JOGL with Settings:\n   "+glCapabilities);
+		log("Starting JOGL with Settings:\n   "+glCapabilities);
 		return glCapabilities;
 	}
 	
@@ -343,16 +397,18 @@ public class JCP implements PlugIn {
 		if(bitdepths.length!=4)return;
 
 		if(glCapabilities==null)return;
-		glCapabilities.setBlueBits(Integer.parseInt(bitdepths[2]));
-		glCapabilities.setGreenBits(Integer.parseInt(bitdepths[1]));
-		glCapabilities.setRedBits(Integer.parseInt(bitdepths[0]));
-		glCapabilities.setAlphaBits(Integer.parseInt(bitdepths[3]));
+		int b=Integer.parseInt(bitdepths[2]), g=Integer.parseInt(bitdepths[1]), r=Integer.parseInt(bitdepths[0]), a=Integer.parseInt(bitdepths[3]);
+		glCapabilities.setBlueBits(b);
+		glCapabilities.setGreenBits(g);
+		glCapabilities.setRedBits(r);
+		glCapabilities.setAlphaBits(a);
 		glCapabilities.setHardwareAccelerated(true);
 		glCapabilities.setDoubleBuffered(true);
 		glCapabilities.setStencilBits(1);
 		glCapabilities.setSampleBuffers(true);
 		glCapabilities.setNumSamples(4);
-		//glCapabilities.setStereo(true);
+		glCapabilities.setStereo(preferStereo);
+		if(preferStereo && ((g+r+b)>26))log("JOGLImageCanvas Warning: Active stereo disables HDR 10-bit, disable it in prefs if you prefer HDR");
 	}
 
 	
@@ -467,13 +523,35 @@ public class JCP implements PlugIn {
 		gd.addCheckbox("3D on by default?", go3d);
 		gd.addChoice("Default 3d Render Type", new String[] {"MAX","ALPHA"}, renderFunction);
 		gd.addChoice("Default Undersampling for 3D", new String[] {"None","2","4","6"},undersample==1?"None":(""+undersample));
+		gd.addCheckbox("Perspective instead of orthoscopic projection?", doFrustum);
 		gd.addCheckbox("Stereoscopic settings", false);
+		gd.addCheckbox("Enable active stereo (quadbuffer w/ shutter glasses)", preferStereo);
 		gd.addCheckbox("Open 10-bit test image", false);
 		gd.addMessage("Advanced Settings:");
 		gd.addCheckbox("Draw ROI with OpenGL (in progress)", openglroi);
+		String[] cursorChoices=new String[] {"Off", "Short", "Long"};
+		gd.addChoice("Draw cursor crosshairs (requires GL ROI)", cursorChoices, cursorChoices[drawCrosshairs]);
 		gd.addCheckbox("Store whole stack in PBO, even for 2D (more video memory but faster)", usePBOforSlices);
 		gd.addCheckbox("Use image arrays wrapped in a buffer for video memory", wrappedBuffers);
+		gd.addCheckbox("Fix if mouse wheel is not working for converted canvas", mouseWheelFix);
+		gd.addCheckbox("Don't print to log on startup, etc", quiet);
+		gd.addCheckbox("Textures must be multiples of 4", tex4);
 		gd.addCheckbox("Show some extra debug info", debug);
+		gd.addDialogListener(new ij.gui.DialogListener() {
+			@Override
+			public boolean dialogItemChanged(GenericDialog gd, AWTEvent e) {
+				if(e!=null && e.getSource() instanceof java.awt.Checkbox) {
+					java.awt.Checkbox cb=((java.awt.Checkbox)e.getSource());
+					if(cb.getLabel().contentEquals("Perspective instead of orthoscopic projection?")) {
+						doFrustum=cb.getState();
+						JOGLImageCanvas jic=getJOGLImageCanvas(WindowManager.getCurrentImage());
+						if(jic!=null) {jic.setStereoUpdated(); jic.repaint();}
+					}
+				}
+				return true;
+			}
+			
+		});
 		gd.showDialog();
 		
 		if(gd.wasCanceled())return;
@@ -496,7 +574,7 @@ public class JCP implements PlugIn {
 			if(listenerInstance==null)
 				startListener();
 			else
-				IJ.log("JOGL Canvas service running...");
+				log("JOGL Canvas service running...");
 		}else{
 			stopListener();
 		}
@@ -510,29 +588,43 @@ public class JCP implements PlugIn {
 		String newus=gd.getNextChoice();
 		undersample=newus.equals("None")?1:Integer.parseInt(newus);
 		Prefs.set("ajs.joglcanvas.undersample", (double)undersample);
+		doFrustum=gd.getNextBoolean();
+		Prefs.set("ajs.joglcanvas.doFrustum",doFrustum);
 		boolean doana=gd.getNextBoolean();
+		preferStereo=gd.getNextBoolean();
+		Prefs.set("ajs.joglcanvas.preferStereo", preferStereo);
 		boolean dotest=gd.getNextBoolean();
 		openglroi=gd.getNextBoolean();
 		Prefs.set("ajs.joglcanvas.openglroi", openglroi);
+		drawCrosshairs=gd.getNextChoiceIndex();
+		Prefs.set("ajs.joglcanvas.drawCrosshairs", drawCrosshairs);
 		usePBOforSlices=gd.getNextBoolean();
 		Prefs.set("ajs.joglcanvas.usePBOforSlices", usePBOforSlices);
 		wrappedBuffers=gd.getNextBoolean();
 		Prefs.set("ajs.joglcanvas.wrappedBuffers", wrappedBuffers);
+		mouseWheelFix=gd.getNextBoolean();
+		Prefs.set("ajs.joglcanvas.mouseWheelFix", mouseWheelFix);
+		quiet=gd.getNextBoolean();
+		tex4=gd.getNextBoolean();
+		Prefs.set("ajs.joglcanvas.quiet", quiet);
 		debug=gd.getNextBoolean();
 		
 		if(doana) anaglyphSettings();
 		if(dotest) openTestImage();
 
+
+		Prefs.savePreferences();
 	}
 	
 	public static void anaglyphSettings(){
+		JOGLImageCanvas jic=getJOGLImageCanvas(WindowManager.getCurrentImage());
 		JFrame asettings=new JFrame("JOGLCanvas Stereo Options");
 		asettings.setSize(500,750);
 		
 		class MyCanvas extends GLCanvas implements GLEventListener, MouseListener, MouseMotionListener{
 			private static final long serialVersionUID = 1L;
 			public Color left=leftAnaglyphColor, right=rightAnaglyphColor;
-			public int sep=stereoSep;
+			public int sep=(int)(stereoSep*100f);
 			protected int sx,sy;
 			protected float dx=0f,dy=0f,dz=0f;
 			
@@ -562,24 +654,52 @@ public class JCP implements PlugIn {
 				gl2.glLoadIdentity();
 				gl2.glOrtho(-1, 1, -1, 1, -1, 1);
 				gl2.glMatrixMode(GL2.GL_MODELVIEW);
+				//float rat=((float)drawable.getSurfaceWidth()/drawable.getSurfaceHeight());
+				//float frustumZshift=-1.35f*(1.5f);
 				
 				for(int i=0;i<2;i++) {
-				gl2.glLoadIdentity();
-				
-				//Rotate
-				gl2.glRotatef((float)dx-(float)(i*sep), 0f, 1.0f, 0f);
-				gl2.glRotatef((float)dy, 1.0f, 0f, 0f);
-				gl2.glRotatef((float)dz, 0f, 0f, 1.0f);
-				
-				Color color=((i==0)?left:right);
-				//if(dubois) {
-				//	float[] cs=multiplyMatrix(new float[] {1f, 1f,1f},duboisColors[i]);
-				//	color=new Color(cs[0]*255f,cs[1]*255f,cs[2]*255f);
-				//}
-				gl2.glColor3f((float)color.getRed()/255f, (float)color.getGreen()/255f, (float)color.getBlue()/255f);
-				
-				GLUT glut=new GLUT();
-				glut.glutWireTeapot(0.5);
+					gl2.glLoadIdentity();
+					
+					//Rotate
+					float dxc=dx;
+					if(doFrustum) {
+						gl2.glMatrixMode(GL2.GL_PROJECTION);
+						float nearZ=1f, IOD=(float)sep/100f, g_initial_fov=(float)Math.toRadians(45), depthZ=5f;
+						float ftop=(float)Math.tan(g_initial_fov/2)*nearZ;
+						float fbottom = -ftop;
+						float left_right_direction = (i==0)?-1.0f:1.0f;
+						double frustumshift = (IOD/2)*nearZ/depthZ;
+						float fright =(float)(ftop+frustumshift*left_right_direction);
+						float fleft =-fright;
+						float[] g_projection_matrix = FloatUtil.makeFrustum(new float[16], 0, false, fleft, fright, fbottom, ftop, nearZ, depthZ);
+						// update the view matrix
+						float[] eye=new float[] {left_right_direction*IOD/2, 0, 1};
+						float[] center=new float[] {0, 0, -1f};
+						float[] up=new float[] {0,1,0};
+						float[] g_view_matrix = FloatUtil.makeLookAt(new float[16], 0, eye, 0, center, 0, up, 0, new float[16]);
+						gl2.glLoadMatrixf(FloatUtil.multMatrix(g_projection_matrix, g_view_matrix), 0);
+						gl2.glMatrixMode(GL2.GL_MODELVIEW);
+						gl2.glTranslatef(0f, 0f, -1.5f);
+						
+					}else {
+						dxc+=sep/2f;
+						dxc=dx-(float)(i*sep);
+					}
+					gl2.glRotatef(dxc, 0f, 1.0f, 0f);
+					gl2.glRotatef(dy, 1.0f, 0f, 0f);
+					gl2.glRotatef(dz, 0f, 0f, 1.0f);
+					
+					
+					Color color=((i==0)?left:right);
+					//if(dubois) {
+					//	float[] cs=multiplyMatrix(new float[] {1f, 1f,1f},duboisColors[i]);
+					//	color=new Color(cs[0]*255f,cs[1]*255f,cs[2]*255f);
+					//}
+					gl2.glColor3f((float)color.getRed()/255f, (float)color.getGreen()/255f, (float)color.getBlue()/255f);
+					
+					
+					GLUT glut=new GLUT();
+					glut.glutWireTeapot(0.5);
 				}
 			}
 			@Override
@@ -624,25 +744,26 @@ public class JCP implements PlugIn {
 		sds[4]=new JSlider(JSlider.HORIZONTAL, 0, 255, rightAnaglyphColor.getGreen());
 		sds[5]=new JSlider(JSlider.HORIZONTAL, 0, 255, rightAnaglyphColor.getBlue());
 		
+		ChangeListener cl=new ChangeListener() {
+			@Override
+			public void stateChanged(ChangeEvent e) {
+				int clr=canvas.left.getRed(),clg=canvas.left.getGreen(),clb=canvas.left.getBlue();
+				int crr=canvas.right.getRed(),crg=canvas.right.getGreen(),crb=canvas.right.getBlue();
+				int update=((JSlider)e.getSource()).getValue();
+				JSlider usl=((JSlider)e.getSource());
+				canvas.left=new Color(usl==sds[0]?update:clr,usl==sds[1]?update:clg,usl==sds[2]?update:clb);
+				canvas.right=new Color(usl==sds[3]?update:crr,usl==sds[4]?update:crg,usl==sds[5]?update:crb);
+				canvas.repaint();
+			}
+		};
 		for(int i=0;i<sds.length;i++) {
-			sds[i].addChangeListener(new ChangeListener() {
-				@Override
-				public void stateChanged(ChangeEvent e) {
-					int clr=canvas.left.getRed(),clg=canvas.left.getGreen(),clb=canvas.left.getBlue();
-					int crr=canvas.right.getRed(),crg=canvas.right.getGreen(),crb=canvas.right.getBlue();
-					int update=((JSlider)e.getSource()).getValue();
-					JSlider usl=((JSlider)e.getSource());
-					canvas.left=new Color(usl==sds[0]?update:clr,usl==sds[1]?update:clg,usl==sds[2]?update:clb);
-					canvas.right=new Color(usl==sds[3]?update:crr,usl==sds[4]?update:crg,usl==sds[5]?update:crb);
-					canvas.repaint();
-				}
-			});
+			sds[i].addChangeListener(cl);
 			sds[i].setMajorTickSpacing(50);
 			sds[i].setPaintTicks(true);
 			sds[i].setPaintLabels(true);
 		}
 
-		JSlider sepsl=new JSlider(JSlider.HORIZONTAL, 0, 30, stereoSep);
+		JSlider sepsl=new JSlider(JSlider.HORIZONTAL, 0, 30, canvas.sep>30?5:canvas.sep);
 		sepsl.setMajorTickSpacing(5);
 		sepsl.setPaintTicks(true);
 		sepsl.setPaintLabels(true);
@@ -659,32 +780,60 @@ public class JCP implements PlugIn {
 		GridBagConstraints c=new GridBagConstraints();
 		c.gridy=0;
 		//c.weighty=1; c.weightx=1;
+		//c.gridwidth=9;
 		c.gridx=0; c.gridwidth=1; panel.add(new JLabel("   "),c);
-		c.gridx=1; c.gridwidth=9; panel.add(new JLabel("Anaglyph Left Eye Color"),c);
-		c.gridx=10; c.gridwidth=1; panel.add(new JLabel("   "),c);
-		c.gridx=11; c.gridwidth=9; panel.add(new JLabel("Anaglyph Right Eye Color"),c);
+		c.gridx=1;  panel.add(new JLabel("Anaglyph Left Eye Color"),c);
+		c.gridx=2; panel.add(new JLabel("   "),c);
+		c.gridx=3; panel.add(new JLabel("Anaglyph Right Eye Color"),c);
+		c.anchor=GridBagConstraints.CENTER;
 		for(int i=0;i<3;i++) {
 			String clr=(i==0)?"Red":(i==1)?"Green":"Blue";
 			c.gridy++;
-			c.gridx=0; c.gridwidth=1; c.anchor=GridBagConstraints.CENTER; panel.add(new JLabel(clr),c);
-			c.gridx=1; c.gridwidth=9; c.anchor=GridBagConstraints.CENTER; panel.add(sds[i],c);
-			c.gridx=10; c.gridwidth=1; c.anchor=GridBagConstraints.CENTER; panel.add(new JLabel(clr),c);
-			c.gridx=11; c.gridwidth=9; c.anchor=GridBagConstraints.CENTER; panel.add(sds[i+3],c);
+			c.gridx=0; panel.add(new JLabel(clr),c);
+			c.gridx=1; panel.add(sds[i],c);
+			c.gridx=2; panel.add(new JLabel(clr),c);
+			c.gridx=3; panel.add(sds[i+3],c);
 		}
 		c.gridy++; 
-		c.gridx=0; c.gridwidth=20; panel.add(new JLabel(" "),c);
+		c.gridx=0; c.gridwidth=4; panel.add(new JLabel(" "),c);
 		c.gridy++; 
-		c.gridx=0; c.gridwidth=3; c.anchor=GridBagConstraints.WEST;
+		c.gridx=0; c.gridwidth=2; c.anchor=GridBagConstraints.WEST;
 		JCheckBox cb=new JCheckBox("Dubois-red-cyan",dubois);
 		cb.addItemListener(new ItemListener() {
 			@Override
 			public void itemStateChanged(ItemEvent e)  {
-				dubois=e.getStateChange()==1;
+				dubois=e.getStateChange()==ItemEvent.SELECTED;
+				if(jic!=null) {jic.setStereoUpdated(); jic.repaint();}
 			}
 		});
 		panel.add(cb,c);
-		c.gridx=3; c.gridwidth=7; c.anchor=GridBagConstraints.EAST; panel.add(new JLabel("Angle of separation"),c);
-		c.gridx=11; c.gridwidth=9; c.anchor=GridBagConstraints.CENTER; panel.add(sepsl,c);
+		c.gridx=1; c.gridwidth=2; c.anchor=GridBagConstraints.EAST; panel.add(new JLabel("Eye Separation"),c);
+		c.gridx=3; c.gridwidth=1; c.anchor=GridBagConstraints.CENTER; panel.add(sepsl,c);
+
+		c.gridy++; c.gridx=0; c.gridwidth=4; panel.add(new JLabel(" "),c);
+		/*cb=new JCheckBox("Perspective instead of orthogonal projection",doFrustum);
+		cb.addItemListener(new ItemListener() {
+			@Override
+			public void itemStateChanged(ItemEvent e)  {
+				doFrustum=e.getStateChange()==ItemEvent.SELECTED;
+				canvas.repaint();
+				if(jic!=null) {jic.setStereoUpdated(); jic.repaint();}
+			}
+		});
+		
+		c.gridy++; c.gridx=0; c.gridwidth=4; panel.add(cb,c);*/
+		c.gridy++; c.gridx=0; c.gridwidth=4; panel.add(new JLabel(" "),c);
+		cb=new JCheckBox("Auto fullscreen on OpenGL Quad buffer stereo",qbfullscreen);
+		cb.addItemListener(new ItemListener() {
+			@Override
+			public void itemStateChanged(ItemEvent e)  {
+				qbfullscreen=e.getStateChange()==ItemEvent.SELECTED;
+			}
+		});
+		c.gridy++; c.gridx=0; c.gridwidth=4; panel.add(cb,c);
+
+		c.gridy++; c.gridx=0; c.gridwidth=4; c.anchor=GridBagConstraints.CENTER;
+		panel.add(canvas, c);
 		
 		JPanel bpanel=new JPanel();
 		bpanel.setLayout(new GridLayout(1,2,10,2));
@@ -695,12 +844,16 @@ public class JCP implements PlugIn {
 			public void actionPerformed(ActionEvent e) {
 				leftAnaglyphColor=canvas.left;
 				rightAnaglyphColor=canvas.right;
-				stereoSep=canvas.sep;
+				stereoSep=(float)canvas.sep/100f;
 				Prefs.set("ajs.joglcanvas.leftAnaglyphColor",leftAnaglyphColor.getRGB());
 				Prefs.set("ajs.joglcanvas.rightAnaglyphColor",rightAnaglyphColor.getRGB());
 				Prefs.set("ajs.joglcanvas.dubois", dubois);
+				Prefs.set("ajs.joglcanvas.stereoSep", stereoSep);
+				Prefs.set("ajs.joglcanvas.qbfullscreen",qbfullscreen);
 				fillAnaColors();
 				asettings.dispose();
+				if(jic!=null) {jic.setStereoUpdated(); jic.repaint();}
+				Prefs.savePreferences();
 			}
 		});
 		bpanel.add(button);
@@ -713,13 +866,7 @@ public class JCP implements PlugIn {
 			}
 		});
 		bpanel.add(button);
-		c.gridy++; c.gridx=0; c.gridwidth=20; c.anchor=GridBagConstraints.CENTER;
-		panel.add(canvas, c);
-		//JPanel bigpanel=new JPanel();
-		//bigpanel.setLayout(new BorderLayout());
-		//bigpanel.add(panel, BorderLayout.NORTH);
-		//bigpanel.add(canvas, BorderLayout.SOUTH);
-		//bigpanel.add(bpanel);
+		
 		asettings.setLayout(new BorderLayout());
 		asettings.add(panel, BorderLayout.NORTH);
 		asettings.add(bpanel,BorderLayout.SOUTH);
@@ -748,7 +895,9 @@ public class JCP implements PlugIn {
 								{rr,rr,rr,gr,gr,gr,br,br,br}};
 		}
 	}
-	
+
 	public static void setDebug(boolean b) {debug=b;}
+	public static void setDebug() {debug=true;}
+	public static void setStereoSep(float sep) {stereoSep=sep; Prefs.set("ajs.joglcanvas.stereoSep",stereoSep);}
 
 }

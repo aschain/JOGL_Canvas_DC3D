@@ -12,7 +12,7 @@ in vec3 texCoord;
 // Outgoing final color.
 out vec4 outputColor;
 
-uniform highp sampler3D mytex[6];
+uniform highp sampler2D mytex[6];
 
 void main(){
 	outputColor=vec4(0,0,0,0);
@@ -23,12 +23,13 @@ void main(){
 		if(rgb>0){
 			bool color[3];
 			vec4 texColor;
-			if(i==0)texColor=texture(mytex[0], texCoord);
-			else if(i==1)texColor=texture(mytex[1], texCoord);
-			else if(i==2)texColor=texture(mytex[2], texCoord);
-			else if(i==3)texColor=texture(mytex[3], texCoord);
-			else if(i==4)texColor=texture(mytex[4], texCoord);
-			else if(i==5)texColor=texture(mytex[5], texCoord);
+			vec2 tc=texCoord.rg;
+			if(i==0)texColor=texture(mytex[0], tc);
+			else if(i==1)texColor=texture(mytex[1], tc);
+			else if(i==2)texColor=texture(mytex[2], tc);
+			else if(i==3)texColor=texture(mytex[3], tc);
+			else if(i==4)texColor=texture(mytex[4], tc);
+			else if(i==5)texColor=texture(mytex[5], tc);
 			if(rgb>8){
 				vec4 thresh=luts[i+6];
 				int ltype=int(thresh.b);

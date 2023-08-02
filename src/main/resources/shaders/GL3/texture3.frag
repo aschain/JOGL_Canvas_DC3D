@@ -6,7 +6,7 @@ precision highp int;
 layout(std140, column_major) uniform;
 
 uniform lutblock{
-	highp vec4 luts[6];
+	highp vec4 luts[12];
 };
 in vec3 texCoord;
 // Outgoing final color.
@@ -19,6 +19,7 @@ void main(){
 	for(int i=0;i<6;i++){
 		vec4 lut=luts[i];
 		int rgb=int(lut.b);
+		if(rgb>9)rgb=0;
 		if(rgb>0){
 			bool color[3];
 			vec4 texColor;
@@ -28,12 +29,39 @@ void main(){
 			else if(i==3)texColor=texture(mytex[3], texCoord);
 			else if(i==4)texColor=texture(mytex[4], texCoord);
 			else if(i==5)texColor=texture(mytex[5], texCoord);
+			if(rgb>8){
+				vec4 thresh=luts[i+6];
+				int ltype=int(thresh.b);
+				rgb=7;
+				if(ltype>12){
+					if(texColor.r<thresh.r){
+						outputColor.b=1.0;
+						rgb=0;
+					}else if(texColor.r>thresh.g){
+						outputColor.g=1.0;
+						rgb=0;
+					}
+				}else if(ltype>10){
+					if((texColor.r<thresh.g) && (texColor.r>thresh.r)){
+						outputColor.r=1.0;
+						outputColor.g=1.0;
+						outputColor.b=1.0;
+					}
+					rgb=0;
+				}else if(ltype>9){
+					if((texColor.r<thresh.g) && (texColor.r>thresh.r)){
+						outputColor.r=1.0;
+						rgb=0;
+					}
+				}
+			}
 			if(rgb>7){
 				outputColor.r=texColor.g;
 				outputColor.g=texColor.b;
 				outputColor.b=texColor.a;
 			}else{
-				float col=max((texColor.r-lut.r),0.0)/(lut.g-lut.r);
+				float col=(texColor.r-lut.r)/(lut.g-lut.r);
+				col=max(col,0.0);
 				if(lut.a>0.04)col=exp(lut.a*log(col));
 				color[2]=(rgb>3);
 				if(color[2])rgb=rgb-4;

@@ -1,18 +1,18 @@
-#version 450 core
+#version 300 es
 
 precision highp float;
 precision highp int;
 
 layout(std140, column_major) uniform;
 
-layout (binding = 3) uniform lutblock{
-	vec4 luts[12];
+uniform lutblock{
+	highp vec4 luts[12];
 };
 in vec3 texCoord;
 // Outgoing final color.
 out vec4 outputColor;
 
-uniform sampler3D mytex[6];
+uniform highp sampler2D mytex[6];
 
 void main(){
 	outputColor=vec4(0,0,0,0);
@@ -22,7 +22,14 @@ void main(){
 		if(rgb>9)rgb=0;
 		if(rgb>0){
 			bool color[3];
-			vec4 texColor=texture(mytex[i], texCoord);
+			vec4 texColor;
+			vec2 tc=texCoord.rg;
+			if(i==0)texColor=texture2D(mytex[0], tc);
+			else if(i==1)texColor=texture2D(mytex[1], tc);
+			else if(i==2)texColor=texture2D(mytex[2], tc);
+			else if(i==3)texColor=texture2D(mytex[3], tc);
+			else if(i==4)texColor=texture2D(mytex[4], tc);
+			else if(i==5)texColor=texture2D(mytex[5], tc);
 			if(rgb>8){
 				vec4 thresh=luts[i+6];
 				int ltype=int(thresh.b);

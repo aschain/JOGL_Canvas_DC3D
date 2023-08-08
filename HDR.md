@@ -20,6 +20,6 @@ JOGL_Canvas cannot use LUTs that are more complex than a single color (Red, Gree
 
 ### Troubleshooting
 If the test image still shows banding:  
-1. Make sure the monitor settings are for higher color bits.  For example, open Nvidia Control Panel, select Change Resolution, select "Use NVIDIA color settings" and set "Output color depth" to "10bpc", and "Output dynamic range" to "Full"
+1. Make sure the monitor settings are for higher color bits.  For example, for NVIDIA cards, open Nvidia Control Panel, select Change Resolution, select "Use NVIDIA color settings" and set "Output color depth" to "10bpc", "Desktop color depth" to "SDR (30 bit color)",  and "Output dynamic range" to "Full"
 2. Sometimes stereoscopic active stereo does not work with HDR, so turn off "Enable active stereo" in JOGL Canvas Prefs
 3. Try rebooting?

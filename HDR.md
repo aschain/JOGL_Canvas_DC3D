@@ -1,7 +1,9 @@
 ### HDR - High Dynamic Range for colors
 Most monitors are capable of 8 bits of depth per color (256 shades of color, 16.7 million colors).
 
-However, newer monitors are capable of higher bits per color, a common one is 10 bits for RGB (1024 shades of color per channel, 1.07 billion colors, sometimes called 10 bit or 30 bit display, HDR, or HDR10). Other monitors can go up to 12 or 16 bits per color channel. More bits means smoother transistions between shades of colors.
+However, newer monitors are capable of higher bits per color, a common one is 10 bits for RGB (1024 shades of color per channel, 1.07 billion colors, sometimes called 10 bit or 30 bit display, HDR, or HDR10). Other monitors can go up to 12 or 16 bits per color channel. More bits means smoother transistions between shades of colors, and less banding with brightness ramps.
+
+![HDR example](https://github.com/aschain/JOGL_Canvas_DC3D/blob/master/images/HDR-example.jpg?raw=true)
 
 Java, by itself, unfortunately, cannot make use of higher bit monitors. However the JOGL integration in JOGLCanvas makes this possible!
 

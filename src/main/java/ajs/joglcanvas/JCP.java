@@ -383,17 +383,8 @@ public class JCP implements PlugIn {
 			glCapabilities = new GLCapabilities( glProfile );
 		}
 		if(defaultBitString==null || defaultBitString.equals("default")) return null;
-		setGLCapabilities(glCapabilities, defaultBitString);
-		log("Starting JOGL with Settings:\n   "+glCapabilities);
-		return glCapabilities;
-	}
-	
-	public static void setGLCapabilities(GLCapabilities glCapabilities, String bitdepthstr) {
-
-		String[] bitdepths=bitdepthstr.split(",");
-		if(bitdepths.length!=4)return;
-
-		if(glCapabilities==null)return;
+		String[] bitdepths=defaultBitString.split(",");
+		if(bitdepths.length!=4)bitdepths=new String[] {"8","8","8","8"};
 		int b=Integer.parseInt(bitdepths[2]), g=Integer.parseInt(bitdepths[1]), r=Integer.parseInt(bitdepths[0]), a=Integer.parseInt(bitdepths[3]);
 		glCapabilities.setBlueBits(b);
 		glCapabilities.setGreenBits(g);
@@ -406,6 +397,8 @@ public class JCP implements PlugIn {
 		glCapabilities.setNumSamples(4);
 		glCapabilities.setStereo(preferStereo);
 		if(preferStereo && ((g+r+b)>26))log("JOGLImageCanvas Warning: Active stereo disables HDR 10-bit, disable it in prefs if you prefer HDR");
+		log("Starting JOGL with Settings:\n   "+glCapabilities);
+		return glCapabilities;
 	}
 
 	

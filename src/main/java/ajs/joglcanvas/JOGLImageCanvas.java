@@ -537,9 +537,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		else ratio=((double)glw.getSurfaceWidth()/glw.getSurfaceHeight())/((double)srcRect.width/srcRect.height);
 		float sx=1f, sy=1f;
 		if(ratio>1.0f) sx=(float)(1.0/ratio);  else sy=(float)ratio;
-		float znear=zNear, zfar=zFar;
+		//float znear=zNear, zfar=zFar;
 		//if(one3Dslice) {znear=-2/(float)imageWidth; zfar=-znear;}
-		float[] viewmatrix=FloatUtil.makeOrtho(new float[16], 0, false, -1f/sx, 1f/sx, -1f/sy, 1f/sy, znear/sx, zfar/sx);
+		float[] viewmatrix=FloatUtil.makeOrtho(new float[16], 0, false, -1f/sx, 1f/sx, -1f/sy, 1f/sy, zNear/sx, zFar/sx);
 		
 		//clear "projection" matrix
 		glos.getUniformBuffer("global").loadIdentity();
@@ -2039,9 +2039,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			//addMI(dcpopup, "Switch use PBO for Slices", "usePBOforSlices");
 			//addMI(dcpopup, "Override GUI dpi", "guidpi");
 			menu=new Menu("Other Options");
-			if(isMirror)addCMI(menu, "Resizable Mirror", mirrorMagUnlock);
 			addCMI(menu, "Fullscreen", !(glw==null || !glw.isFullscreen()));
-			addMI(menu, "Toggle Right Click 3d Control", "rightclick");
+			if(isMirror)addCMI(menu, "Resizable Mirror", mirrorMagUnlock);
+			if(isMirror)addMI(menu, "Toggle Left Click 3d Control", "rightclick");
 			if(imp.getNSlices()==1)addMI(menu,"Adjust Contrast/Gamma","gamma");
 			addMI(menu, "JOGL Canvas Preferences", "prefs");
 			addMI(menu, "Revert to Normal Window", "revert");

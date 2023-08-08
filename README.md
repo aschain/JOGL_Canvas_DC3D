@@ -7,7 +7,7 @@ This has two major benefits:
 
 Image stacks are rendered in 3D directly on the canvas, and you can zoom, pan, translate, and rotate. You can also make selections and it will display all selections in the overlay from different slices where appropriate. You can render in an external window (mirror) or within the ImagePlus canvas.
 
-### Deep Color or HDR High Dynamic Range --  Higher bit depths than 8 bits/color if your monitor supports it.
+### HDR High Dynamic Range --  Higher bit depths than 8 bits/color if your monitor supports it (HDR10 etc).
 [More info here](https://github.com/aschain/JOGL_Canvas_DC3D/blob/master/HDR.md)
 
 ## Installation

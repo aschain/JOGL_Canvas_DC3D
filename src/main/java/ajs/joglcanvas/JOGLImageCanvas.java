@@ -377,6 +377,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			warpPointerWorks=true;
 			if(JCP.debug)log("warp working");
 		}
+		log("  Acc: "+glw.getChosenGLCapabilities());
 	}
 	
 	private void init3dTex() {

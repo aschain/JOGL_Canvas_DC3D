@@ -367,7 +367,7 @@ public class JCP implements PlugIn {
 		//else glProfile = GLProfile.getDefault();
 		else glProfile = GLProfile.getMaxProgrammable(true);
 		if(!glProfile.isGL2ES2()) {
-			IJ.showMessage("Deep Color requires at least OpenGL 2ES2");
+			IJ.showMessage("JOGLCanvas requires at least OpenGL 2ES2");
 			return null;
 		}
 		GLCapabilities glCapabilities = new GLCapabilities( glProfile );
@@ -397,7 +397,7 @@ public class JCP implements PlugIn {
 		glCapabilities.setNumSamples(4);
 		glCapabilities.setStereo(preferStereo);
 		if(preferStereo && ((g+r+b)>26))log("JOGLImageCanvas Warning: Active stereo disables HDR 10-bit, disable it in prefs if you prefer HDR");
-		log("Starting JOGL with Settings:\n   "+glCapabilities);
+		log("Starting JOGL with Settings:\n  Req: "+glCapabilities);
 		return glCapabilities;
 	}
 

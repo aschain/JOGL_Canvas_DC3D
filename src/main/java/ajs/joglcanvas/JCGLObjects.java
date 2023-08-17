@@ -68,6 +68,10 @@ public class JCGLObjects {
 		setGL(gl);
 	}
 	
+	public boolean isGLset() {
+		return !(gl==null);
+	}
+	
 	public void dispose() {
 		for(JCTexture obj:textures.values())obj.dispose();
 		for(JCPbo obj:pbos.values())obj.dispose();
@@ -95,6 +99,7 @@ public class JCGLObjects {
 	
 	public void setGLVer() {
 		String version=gl.glGetString(GL_VERSION);
+		JCP.version=version;
 		//System.out.println("JCGLO gl version "+version);
 		float v=0f;
 		int st=0;
@@ -129,6 +134,22 @@ public class JCGLObjects {
 		GL4bc GL3bc GL2 GL4 GL3 GLES3 GL4ES3 
 		GL2GL3 GLES2 GL2ES2 GLES1 GL2ES1 */
 	}
+	
+	public int getMaxTextureSize(boolean is3d) {
+		int[] maxsize=new int[1];
+		int glint=GL_MAX_TEXTURE_SIZE;
+		if(is3d)glint=GL_MAX_3D_TEXTURE_SIZE;
+		gl23.glGetIntegerv(glint,maxsize,0);
+		return maxsize[0];
+	}
+	
+	public com.jogamp.opengl.GLProfile getGLProfile() {
+		return gl23.getGLProfile();
+	}
+	
+	public void glDrawBuffer(int glint) {
+		gl23.glDrawBuffer(glint);
+	}
 
 	public void clearColorDepth() {
 		if(gl23==null)return;
@@ -138,6 +159,55 @@ public class JCGLObjects {
 		}else
 			gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	}
+	
+	public void clearColor() {
+		gl23.glClearColor(0f, 0f, 0f, 0f);
+	}
+	
+	public void glDisable(int glInt) {
+		gl23.glDisable(glInt);
+	}
+	
+	public void glViewport(int x, int y, int w, int h) {
+		gl23.glViewport(x, y, w, h);
+	}
+	
+	public int[] getViewport() {
+		int[] vps=new int[4];
+		gl23.glGetIntegerv(GL_VIEWPORT, vps, 0);
+		return vps;
+	}
+	
+	public void setGLrenderFunction(String renderFunction) {
+		gl.glEnable(GL_BLEND);
+		if(renderFunction.equals("MAX")) {
+			gl.glBlendEquation(GL_MAX);
+			gl.glBlendFunc(GL_SRC_COLOR, GL_DST_COLOR);
+		}else if(renderFunction.equals("ALPHA")) {
+			gl.glBlendEquation(GL_FUNC_ADD);
+			gl.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		}
+	}
+	
+	public void drawGraphics(String name, int index, Buffer vb) {
+		int gltextype=getTexture(name).is3d?GL_TEXTURE_3D:GL_TEXTURE_2D;
+		ShortBuffer eb=GLBuffers.newDirectShortBuffer(new short[] {0,1,2,2,3,0});
+		gl.glTexParameteri(gltextype, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		drawTexVaoWithEBOVBO(name, index, eb, vb);
+		if(Prefs.interpolateScaledImages)gl.glTexParameteri(gltextype, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	}
+	
+	public void finish() {
+		gl.glFinish();
+	}
+	
+	
+	
+	
+	/*
+	 * Textures
+	 * 
+	 */
 	
 	public void newTexture(String name, boolean is3d) {
 		newTexture(name, 1, is3d);
@@ -209,8 +279,8 @@ public class JCGLObjects {
 		gl.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 	}
 	
-	public void drawTexVao(String name, int glElementBufferType, int count, int chs, boolean forceInterpolate) {
-		drawTexVao(name, 0, glElementBufferType, count, chs, forceInterpolate);
+	public void drawTexVao(String name, int count, int chs, boolean forceInterpolate) {
+		drawTexVao(name, 0, getBuffer(GL_ELEMENT_ARRAY_BUFFER, name).glbitsize, count, chs, forceInterpolate);
 	}
 	
 	public void drawTexVao(String name, int index, Buffer vertexBuffer) {
@@ -224,6 +294,18 @@ public class JCGLObjects {
 	public void drawTexVao(String name, int index, Buffer vb, String pname) {
 		useProgram(pname);
 		drawTexVao(name, index, vb);
+		stopProgram();
+	}
+	
+	public void drawTexVaoWithProgramBuffers(String texName, int count, int chs, boolean forceInterpolation, String programName, String[] uniformBuffers) {
+		useProgram(programName);
+		for(int i=0;i<uniformBuffers.length;i++) {
+			bindUniformBuffer(uniformBuffers[i],i);
+		}
+		drawTexVao(texName,count, chs, forceInterpolation);
+		for(int i=0;i<uniformBuffers.length;i++) {
+			unBindBuffer(GL_UNIFORM_BUFFER,i);
+		}
 		stopProgram();
 	}
 	
@@ -363,6 +445,11 @@ public class JCGLObjects {
 		
 		gl23.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		if(gl23.glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)IJ.error("not ready");
+	}
+	
+	public void stopDrawingToTexture() {
+		gl.glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		gl.glBindRenderbuffer(GL_RENDERBUFFER, 0);
 	}
 	
 	class JCTexture{
@@ -570,6 +657,38 @@ public class JCGLObjects {
 		buffers.put(name+gltype, new JCBuffer(gltype,  name));
 	}
 	
+	public ByteBuffer newArrayBuffer(String name, Buffer buffer) {
+		return newBuffer(GL_ARRAY_BUFFER, name, buffer);
+	}
+	
+	public ByteBuffer newArrayBuffer(String name, long size, Buffer buffer) {
+		return newBuffer(GL_ARRAY_BUFFER, name, size, buffer);
+	}
+	
+	public ByteBuffer newElementBuffer(String name, Buffer buffer) {
+		return newBuffer(GL_ELEMENT_ARRAY_BUFFER, name, buffer);
+	}
+	
+	public ByteBuffer newElementBuffer(String name, long size, Buffer buffer) {
+		return newBuffer(GL_ELEMENT_ARRAY_BUFFER, name, size, buffer);
+	}
+	
+	public void newArrayBuffer(String name) {
+		newBuffer(GL_ARRAY_BUFFER, name);
+	}
+	
+	public void newElementBuffer(String name) {
+		newBuffer(GL_ELEMENT_ARRAY_BUFFER, name);
+	}
+	
+	public ByteBuffer newUniformBuffer(String name, Buffer buffer) {
+		return newBuffer(GL_UNIFORM_BUFFER, name, buffer);
+	}
+	
+	public ByteBuffer newUniformBuffer(String name, long size, Buffer buffer) {
+		return newBuffer(GL_UNIFORM_BUFFER, name, size, buffer);
+	}
+	
 	public JCBuffer getBuffer(int gltype, String name) {
 		return buffers.get(name+gltype);
 	}
@@ -604,6 +723,10 @@ public class JCGLObjects {
 		else System.err.println("AJS Could not find buffer "+name+" "+gltype);
 	}
 	
+	public void unBindUniformBuffer(int binding) {
+		unBindBuffer(GL_UNIFORM_BUFFER, binding);
+	}
+	
 	public void unBindBuffer(int gltype, int binding) {
 		if(gltype==GL_UNIFORM_BUFFER) {
 			if(glver==2)return;
@@ -616,6 +739,14 @@ public class JCGLObjects {
 	public void unBindBuffer(int gltype) {
 		unBindBuffer(gltype, 0);
 	}
+	
+	public void newFramebuffers(int number, int[] framebuffers, int offset) {
+		gl.glGenFramebuffers(number, framebuffers, offset);
+	}
+	
+	public void newRenderbuffers(int number, int[] renderbuffers, int offset) {
+		gl.glGenRenderbuffers(number, renderbuffers, offset);
+	}
 
 	class JCBuffer{
 
@@ -624,6 +755,7 @@ public class JCGLObjects {
 		public int handle;
 		public ByteBuffer buffer=null;
 		public int gltype;
+		public int glbitsize;
 		
 		public JCBuffer(int gltype, String name, long size, Buffer buffer) {
 			this(gltype, name, size, buffer, true);
@@ -643,6 +775,9 @@ public class JCGLObjects {
 			this.bindName=name;
 			int[] bn=new int[1];
 			boolean write=(buffer==null);
+			if(buffer!=null) {
+				glbitsize=getGLType(buffer);
+			}
 			if(glver==4) {gl4.glCreateBuffers(1, bn, 0);}
 			else if(glver==3 || (glver==2 && gltype!=GL_UNIFORM_BUFFER)) gl23.glGenBuffers(1, bn, 0);
 			else {define=true; write=true;}
@@ -769,6 +904,14 @@ public class JCGLObjects {
 	public void newVao(String name, int size1, int gltype1, int size2, int gltype2) {
 		JCVao oldvao=vaos.put(name, new JCVao(name, size1, gltype1, size2, gltype2));
 		if(oldvao!=null)oldvao.dispose();
+	}
+	
+	public void newVao(String name, int size1, int size2) {
+		newVao(name, size1, GL_FLOAT, size2, GL_FLOAT);
+	}
+	
+	public void newVao(String name) {
+		newVao(name, 3, 3);
 	}
 	
 	class JCVao{

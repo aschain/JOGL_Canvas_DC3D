@@ -880,9 +880,9 @@ public class JCP implements PlugIn {
 			anaColors = duboisColors;
 		}else {
 			float lr=(float)JCP.leftAnaglyphColor.getRed()/255f, lg=(float)JCP.leftAnaglyphColor.getGreen()/255f, lb=(float)JCP.leftAnaglyphColor.getBlue()/255f,
-				rr=(float)JCP.rightAnaglyphColor.getRed()/255f, gr=(float)JCP.rightAnaglyphColor.getGreen()/255f, br=(float)JCP.rightAnaglyphColor.getBlue()/255f;
+				rr=(float)JCP.rightAnaglyphColor.getRed()/255f, rg=(float)JCP.rightAnaglyphColor.getGreen()/255f, rb=(float)JCP.rightAnaglyphColor.getBlue()/255f;
 			anaColors=new float[][] {{ lr,lr,lr,lg,lg,lg,lb,lb,lb},
-								{rr,rr,rr,gr,gr,gr,br,br,br}};
+								{rr,rr,rr,rg,rg,rg,rb,rb,rb}};
 		}
 	}
 

@@ -82,7 +82,6 @@ import com.jogamp.opengl.util.texture.awt.AWTTextureIO;
 import com.jogamp.opengl.GLEventListener;
 import com.jogamp.opengl.GLException;
 import com.jogamp.opengl.GLProfile;
-import com.jogamp.opengl.util.awt.AWTGLReadBufferUtil;
 import com.jogamp.opengl.math.FloatUtil;
 import com.jogamp.opengl.util.GLBuffers;
 
@@ -157,10 +156,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private static final float CB_TRANSLATE=0.5f;
 	private StereoType stereoType=StereoType.OFF;
 	private boolean stereoUpdated=true,threeDupdated=true;
-	private int[] stereoFramebuffers=new int[1];
-	private int[] stereoRenderbuffers=new int[1];
-	private int[] tempFramebuffers;
-	private int[] tempRenderbuffers;
+	private int[] stereoFramebuffers,stereoRenderbuffers,tempFramebuffers,tempRenderbuffers;
 	//private boolean mylock=false;
 
 	enum PixelType{BYTE, SHORT, FLOAT, INT_RGB10A2, INT_RGBA8};
@@ -169,7 +165,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private static final int COMPS=1;
 	
 	private BIScreenGrabber screengrabber=null;
-	private AWTGLReadBufferUtil ss=null;
 	private RoiGLDrawUtility rgldu=null;
 	private boolean scbrAdjusting=false;
 	private CutPlanesCube cutPlanes;
@@ -426,6 +421,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		glos.newArrayBuffer("anaglyph", avb);
 		glos.newElementBuffer("anaglyph", GLBuffers.newDirectByteBuffer(eb));
 		glos.newVao("anaglyph");
+		stereoFramebuffers=new int[1];
+		stereoRenderbuffers=new int[1];
 		glos.newFramebuffers(1, stereoFramebuffers, 0);
 		glos.newRenderbuffers(1, stereoRenderbuffers, 0);
 		
@@ -1061,6 +1058,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			}else {
 				//gl.glDrawBuffer(GL_BACK);
 				int[] vps=glos.getViewport();
+				log("vps "+vps[0]+" "+vps[1]+" "+vps[2]+" "+vps[3]);
 				glos.drawToTexture("anaglyph", 0, imp.getWidth(), imp.getHeight(), stereoFramebuffers[0], stereoRenderbuffers[0], getPixelType(imp));
 				glos.glViewport(0, 0, imp.getWidth(), imp.getHeight());
 				glos.clearColorDepth();
@@ -1392,16 +1390,14 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	}
 	
 	public BufferedImage grabScreen(GLAutoDrawable drawable) {
-		int[] vps=new int[4]; drawable.getGL().glGetIntegerv(GL2.GL_VIEWPORT, vps, 0);
+		int[] vps=glos.getViewport();
 		int width=vps[2], height=vps[3];
 		int x=0,y=0;
-		boolean alpha=false, awtOrientation=true;
 		if(stereoType==StereoType.CARDBOARD) {
 			y=(int)((1f-(1f/CB_MAXSIZE))*(float)srcRect.height/(float)srcRect.width/2f*(float)height);
 			height/=CB_MAXSIZE;
 		}
-		if(ss==null) ss=new AWTGLReadBufferUtil(drawable.getGLProfile(), alpha);
-		return ss.readPixelsToBufferedImage(drawable.getGL(), x, y, width, height, awtOrientation);
+		return glos.grabScreen(x, y, width, height);
 	}
 	
 	public void setUnderSampling(int us) {

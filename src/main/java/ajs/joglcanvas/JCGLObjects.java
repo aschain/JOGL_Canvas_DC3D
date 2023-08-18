@@ -15,6 +15,7 @@ import static com.jogamp.opengl.GL2.*;
 import static com.jogamp.opengl.GL2ES2.GL_DEPTH_COMPONENT;
 import static com.jogamp.opengl.GL2ES2.GL_TEXTURE_3D;
 
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
@@ -36,10 +37,12 @@ import com.jogamp.opengl.GL4;
 import com.jogamp.opengl.GLAutoDrawable;
 import com.jogamp.opengl.math.FloatUtil;
 import com.jogamp.opengl.util.GLBuffers;
+import com.jogamp.opengl.util.awt.AWTGLReadBufferUtil;
 import com.jogamp.opengl.util.glsl.ShaderCode;
 import com.jogamp.opengl.util.glsl.ShaderProgram;
 
 import ajs.joglcanvas.JOGLImageCanvas.PixelType;
+import ajs.joglcanvas.JOGLImageCanvas.StereoType;
 import ij.IJ;
 import ij.Prefs;
 
@@ -52,6 +55,7 @@ public class JCGLObjects {
 	private GL2 gl2=null;
 	private GL3 gl3=null;
 	private GL4 gl4=null;
+	private AWTGLReadBufferUtil ss=null;
 	public Hashtable<String,JCTexture> textures=new Hashtable<String,JCTexture>();
 	public Hashtable<String,JCPbo> pbos=new Hashtable<String,JCPbo>();
 	public Hashtable<String,JCBuffer> buffers=new Hashtable<String,JCBuffer>();
@@ -195,6 +199,12 @@ public class JCGLObjects {
 		gl.glTexParameteri(gltextype, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 		drawTexVaoWithEBOVBO(name, index, eb, vb);
 		if(Prefs.interpolateScaledImages)gl.glTexParameteri(gltextype, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	}
+	
+	public BufferedImage grabScreen(int x, int y, int width, int height) {
+		//boolean alpha=false, awtOrientation=true;
+		if(ss==null) ss=new AWTGLReadBufferUtil(gl.getGLProfile(), false);
+		return ss.readPixelsToBufferedImage(gl, x, y, width, height, true);
 	}
 	
 	public void finish() {
@@ -755,7 +765,7 @@ public class JCGLObjects {
 		public int handle;
 		public ByteBuffer buffer=null;
 		public int gltype;
-		public int glbitsize;
+		public int glbitsize=GL_UNSIGNED_BYTE;
 		
 		public JCBuffer(int gltype, String name, long size, Buffer buffer) {
 			this(gltype, name, size, buffer, true);
@@ -782,6 +792,7 @@ public class JCGLObjects {
 			else if(glver==3 || (glver==2 && gltype!=GL_UNIFORM_BUFFER)) gl23.glGenBuffers(1, bn, 0);
 			else {define=true; write=true;}
 			handle=bn[0];
+			//JOGLImageCanvas.log("newBuffer "+name+" glt"+gltype+" size"+size+" glbs"+glbitsize);
 			if(define) {
 				gl23.glBindBuffer(gltype, handle);
 				if(glver==4){

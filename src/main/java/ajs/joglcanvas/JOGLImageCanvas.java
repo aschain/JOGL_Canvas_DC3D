@@ -1071,16 +1071,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				glos.stopDrawingToTexture();
 				glos.glViewport(vps[0], vps[1], vps[2], vps[3]);
 				glos.glDisable(GL2GL3.GL_BLEND);
-				//glos.drawTexVaoWithProgramBuffers("anaglyph", 6, 1, Prefs.interpolateScaledImages, "anaglyph", pixelTypeStrings)
-				glos.useProgram("anaglyph");
-				glos.bindUniformBuffer(bname, 1);
-				glos.bindUniformBuffer("model", 2);
-				glos.getGL2GL3().glUniformMatrix3fv(glos.getLocation("anaglyph", "ana"), 1, false, anaidm, 0);
-				glos.getGL2GL3().glUniform1f(glos.getLocation("anaglyph", "dubois"), 1f);
-				glos.drawTexVao("anaglyph",0, GL2GL3.GL_UNSIGNED_BYTE, 6, 1, Prefs.interpolateScaledImages); 
-				glos.unBindBuffer(GL2GL3.GL_UNIFORM_BUFFER,1);
-				glos.unBindBuffer(GL2GL3.GL_UNIFORM_BUFFER,2);
-				glos.stopProgram();
+				glos.drawTexVaoWithProgramBuffers("anaglyph", 6, 1, Prefs.interpolateScaledImages, "roi", new String[] {bname, "model"});
 			}
 
 			//Draw roi and overlay and cursor crosshairs
@@ -1172,30 +1163,29 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			glos.useProgram("anaglyph");
 			
 			for(int stereoi=0;stereoi<views;stereoi++) {
-				if(stereoType==StereoType.QUADBUFFER) {
-					if(stereoi==0)glos.getGL2GL3().glDrawBuffer(GL2GL3.GL_BACK_LEFT);
-					else glos.getGL2GL3().glDrawBuffer(GL2GL3.GL_BACK_RIGHT);
-					glos.clearColorDepth();
-				}
+				String globalmat="globalidm";
 				if(stereoType==StereoType.ANAGLYPH) {
-		
 					glos.getGL2GL3().glUniformMatrix3fv(glos.getLocation("anaglyph", "ana"), 1, false, JCP.anaColors[stereoi], 0);
 					glos.getGL2GL3().glUniform1f(glos.getLocation("anaglyph", "dubois"), JCP.dubois?1f:0f);
 					glos.bindUniformBuffer("globalidm", 1);
 
 				}else {
+					if(stereoType==StereoType.QUADBUFFER) {
+						if(stereoi==0)glos.getGL2GL3().glDrawBuffer(GL2GL3.GL_BACK_LEFT);
+						else glos.getGL2GL3().glDrawBuffer(GL2GL3.GL_BACK_RIGHT);
+						glos.clearColorDepth();
+					}
 					if(stereoType==StereoType.CARDBOARD) {
-						if(stereoi==0)glos.bindUniformBuffer("CB-left", 1);
-						else glos.bindUniformBuffer("CB-right", 1);
+						if(stereoi==0)globalmat="CB-left";
+						else globalmat="CB-right";
 					}else if(stereoType==StereoType.HSBS) {
-						if(stereoi==0)glos.bindUniformBuffer("HSBS-left", 1);
-						else glos.bindUniformBuffer("HSBS-right", 1);
-					}else {
-						glos.bindUniformBuffer("globalidm", 1);
+						if(stereoi==0)globalmat="HSBS-left";
+						else globalmat="HSBS-right";
 					}
 					glos.getGL2GL3().glUniformMatrix3fv(glos.getLocation("anaglyph", "ana"), 1, false, anaidm, 0);
 					glos.getGL2GL3().glUniform1f(glos.getLocation("anaglyph", "dubois"), 1f);
 				}
+				glos.bindUniformBuffer(globalmat, 1);
 				glos.bindUniformBuffer("idm", 2);
 				glos.drawTexVao("anaglyph",stereoi, GL2GL3.GL_UNSIGNED_BYTE, 6, 1, false); 
 				glos.drawTexVao("temp",stereoi, GL2GL3.GL_UNSIGNED_BYTE, 6, 1, false); 

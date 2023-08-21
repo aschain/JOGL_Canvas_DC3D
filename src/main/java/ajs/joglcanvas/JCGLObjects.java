@@ -310,11 +310,11 @@ public class JCGLObjects {
 	public void drawTexVaoWithProgramBuffers(String texName, int count, int chs, boolean forceInterpolation, String programName, String[] uniformBuffers) {
 		useProgram(programName);
 		for(int i=0;i<uniformBuffers.length;i++) {
-			bindUniformBuffer(uniformBuffers[i],i);
+			bindUniformBuffer(uniformBuffers[i],i+1);
 		}
 		drawTexVao(texName,count, chs, forceInterpolation);
 		for(int i=0;i<uniformBuffers.length;i++) {
-			unBindBuffer(GL_UNIFORM_BUFFER,i);
+			unBindBuffer(GL_UNIFORM_BUFFER,i+1);
 		}
 		stopProgram();
 	}

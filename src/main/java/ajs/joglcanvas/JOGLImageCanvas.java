@@ -1054,7 +1054,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				glos.glDisable(GL2GL3.GL_BLEND);
 				//drawing the whole image with lut processesing to anaglyph texture, using no projection or model transformations
 				//to correct for min/max
-				glos.drawTexVaoWithProgramBuffers("image2d", lim/4, chs, false, "image2d", new String[] {"globalidm", "idm","luts"});
+				glos.drawTexVaoWithProgramBuffers("image2d", lim/4, chs, false, "image2d", new String[] {"global", "model","luts"});
 				
 				//draw
 				//glos.stopDrawingToTexture();

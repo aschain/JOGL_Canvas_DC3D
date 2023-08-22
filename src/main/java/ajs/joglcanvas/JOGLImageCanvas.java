@@ -357,47 +357,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		//	gl.glGetInternalformativ(GL_TEXTURE_3D, pti.glInternalFormat, GL_TEXTURE_IMAGE_FORMAT, 1, pf, 0);
 		//	log("Best in format for comps:"+i+" Int format:"+pti.glInternalFormat+" my form:"+pti.glFormat+" best:"+pf[0]);
 		//}
-		initAnaglyph();
-		Point pre=MouseInfo.getPointerInfo().getLocation();
-		glw.warpPointer(1,1);
-		Point post=MouseInfo.getPointerInfo().getLocation();
-		glw.warpPointer(pre.x,pre.y);
-		if((pre.x-post.x+pre.y-post.y)==0) {
-			//warp not working
-			if(JCP.debug)log("warp not working");
-		}else {
-			warpPointerWorks=true;
-			if(JCP.debug)log("warp working");
-		}
-		log("  Acc: "+glw.getChosenGLCapabilities());
-	}
-	
-	private void init3dTex() {
-		Calibration cal=imp.getCalibration();
-		long zmaxsls=(long)((double)imp.getNSlices()*cal.pixelDepth/cal.pixelWidth);
-		long maxsize=Math.max((long)imp.getWidth(), Math.max((long)imp.getHeight(), zmaxsls));
-
-		ByteBuffer vertb=glos.getDirectBuffer(GL2GL3.GL_ARRAY_BUFFER, "image3d");
-		int floatsPerVertex=6;
-		long vertbSize=maxsize*floatsPerVertex*4*Buffers.SIZEOF_FLOAT;
-		if(vertb==null || ((Buffer)vertb).capacity()!=(int)vertbSize) {
-			int elementsPerSlice=6;
-			short[] e=new short[(int)maxsize*elementsPerSlice];
-			for(int i=0; i<(maxsize);i++) {
-				e[i*6+0]=(short)(i*4+0); e[i*6+1]=(short)(i*4+1); e[i*6+2]=(short)(i*4+2);
-				e[i*6+3]=(short)(i*4+2); e[i*6+4]=(short)(i*4+3); e[i*6+5]=(short)(i*4+0);
-			}
-			ShortBuffer elementBuffer=GLBuffers.newDirectShortBuffer(e);
-			((Buffer)elementBuffer).rewind();
-	
-			glos.newTexture("image3d", imp.getNChannels(), true);
-			glos.newArrayBuffer("image3d", maxsize*floatsPerVertex*4*Buffers.SIZEOF_FLOAT, null);
-			glos.newElementBuffer("image3d", ((Buffer)elementBuffer).capacity()*Buffers.SIZEOF_SHORT, elementBuffer);
-			glos.newVao("image3d");
-		}
-	}
-	
-	private void initAnaglyph() {
+		
+		
 		//Unlike the image2d vertex buffer, this one is not vertically
 		//flipped with respect to the texture coordinates.
 		FloatBuffer avb=GLBuffers.newDirectFloatBuffer(new float[] {
@@ -464,7 +425,44 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		glos.getUniformBuffer("HSBS-left").loadMatrix(orthocbl, 16 * Buffers.SIZEOF_FLOAT);
 		glos.getUniformBuffer("HSBS-right").loadIdentity(0);
 		glos.getUniformBuffer("HSBS-right").loadMatrix(orthocbr, 16 * Buffers.SIZEOF_FLOAT);
-		
+				
+		Point pre=MouseInfo.getPointerInfo().getLocation();
+		glw.warpPointer(1,1);
+		Point post=MouseInfo.getPointerInfo().getLocation();
+		glw.warpPointer(pre.x,pre.y);
+		if((pre.x-post.x+pre.y-post.y)==0) {
+			//warp not working
+			if(JCP.debug)log("warp not working");
+		}else {
+			warpPointerWorks=true;
+			if(JCP.debug)log("warp working");
+		}
+		log("  Acc: "+glw.getChosenGLCapabilities());
+	}
+	
+	private void init3dTex() {
+		Calibration cal=imp.getCalibration();
+		long zmaxsls=(long)((double)imp.getNSlices()*cal.pixelDepth/cal.pixelWidth);
+		long maxsize=Math.max((long)imp.getWidth(), Math.max((long)imp.getHeight(), zmaxsls));
+
+		ByteBuffer vertb=glos.getDirectBuffer(GL2GL3.GL_ARRAY_BUFFER, "image3d");
+		int floatsPerVertex=6;
+		long vertbSize=maxsize*floatsPerVertex*4*Buffers.SIZEOF_FLOAT;
+		if(vertb==null || ((Buffer)vertb).capacity()!=(int)vertbSize) {
+			int elementsPerSlice=6;
+			short[] e=new short[(int)maxsize*elementsPerSlice];
+			for(int i=0; i<(maxsize);i++) {
+				e[i*6+0]=(short)(i*4+0); e[i*6+1]=(short)(i*4+1); e[i*6+2]=(short)(i*4+2);
+				e[i*6+3]=(short)(i*4+2); e[i*6+4]=(short)(i*4+3); e[i*6+5]=(short)(i*4+0);
+			}
+			ShortBuffer elementBuffer=GLBuffers.newDirectShortBuffer(e);
+			((Buffer)elementBuffer).rewind();
+	
+			glos.newTexture("image3d", imp.getNChannels(), true);
+			glos.newArrayBuffer("image3d", maxsize*floatsPerVertex*4*Buffers.SIZEOF_FLOAT, null);
+			glos.newElementBuffer("image3d", ((Buffer)elementBuffer).capacity()*Buffers.SIZEOF_SHORT, elementBuffer);
+			glos.newVao("image3d");
+		}
 	}
 	
 	@Override

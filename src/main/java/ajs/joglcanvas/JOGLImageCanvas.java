@@ -1028,7 +1028,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					//drawing the 3d volume
 					glos.drawTexVaoWithProgramBuffers("image3d", lim/4, chs, false, "image", new String[] {bname,"model","luts"});
 					
-					frame3ddrawn[fr]=true;
+					if(views==1 || stereoi==1)frame3ddrawn[fr]=true;
 
 				}
 			}else {

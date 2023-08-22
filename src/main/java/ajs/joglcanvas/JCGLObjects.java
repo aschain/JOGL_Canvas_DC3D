@@ -650,17 +650,16 @@ public class JCGLObjects {
 	 */
 	
 	public ByteBuffer newBuffer(int gltype, String name, long size, Buffer buffer) {
-		JCBuffer buf=new JCBuffer(gltype,  name, size, buffer);
+		JCBuffer buf=null;
+		if(size==0 && buffer!=null) buf=new JCBuffer(gltype,  name, buffer);
+		else buf=new JCBuffer(gltype,  name, size, buffer);
 		JCBuffer oldbuf=buffers.put(name+gltype, buf);
 		if(oldbuf!=null)oldbuf.dispose();
 		return buf.buffer;
 	}
 	
 	public ByteBuffer newBuffer(int gltype, String name, Buffer buffer) {
-		JCBuffer buf=new JCBuffer(gltype,  name, buffer);
-		JCBuffer oldbuf=buffers.put(name+gltype, buf);
-		if(oldbuf!=null)oldbuf.dispose();
-		return buf.buffer;
+		return newBuffer(gltype, name, 0, buffer);
 	}
 	
 	public void newBuffer(int gltype, String name) {
@@ -696,6 +695,10 @@ public class JCGLObjects {
 	}
 	
 	public ByteBuffer newUniformBuffer(String name, long size, Buffer buffer) {
+		return newBuffer(GL_UNIFORM_BUFFER, name, size, buffer);
+	}
+	
+	public ByteBuffer newUniformBuffer(String name, long size, Buffer buffer, String bindName) {
 		return newBuffer(GL_UNIFORM_BUFFER, name, size, buffer);
 	}
 	
@@ -887,7 +890,7 @@ public class JCGLObjects {
 						int loc=(program==null?gl2.glGetUniformLocation(pr[0], "model"):program.getLocation("model"));
 						gl2.glUniformMatrix4fv(loc, 1, false, buffer.asFloatBuffer());
 					}
-					if(bindName.contentEquals("lut")) {
+					if(bindName.contentEquals("luts")) {
 						int loc=(program==null?gl2.glGetUniformLocation(pr[0], "luts"):program.getLocation("luts"));
 						gl2.glUniform4fv(loc, 12, buffer.asFloatBuffer());
 					}
@@ -998,7 +1001,18 @@ public class JCGLObjects {
     }
     
     public void useProgram(String name) {
-    	gl23.glUseProgram(programs.get(name).handle);
+    	JCProgram program=programs.get(name);
+    	gl23.glUseProgram(program.handle);
+    	if(name.contentEquals("anaglyph")) {
+    		gl23.glUniformMatrix3fv(program.getLocation("ana"), 1, false, program.anacolor, 0);
+			gl23.glUniform1f(program.getLocation("dubois"), program.dubois);
+    	}
+    }
+    
+    public void setAnaglyphColor(float[] color, boolean dubois) {
+    	JCProgram program=programs.get("anaglyph");
+    	program.anacolor=color;
+    	program.dubois=dubois?1f:0f;
     }
     
     public void stopProgram() {
@@ -1024,6 +1038,8 @@ public class JCGLObjects {
         	
         	int handle=0;
     		public Hashtable<String, Integer> locations =new Hashtable<String, Integer>();
+    		public float[] anacolor=null;
+    		public float dubois=0;
         	
         	public JCProgram(String root, String vertex, String fragment) {
         		
@@ -1093,6 +1109,10 @@ public class JCGLObjects {
 	            	addLocation("proj");
 	            	addLocation("model");
 	            	if(fragment.startsWith("texture"))addLocation("luts");
+	            }
+	            if(fragment.contentEquals("anaglyph")) {
+	            	addLocation("ana");
+	            	addLocation("dubois");
 	            }
             
         	}

@@ -225,10 +225,12 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			@Override
 			public void reshape(int x, int y, int width, int height) {
 				super.reshape(x,y,width, height);
-				if(isMirror) {
-					if(dpimag!=1.0) {java.awt.EventQueue.invokeLater(new Runnable() {public void run() {glw.setSize((int)(width*dpimag+0.5),(int)(height*dpimag+0.5));}});}
-				}else {
-					if(dpimag!=1.0) {glw.setSize((int)(width*dpimag+0.5),(int)(height*dpimag+0.5));}
+				if(! IJ.isMacOSX()) {
+					if(isMirror) {
+						if(dpimag!=1.0) {java.awt.EventQueue.invokeLater(new Runnable() {public void run() {glw.setSize((int)(width*dpimag+0.5),(int)(height*dpimag+0.5));}});}
+					}else {
+						if(dpimag!=1.0) {glw.setSize((int)(width*dpimag+0.5),(int)(height*dpimag+0.5));}
+					}
 				}
 				Dimension s=new Dimension(width,height);
 				setMinimumSize(s);
@@ -486,7 +488,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					mag=(double)drawable.getSurfaceWidth()/getWidth();
 					yoffset=((double)drawable.getSurfaceHeight()-(double)getHeight()*mag)/2.0;
 				}
-				Rectangle2D.Double adjRect=new Rectangle2D.Double(-xoffset,-yoffset,1/mag,1/mag);
+				Rectangle2D.Double adjRect=null;
+				if(!IJ.isMacOSX())adjRect=new Rectangle2D.Double(-xoffset,-yoffset,1/mag,1/mag);
+				else adjRect=new Rectangle2D.Double(-xoffset,-yoffset,1.0,1.0);
 				if(JCP.debug) log("adjRect "+adjRect);
 				joglEventAdapter.setAdjRect(adjRect);
 			}else joglEventAdapter.setAdjRect(null);
@@ -1036,18 +1040,15 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					//Blend
 					glos.setGLrenderFunction(renderFunction);
 					
-					
-					//Projection matrix binding
 					//drawing the 3d volume
 					glos.drawTexVaoWithProgramBuffers("image3d", lim/4, chs, false, "image", new String[] {bname,"model","luts"});
 
 				}
 			}else {
-				//gl.glDrawBuffer(GL_BACK);
-				int[] vps=glos.getViewport();
-				log("vps "+vps[0]+" "+vps[1]+" "+vps[2]+" "+vps[3]);
-				glos.drawToTexture("anaglyph", 0, imp.getWidth(), imp.getHeight(), stereoFramebuffers[0], stereoRenderbuffers[0], getPixelType(imp));
-				glos.glViewport(0, 0, imp.getWidth(), imp.getHeight());
+				glos.glDrawBuffer(GL2GL3.GL_BACK);
+				//int[] vps=glos.getViewport();
+				//glos.drawToTexture("anaglyph", 0, imp.getWidth(), imp.getHeight(), stereoFramebuffers[0], stereoRenderbuffers[0], getPixelType(imp));
+				//glos.glViewport(0, 0, imp.getWidth(), imp.getHeight());
 				glos.clearColorDepth();
 				
 				glos.glDisable(GL2GL3.GL_BLEND);
@@ -1056,10 +1057,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				glos.drawTexVaoWithProgramBuffers("image2d", lim/4, chs, false, "image2d", new String[] {"globalidm", "idm","luts"});
 				
 				//draw
-				glos.stopDrawingToTexture();
-				glos.glViewport(vps[0], vps[1], vps[2], vps[3]);
-				glos.glDisable(GL2GL3.GL_BLEND);
-				glos.drawTexVaoWithProgramBuffers("anaglyph", 6, 1, Prefs.interpolateScaledImages, "roi", new String[] {bname, "model"});
+				//glos.stopDrawingToTexture();
+				//glos.glViewport(vps[0], vps[1], vps[2], vps[3]);
+				//glos.glDisable(GL2GL3.GL_BLEND);
+				//glos.drawTexVaoWithProgramBuffers("anaglyph", 6, 1, Prefs.interpolateScaledImages, "roi", new String[] {bname, "model"});
 			}
 
 			//Draw roi and overlay and cursor crosshairs

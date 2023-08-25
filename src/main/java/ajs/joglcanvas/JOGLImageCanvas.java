@@ -60,6 +60,7 @@ import java.nio.Buffer;
 import java.nio.FloatBuffer;
 import java.nio.ShortBuffer;
 import java.util.ArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.swing.JPopupMenu;
 
@@ -117,7 +118,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	protected float dx=0f,dy=0f,dz=0f, tx=0f, ty=0f, tz=0f, supermag=0f, zNear=JCP.zNear, zFar=JCP.zFar;
 	private float[] gamma=null;
 	
-	private PopupMenu dcpopup=null;
+	protected PopupMenu dcpopup=null;
 	private MenuItem mi3d=null;
 	protected boolean myHZI=false;
 
@@ -167,7 +168,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	
 	private BIScreenGrabber screengrabber=null;
 	private RoiGLDrawUtility rgldu=null;
-	private boolean scbrAdjusting=false;
+	public AtomicBoolean scbrAdjusting=new AtomicBoolean(false);
 	private CutPlanesCube cutPlanes;
 	private JCAdjuster jccpDialog,jcgDialog,jcrDialog;
 	private boolean verbose=false;
@@ -179,7 +180,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	public float zmax=1f;
 	public GLContext context;
 	public Point2D.Double oicp=null;
-	private Button menuButton;
 	//private long starttime=0;
 	private boolean onScreenMirrorCursor=false;
 	private boolean warpPointerWorks=false;
@@ -246,13 +246,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		ImagePlus.addImageListener(this);
 		createPopupMenu();
 		if(mirror)createMirror();
-		addAdjustmentListening();
-		java.awt.EventQueue.invokeLater(new Runnable() {
-			@Override
-			public void run() {
-				showMenuButton(true);
-			}
-		});
 		disablePopupMenu(go3d);
 	}
 	
@@ -759,23 +752,24 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		
 		//log("miu:"+myImageUpdated+" sb.r:"+(myImageUpdated&& !imageState.isChanged.czt && !imageState.isChanged.minmax && !scbrAdjusting)+" "+imageState);
 		if(myImageUpdated) {
-			if(!imageState.isChanged.czt && !imageState.isChanged.minmax && !scbrAdjusting) {
+			if(!imageState.isChanged.czt && !imageState.isChanged.minmax && !scbrAdjusting.get()) {
+				log("myImageUpdated, no czt, minmax, scbrAdjust");
 				sb.resetSlices();
 				needDraw=true;
-			}
-			if(go3d) {
-				for(int i=0;i<chs;i++){ 
-					for(int ifr=0;ifr<frms;ifr++) {
-						for(int isl=0;isl<sls;isl++) {
-							if(!sb.isSliceUpdated(isl, ifr)) {
-								glos.getPbo("image").updateSubRgbaPBO(ifr*chs+i, sb.getSliceBuffer(i+1, isl+1, ifr+1),0, isl*sb.sliceSize, sb.sliceSize, sb.bufferSize);
-								if(i==(chs-1)) {sb.updateSlice(isl,ifr);}
+				if(go3d) {
+					for(int i=0;i<chs;i++){ 
+						for(int ifr=0;ifr<frms;ifr++) {
+							for(int isl=0;isl<sls;isl++) {
+								if(!sb.isSliceUpdated(isl, ifr)) {
+									glos.getPbo("image").updateSubRgbaPBO(ifr*chs+i, sb.getSliceBuffer(i+1, isl+1, ifr+1),0, isl*sb.sliceSize, sb.sliceSize, sb.bufferSize);
+									if(i==(chs-1)) {sb.updateSlice(isl,ifr);}
+								}
 							}
 						}
 					}
 				}
-				
-			}else {
+			}
+			if(!go3d){
 				if(JCP.usePBOforSlices) {
 					if(!sb.isSliceUpdated(sl,fr)) {
 						try {
@@ -1185,7 +1179,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		}
 		
 		if(imageUpdated) {imageUpdated=false;} //ImageCanvas imageupdated only for single ImagePlus
-		imageState.update(dx,dy,dz);
 		
 		if(screengrabber!=null) {
 			if(screengrabber.isReadyForUpdate()) {
@@ -1324,10 +1317,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			prevCal=(Calibration)imp.getCalibration().clone();
 			c=imp.getC(); z=imp.getZ(); t=imp.getT();
 			odx=dx; ody=dy; odz=dz;
-			reset();
 		}
 		
 		public void check(float dx, float dy, float dz) {
+			reset();
 			isChanged.srcRect= (!prevSrcRect.equals(jic.getSrcRect())) || setNextSrcRect || prevMag!=jic.getMagnification();
 			MinMax[] newMinmaxs=MinMax.getMinMaxs(imp.getLuts());
 			isChanged.minmax=false;
@@ -1341,11 +1334,12 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			isChanged.czt=(isChanged.c || isChanged.z || isChanged.t);
 			isChanged.slice=!((c==imp.getC()||imp.getCompositeMode()==IJ.COMPOSITE) && z==imp.getSlice() && t==imp.getFrame());
 			isChanged.rotation=!(dx==odx && dy==ody && dz==odz);
+			update(dx, dy, dz);
+			setNextSrcRect=false;
 		}
 		
 		public void reset() {
 			isChanged.reset();
-			setNextSrcRect=false;
 		}
 		
 		static class IsChanged{
@@ -2504,81 +2498,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	
 	public void setStereoUpdated() {
 		stereoUpdated=true;
-	}
-	
-	private void addAdjustmentListening() {
-		if(imp==null || imp.getWindow()==null) {log("JOGLCanvas was created but no ImagePlus Window was found"); return;}
-		if(imp.getWindow().getClass().getSimpleName().equals("ImageWindow"))return; //Don't need for ImageWindow
-		StackWindow stwin=(StackWindow) imp.getWindow();
-		Component[] comps=stwin.getComponents();
-		for(int i=0;i<comps.length;i++) {
-			if(comps[i] instanceof ScrollbarWithLabel) {
-				ScrollbarWithLabel scr=(ScrollbarWithLabel)comps[i];
-				scr.addAdjustmentListener(new AdjustmentListener() {
-					@Override
-					public void adjustmentValueChanged(AdjustmentEvent e) {
-						scbrAdjusting=e.getValueIsAdjusting();
-					}
-				});
-			}
-		}
-	}
-	
-	/**
-	 * Adds an update button the the window.
-	 * The 3D image takes some time to load into memory,
-	 * So it is not updated on every draw.  In case the user
-	 * changes the image (cut, paste, draw, fill, process),
-	 * The user can then press the update button (or type
-	 * u) to update the 3d image.
-	 * @param show
-	 */
-	public void showMenuButton(boolean show) {
-		boolean nowin=(imp==null || imp.getWindow()==null || !(imp.getWindow() instanceof StackWindow));
-		if(menuButton!=null && (!show || nowin)) {
-			Container parent=menuButton.getParent();
-			if(parent!=null) {parent.remove(menuButton);}
-			menuButton=null;
-		}
-		if(nowin)return;
-		StackWindow stwin=(StackWindow) imp.getWindow();
-		if(show && menuButton!=null) {
-			if(menuButton.getParent()!=null && menuButton.getParent().getParent()==stwin && menuButton.isEnabled())return;
-		}
-		ScrollbarWithLabel scr=null;
-		Component[] comps=stwin.getComponents();
-		for(int i=0;i<comps.length;i++) {
-			if(comps[i] instanceof ij.gui.ScrollbarWithLabel) {
-				scr=(ScrollbarWithLabel)comps[i];
-			}
-		}
-		if(scr!=null) {
-			//Remove any orphaned updateButtons, like with a crashed JOGLImageCanvas
-			comps=scr.getComponents();
-			for(int i=0;i<comps.length;i++) {
-				if(comps[i] instanceof Button) {
-					String label=((Button)comps[i]).getLabel();
-					if(label.equals("GL")) {
-						scr.remove(comps[i]);
-					}
-				}
-			}
-			
-			if(show) {
-				menuButton= new Button("GL");
-				menuButton.addActionListener(new ActionListener() {
-					public void actionPerformed(ActionEvent e) {
-						if (dcpopup!=null) {
-							menuButton.add(dcpopup);
-							dcpopup.show(menuButton,10,10);
-						}
-					}
-				});
-				menuButton.setFocusable(false);
-				scr.add(menuButton,java.awt.BorderLayout.EAST);
-			}
-			stwin.pack();
-		}
 	}
 	
 	/**

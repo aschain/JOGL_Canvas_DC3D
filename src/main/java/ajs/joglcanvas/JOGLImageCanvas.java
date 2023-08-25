@@ -9,8 +9,6 @@ import ij.gui.ImageCanvas;
 import ij.gui.ImageWindow;
 import ij.gui.PointRoi;
 import ij.gui.Roi;
-import ij.gui.ScrollbarWithLabel;
-import ij.gui.StackWindow;
 import ij.gui.Toolbar;
 import ij.measure.Calibration;
 import ij.process.ImageProcessor;
@@ -37,11 +35,8 @@ import java.awt.MouseInfo;
 import java.awt.Point;
 import java.awt.PopupMenu;
 import java.awt.Rectangle;
-import java.awt.Button;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.awt.event.AdjustmentEvent;
-import java.awt.event.AdjustmentListener;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
 import java.awt.event.KeyAdapter;
@@ -636,9 +631,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		
 		if(go3d && stereoUpdated) {
 			if(JCP.debug)log("stereoUpdate reshape");
-			//if(stereoType==StereoType.ANAGLYPH ) {
-			//	if(!glos.textures.containsKey("anaglyph"))initAnaglyph();
-			//}
 			resetGlobalMatrices(drawable);
 			stereoUpdated=false;
 			needDraw=true;
@@ -658,6 +650,15 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			threeDupdated=false;
 			needDraw=true;
 		}
+		
+		//make sure image PBO is set up
+		if(glos.getPboLength("image")!=chs*(sb.isFrameStack?1:frms) || deletePBOs) {
+			glos.newPbo("image", chs*(sb.isFrameStack?1:frms));
+			sb.resetSlices();
+			deletePBOs=false;
+		}
+		
+		
 		//Roi and Overlay if not drawn with gl (create roi textures from imageplus)
 		Roi roi=imp.getRoi();
 		ij.gui.Overlay overlay=getOverlay();
@@ -740,23 +741,26 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			}
 		}
 		
-		//make sure image PBO is set up
-		if(glos.getPboLength("image")!=chs*(sb.isFrameStack?1:frms) || deletePBOs) {
-			glos.newPbo("image", chs*(sb.isFrameStack?1:frms));
-			sb.resetSlices();
-			deletePBOs=false;
-		}
-		
 		
 		//Update Image PBO and texture if init or image changed----
 		
 		//log("miu:"+myImageUpdated+" sb.r:"+(myImageUpdated&& !imageState.isChanged.czt && !imageState.isChanged.minmax && !scbrAdjusting)+" "+imageState);
-		if(myImageUpdated) {
-			if(!imageState.isChanged.czt && !imageState.isChanged.minmax && !scbrAdjusting.get()) {
-				log("myImageUpdated, no czt, minmax, scbrAdjust");
-				sb.resetSlices();
-				needDraw=true;
-				if(go3d) {
+		if(myImageUpdated && !imageState.isChanged.czt && !imageState.isChanged.minmax && !scbrAdjusting.get()) {
+			sb.resetSlices();
+			needDraw=true;
+			if(JCP.debug)log("myImageUpdated, no czt, minmax, scbrAdjust");
+		}
+		
+		if(!sb.isSliceUpdated(sl, fr)){
+			if(!go3d && JCP.usePBOforSlices) {
+				for(int i=0;i<chs;i++) {
+					int ccfr=cfr*chs+i;
+					glos.getPbo("image").updateSubRgbaPBO(ccfr, sb.getSliceBuffer(i+1, sl+1, fr+1),0, (sb.isFrameStack?fr:sl)*sb.sliceSize, sb.sliceSize, sb.bufferSize);
+					sb.updateSlice(sl, fr);
+				}
+			}
+			if(go3d || JCP.usePBOforSlices) {
+				try {
 					for(int i=0;i<chs;i++){ 
 						for(int ifr=0;ifr<frms;ifr++) {
 							for(int isl=0;isl<sls;isl++) {
@@ -767,28 +771,15 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 							}
 						}
 					}
-				}
-			}
-			if(!go3d){
-				if(JCP.usePBOforSlices) {
-					if(!sb.isSliceUpdated(sl,fr)) {
-						try {
-							for(int i=0;i<chs;i++) {
-								int ccfr=cfr*chs+i;
-								glos.getPbo("image").updateSubRgbaPBO(ccfr, sb.getSliceBuffer(i+1, sl+1, fr+1),0, (sb.isFrameStack?fr:sl)*sb.sliceSize, sb.sliceSize, sb.bufferSize);
-								sb.updateSlice(sl, fr);
-							}
-						}catch(Exception e) {
-							if(e instanceof GLException) {
-								GLException gle=(GLException)e;
-								log(gle.getMessage());
-								log("Out of memory, switching usePBOforSlices off");
-								JCP.usePBOforSlices=false;
-								sb.resetSlices();
-								glos.disposePbo("image");
-								glos.newPbo("image", chs*(sb.isFrameStack?1:frms));
-							}
-						}
+				}catch(Exception e) {
+					if(e instanceof GLException) {
+						GLException gle=(GLException)e;
+						log(gle.getMessage());
+						log("Out of memory, switching usePBOforSlices off");
+						JCP.usePBOforSlices=false;
+						sb.resetSlices();
+						glos.disposePbo("image");
+						glos.newPbo("image", chs*(sb.isFrameStack?1:frms));
 					}
 				}
 			}
@@ -1623,6 +1614,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	
 	public void setRenderFunction(String function) {
 		if(function.equals("MAX") || function.equals("ALPHA"))renderFunction=function;
+		imageState.setNextSrcRect=true;
 		repaint();
 	}
 

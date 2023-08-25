@@ -37,8 +37,8 @@ public class StackBuffer {
 	
 	public StackBuffer(ImagePlus imp) {
 		this.imp=imp;
-		isFrameStack=imp.getNFrames()>1&&imp.getNSlices()==1;
-		if(imp.getNFrames()>1 && imp.getNSlices()==1)isFrameStack=true;
+		isFrameStack=(imp.getNFrames()>1&&imp.getNSlices()==1);
+		resetSlices();
 	}
 	
 	private boolean updateSizes() {

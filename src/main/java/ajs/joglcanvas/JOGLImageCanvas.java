@@ -153,7 +153,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private StereoType stereoType=StereoType.OFF;
 	private boolean stereoUpdated=true,threeDupdated=true;
 	private int[] stereoFramebuffers=new int[1],stereoRenderbuffers=new int[1],roiFramebuffers=new int[1],roiRenderbuffers=new int[1];
-	//private boolean mylock=false;
 
 	enum PixelType{BYTE, SHORT, FLOAT, INT_RGB10A2, INT_RGBA8};
 	private static final String[] pixelTypeStrings=new String[] {"4 bytes (8bpc, 32bit)","4 shorts (16bpc 64bit)","4 floats (32bpc 128bit)","1 int RGB10A2 (10bpc, 32bit)","1 int RGBA8 (8bpc, 32bit)"};
@@ -187,7 +186,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		pixelType3d=getPixelType(imp);
 		pixelType=pixelType3d;
 		isMirror=mirror;
-		//if(!isMirror) {setOverlay(imp.getCanvas().getOverlay());}
 		imageState=new ImageState(imp, this);
 		imageState.prevSrcRect=new Rectangle(0,0,0,0);
 		Calibration cal=imp.getCalibration();

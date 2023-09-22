@@ -179,6 +179,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	private boolean warpPointerWorks=false;
 	final private boolean stereoEnabled;
 	private boolean one3Dslice=false;
+	private float textureWidth, textureHeight;
 
 	public JOGLImageCanvas(ImagePlus imp, boolean mirror) {
 		super(imp);
@@ -189,6 +190,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		imageState=new ImageState(imp, this);
 		imageState.prevSrcRect=new Rectangle(0,0,0,0);
 		Calibration cal=imp.getCalibration();
+		imageWidth=imp.getWidth();
+		imageHeight=imp.getHeight();
 		zmax=(float)(cal.pixelDepth/cal.pixelWidth*(double)imp.getNSlices()/(double)imp.getWidth());
 		cutPlanes=new CutPlanesCube(0,0,0,imp.getWidth(), imp.getHeight(), imp.getNSlices(), true);
 		kps=new Keypresses();
@@ -285,14 +288,14 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		
 		ByteBuffer elementBuffer2d=GLBuffers.newDirectByteBuffer(new byte[] {0,1,2,2,3,0});
 		ByteBuffer vertb=GLBuffers.newDirectByteBuffer(4*6*Buffers.SIZEOF_FLOAT);
-		float 	tw=(2*imageWidth-tex4div(imageWidth))/(float)imageWidth,
-				th=(2*imageHeight-tex4div(imageHeight))/(float)imageHeight;
+		textureWidth=imageWidth/(float)texRestrictionFix(imageWidth);
+		textureHeight=imageHeight/(float)texRestrictionFix(imageHeight);
 		//For display of the square, there are 3 space verts and 3 texture verts
 		//for each of the 4 points of the square.
 		vertb.asFloatBuffer().put(new float[] {
-				-1f, 	-1f, 	0,		0, th, 0.5f,
-				 1f, 	-1f, 	0,		tw, th, 0.5f,
-				 1f, 	1f, 	0,		tw, 0, 0.5f,
+				-1f, 	-1f, 	0,		0, textureHeight, 0.5f,
+				 1f, 	-1f, 	0,		textureWidth, textureHeight, 0.5f,
+				 1f, 	1f, 	0,		textureWidth, 0, 0.5f,
 				-1f, 	1f, 	0,		0, 0, 0.5f
 		});
 		
@@ -1216,8 +1219,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			this.x=x; this.y=y; this.z=z;
 			this.w=width; this.h=height; this.d=depth;
 			this.applyToRoi=applyToRoi;
-			twm=(2*imageWidth-tex4div(imageWidth))/(float)imageWidth;
-			thm=(2*imageHeight-tex4div(imageHeight))/(float)imageHeight;
+			twm=imageWidth/(float)texRestrictionFix(imageWidth);
+			thm=imageHeight/(float)texRestrictionFix(imageHeight);
 			updateCoords();
 		}
 
@@ -1367,8 +1370,21 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		repaint();
 	}
 	
-	public static int tex4div(int wh) {
-		return JCP.tex4?(wh+((wh%4)>0?(4-wh%4):0)):wh;
+	public static int texRestrictionFix(int wh) {
+		if(JCP.tex4==0)return wh; //No texture restriction
+		if(JCP.tex4==1) {
+			// Textures restricted to multiples of 4
+			return (((wh%4)>0)?((4-wh%4)+wh):wh);
+		}else {
+			// JCP.tex4==2, Textures restricted to POT
+			float w=(float)wh;
+			int p=1;
+			while(w/2f>1f) {
+				w/=2f;
+				p++;
+			}
+			return (int)Math.pow(2.0, p);
+		}
 	}
 	
 	public void setPixelType(PixelType newtype, boolean is3d) {

@@ -46,9 +46,17 @@ public class StackBuffer {
 		int oldbsize=bufferSize;
 		isFrameStack=frms>1&&sls==1;
 		if(isFrameStack) {sls=frms;frms=1;}
-		bufferWidth=JOGLImageCanvas.tex4div(imp.getWidth()/undersample);
-		bufferHeight=JOGLImageCanvas.tex4div(imp.getHeight()/undersample);
-		okDirect=imp.getWidth()==bufferWidth;
+		bufferWidth=JOGLImageCanvas.texRestrictionFix(imp.getWidth()/undersample);
+		bufferHeight=JOGLImageCanvas.texRestrictionFix(imp.getHeight()/undersample);
+		okDirect=imp.getWidth()==bufferWidth && imp.getHeight()==bufferHeight;
+		/** TODO
+		 * could be 
+		 * okDirect=imp.getWidth()==bufferWidth;
+		 * Because you can just stop the buffer update early for height
+		 * Also would many calls to buffersubdata for each line to keep be slower than making a 
+		 * new buffer?
+		 * 
+		 */
 		sliceSize=bufferWidth*bufferHeight;
 		bufferSize=sliceSize*sls;
 		bufferBytes=bufferSize*(getSizeOfType(pixelType));

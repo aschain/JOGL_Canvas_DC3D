@@ -502,6 +502,12 @@ public class JCGLObjects {
 		public void initiate(PixelType ptype, int width, int height, int depth, int COMPS) {
 			PixelTypeInfo pinfo=new PixelTypeInfo(ptype, COMPS);
 			int[] ths=handles;
+			if(width%4>0) {
+				int n=1;
+				if(width%4==2)n=2;
+				gl.glPixelStorei(GL_PACK_ALIGNMENT, n);
+				gl.glPixelStorei(GL_UNPACK_ALIGNMENT, n);
+			}
 			for(int i=0;i<ths.length;i++) {
 				if(is3d) {
 					gl.glBindTexture(GL_TEXTURE_3D, ths[i]);

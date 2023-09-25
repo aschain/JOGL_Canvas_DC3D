@@ -6,12 +6,6 @@ import ij.ImageStack;
 import ij.process.ImageProcessor;
 import ij.process.LUT;
 
-import static com.jogamp.opengl.GL.GL_FLOAT;
-import static com.jogamp.opengl.GL.GL_UNSIGNED_BYTE;
-import static com.jogamp.opengl.GL.GL_UNSIGNED_INT;
-import static com.jogamp.opengl.GL.GL_UNSIGNED_SHORT;
-import static com.jogamp.opengl.GL2GL3.GL_DOUBLE;
-
 import java.nio.Buffer;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
@@ -48,7 +42,7 @@ public class StackBuffer {
 		if(isFrameStack) {sls=frms;frms=1;}
 		bufferWidth=JOGLImageCanvas.texRestrictionFix(imp.getWidth()/undersample);
 		bufferHeight=JOGLImageCanvas.texRestrictionFix(imp.getHeight()/undersample);
-		okDirect=imp.getWidth()==bufferWidth && imp.getHeight()==bufferHeight;
+		okDirect=imp.getWidth()==bufferWidth;
 		/** TODO
 		 * could be 
 		 * okDirect=imp.getWidth()==bufferWidth;
@@ -151,7 +145,7 @@ public class StackBuffer {
 		if(pixelType==PixelType.BYTE) {
 			if(bits==8) {
 				if(okDirect&&JCP.wrappedBuffers)return ByteBuffer.wrap((byte[])outPixels);
-				else return GLBuffers.newDirectByteBuffer(size).put((byte[])outPixels);
+				else return ((Buffer)GLBuffers.newDirectByteBuffer(size).put((byte[])outPixels)).rewind();
 			}
 			else {
 				if(bits==16 || bits==32) {
@@ -178,7 +172,7 @@ public class StackBuffer {
 		}else if(pixelType==PixelType.INT_RGBA8){
 			if(bits==24) {
 				if(okDirect&&JCP.wrappedBuffers)return IntBuffer.wrap((int[])outPixels);
-				else return GLBuffers.newDirectIntBuffer(size).put((int[])outPixels);
+				else return ((Buffer)GLBuffers.newDirectIntBuffer(size).put((int[])outPixels)).rewind();
 			}
 			else {
 				IJ.error("INT_RGBA8 only for 24bit images");
@@ -186,7 +180,7 @@ public class StackBuffer {
 		}else if(pixelType==PixelType.SHORT) {
 			if(bits==16) {
 				if(okDirect&&JCP.wrappedBuffers)return ShortBuffer.wrap((short[])outPixels);
-				else return GLBuffers.newDirectShortBuffer(size).put((short[])outPixels);
+				else return ((Buffer)GLBuffers.newDirectShortBuffer(size).put((short[])outPixels)).rewind();
 			}
 			else {
 				if(bits==32) {
@@ -231,11 +225,11 @@ public class StackBuffer {
 			if(bits==32) {
 				minmaxs=null;
 				if(okDirect&&JCP.wrappedBuffers)return FloatBuffer.wrap((float[])outPixels);
-				else return GLBuffers.newDirectFloatBuffer(size).put((float[])outPixels);
+				else return ((Buffer)GLBuffers.newDirectFloatBuffer(size).put((float[])outPixels)).rewind();
 			} else IJ.error("Don't use less than 32 bit image with 32 bit pixels");
 			//buffer=GLBuffers.newDirectFloatBuffer(size);
 		}
-		return buffer;
+		return buffer.rewind();
 	}
 
 	protected Object convertForUndersample(Object pixels, int undersample) {

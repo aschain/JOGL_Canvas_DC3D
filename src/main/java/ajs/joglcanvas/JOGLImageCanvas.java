@@ -682,7 +682,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 							if((rc==0||rc==imp.getC()) && (rz==0||rz==imp.getZ()) && (rt==0||rt==imp.getT())) {oroi.drawOverlay(g); doRoi=true;}
 						}
 					}
-					if(doRoi)glos.getTexture("roiGraphic").createRgbaTexture(AWTTextureIO.newTextureData(glos.getGLProfile(), roiImage, false).getBuffer(), roiImage.getWidth(), roiImage.getHeight(), 1, 4, false);
+					if(doRoi)glos.getTexture("roiGraphic").createRgbaTexture(AWTTextureIO.newTextureData(glos.getGLProfile(), roiImage, false).getBuffer(), roiImage.getWidth(), roiImage.getHeight(), roiImage.getHeight(), 1, 4, false);
 				}
 			}else{   // if(!JCP.openglroi && (overlay!=null || isPoint) && go3d) 
 				doOv=new boolean[sls];
@@ -735,7 +735,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						}
 					}
 					if(doOv[osl]) {
-						glos.getTexture("overlay").createRgbaTexture(osl, AWTTextureIO.newTextureData(glos.getGLProfile(), roiImage, false).getBuffer(), roiImage.getWidth(), roiImage.getHeight(), 1, 4, false);
+						glos.getTexture("overlay").createRgbaTexture(osl, AWTTextureIO.newTextureData(glos.getGLProfile(), roiImage, false).getBuffer(), roiImage.getWidth(), roiImage.getHeight(), roiImage.getHeight(), 1, 4, false);
 					}
 				}
 				if(isPoint && didpt)imp.setSliceWithoutUpdate(imp.getStackIndex(imp.getC(), sl+1, fr+1));
@@ -756,7 +756,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			if(!go3d && JCP.usePBOforSlices) {
 				for(int i=0;i<chs;i++) {
 					int ccfr=cfr*chs+i;
-					glos.getPbo("image").updateSubRgbaPBO(ccfr, sb.getSliceBuffer(i+1, sl+1, fr+1),0, (sb.isFrameStack?fr:sl)*sb.sliceSize, sb.sliceSize, sb.bufferSize);
+					Buffer slicebuffer=sb.getSliceBuffer(i+1, sl+1, fr+1);
+					glos.getPbo("image").updateSubRgbaPBO(ccfr, slicebuffer,0, (sb.isFrameStack?fr:sl)*sb.sliceSize, slicebuffer.capacity(), sb.bufferSize);
 					sb.updateSlice(sl, fr);
 				}
 			}
@@ -766,7 +767,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 						for(int ifr=0;ifr<frms;ifr++) {
 							for(int isl=0;isl<sls;isl++) {
 								if(!sb.isSliceUpdated(isl, ifr)) {
-									glos.getPbo("image").updateSubRgbaPBO(ifr*chs+i, sb.getSliceBuffer(i+1, isl+1, ifr+1),0, isl*sb.sliceSize, sb.sliceSize, sb.bufferSize);
+									Buffer slicebuffer=sb.getSliceBuffer(i+1, isl+1, ifr+1);
+									glos.getPbo("image").updateSubRgbaPBO(ifr*chs+i, slicebuffer,0, isl*sb.sliceSize, slicebuffer.capacity(), sb.bufferSize);
 									if(i==(chs-1)) {sb.updateSlice(isl,ifr);}
 								}
 							}
@@ -1025,7 +1027,8 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					}
 				}else {
 					for(int i=0;i<chs;i++) {
-						glos.getTexture("image2d").createRgbaTexture(i, sb.getSliceBuffer(i+1, sl+1, fr+1), sb.bufferWidth, sb.bufferHeight, 1, COMPS, Prefs.interpolateScaledImages);
+						Buffer slicebuffer=sb.getSliceBuffer(i+1, sl+1, fr+1);
+						glos.getTexture("image2d").createRgbaTexture(i, slicebuffer, sb.bufferWidth, sb.bufferHeight, slicebuffer.capacity()/sb.bufferWidth, 1, COMPS, Prefs.interpolateScaledImages);
 					}
 				}
 				

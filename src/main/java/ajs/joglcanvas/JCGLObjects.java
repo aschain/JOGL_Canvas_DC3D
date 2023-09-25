@@ -42,7 +42,6 @@ import com.jogamp.opengl.util.glsl.ShaderCode;
 import com.jogamp.opengl.util.glsl.ShaderProgram;
 
 import ajs.joglcanvas.JOGLImageCanvas.PixelType;
-import ajs.joglcanvas.JOGLImageCanvas.StereoType;
 import ij.IJ;
 import ij.Prefs;
 
@@ -486,13 +485,13 @@ public class JCGLObjects {
 			return handles.length;
 		}
 		
-		public void createRgbaTexture(Buffer buffer, int width, int height, int depth, int COMPS, boolean linear) {
-			createRgbaTexture(0, buffer, width, height, depth, COMPS, linear);
+		public void createRgbaTexture(Buffer buffer, int width, int texheight, int bufferheight, int depth, int COMPS, boolean linear) {
+			createRgbaTexture(0, buffer, width, texheight, bufferheight, depth, COMPS, linear);
 		}
 		
-		public void createRgbaTexture(int index, Buffer buffer, int width, int height, int depth, int COMPS, boolean linear) {
-			initiate(getPixelType(buffer), width, height, depth, COMPS);
-			subRgbaTexture(handles[index],buffer, 0, width, height, depth, COMPS, true, linear);
+		public void createRgbaTexture(int index, Buffer buffer, int width, int texheight, int bufferheight, int depth, int COMPS, boolean linear) {
+			initiate(getPixelType(buffer), width, texheight, depth, COMPS);
+			subRgbaTexture(handles[index],buffer, 0, width, bufferheight, depth, COMPS, true, linear);
 		}
 		
 		public void subRgbaTexture(int index, Buffer buffer, int zoffset, int width, int height, int depth, int COMPS, boolean linear) {

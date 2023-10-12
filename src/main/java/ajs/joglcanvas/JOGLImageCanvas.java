@@ -997,18 +997,10 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 							rgldu.drawRoiGL(drawable, roi, false, anacolor, go3d);
 					}
 					if(drawCrosshairs) {
-						float left=-1f, right=1f, top=-1f, bottom=1f, front=sls*zf, back=(-sls+2)*zf, oix=(float)screenXD(oicp.getX()), oiy=(float)screenYD(oicp.getY());
-						oix=(oix+0.5f)/dstWidth*2f-1f; oiy=(dstHeight-oiy-0.5f)/dstHeight*2f-1f;
-						if(JCP.drawCrosshairs==1 || (isMirror & !go3d)) {
-							float wpx=13f*2f/dstWidth, hpx=13f*2f/dstHeight;
-							left=oix-wpx; right=oix+wpx; top=oiy+hpx; bottom=oiy-hpx; front=Math.min(z+wpx,front); back=Math.max(z-wpx,back);
-							//constrain
-							//left=Math.max(oix-wpx,-1f); right=Math.min(oix+wpx,1f); top=Math.min(1f,oiy+hpx); bottom=Math.max(-1f,oiy-hpx); front=Math.min(z+wpx,front); back=Math.max(z-wpx,back);
-						}
+						float oix=(float)screenXD(oicp.getX()), oiy=(float)screenYD(oicp.getY());
 						Color c=anacolor!=null?anacolor:Color.white;
-						rgldu.drawGL(new float[] {left,oiy, z, right,oiy,z}, c, GL.GL_LINE_STRIP);
-						rgldu.drawGL(new float[] {oix,bottom, z, oix, top, z}, c, GL.GL_LINE_STRIP);
-						if(go3d)rgldu.drawGL(new float[] {oix, oiy, front, oix, oiy, back}, c, GL.GL_LINE_STRIP);
+						boolean isShort=JCP.drawCrosshairs==1 || (isMirror & !go3d);
+						rgldu.drawCrosshairs(oix, oiy, z, c, isShort, go3d);
 					}
 
 					glos.unBindUniformBuffer(1);

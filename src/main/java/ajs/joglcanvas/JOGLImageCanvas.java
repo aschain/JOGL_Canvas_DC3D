@@ -89,8 +89,9 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	final public NewtCanvasAWT icc;
 	final public GLWindow glw;
 	final private StackBuffer sb;
+	final protected boolean isMirror;
 	private JCGLObjects glos;
-	protected boolean disablePopupMenu, myImageUpdated=true, isMirror=false, go3d=JCP.go3d;
+	protected boolean disablePopupMenu, myImageUpdated=true, go3d=JCP.go3d;
 	protected double dpimag=1.0;
 	protected float surfaceScale=1.0f;
 	private boolean deletePBOs=false, mirrorMagUnlock=false, mouseDragged=false;
@@ -1422,7 +1423,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	}
 	
 	private void createMirror() {
-		isMirror=true;
 		mirror=new Frame("JOGL-DC3D Mirror of "+imp.getTitle());
 		mirror.setLayout(new JCLayout());
 		mirror.add(icc);
@@ -2042,7 +2042,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 	public void keyPressed(KeyEvent e) {
 		if(JCP.debug) System.out.println("AJS- JIC-keyPressed"+Character.toString(e.getKeyChar()));
 		//if(glw.isFullscreen()) {
-			for(char key : kps.okchars)if(key==Character.toLowerCase(e.getKeyChar())) {
+			for(char key : kps.okchars)if(key==e.getKeyChar()) {
 				kps.set(e.getKeyChar()); 
 				if(JCP.debug)log("Keypress "+e.getKeyChar());
 				return;

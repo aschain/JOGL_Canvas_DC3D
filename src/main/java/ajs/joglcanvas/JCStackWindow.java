@@ -15,7 +15,6 @@ import ij.gui.StackWindow;
 
 public class JCStackWindow extends StackWindow {
 
-	private final boolean isMirror;
 	private final JOGLImageCanvas jic;
 	private Button menuButton=null;
 	/**
@@ -25,9 +24,8 @@ public class JCStackWindow extends StackWindow {
 	
 	public JCStackWindow(ImagePlus imp, JOGLImageCanvas jic) {
 		super(imp,jic);
-		this.isMirror=jic.isMirror;
 		this.jic=jic;
-		if(!isMirror) {
+		if(!jic.isMirror) {
 			Container c=this;
 			if(c instanceof JFrame)c=((JFrame)c).getContentPane();
 	        Component[] wincs=c.getComponents();
@@ -50,13 +48,13 @@ public class JCStackWindow extends StackWindow {
 	
 	@Override
 	public void setTitle(String title) {
-		if(!isMirror)super.setTitle(title+" (JOGL Canvas)");
+		if(jic!=null && !jic.isMirror)super.setTitle(title+" (JOGL Canvas)");
 		else super.setTitle(title);
 	}
 	
 	@Override
 	public boolean close() {
-		if(isMirror && imp.getWindow()==this) ((JOGLImageCanvas) imp.getCanvas()).dispose();
+		if(jic.isMirror && imp.getWindow()==this) ((JOGLImageCanvas) imp.getCanvas()).dispose();
 		return super.close();
 	}
 	

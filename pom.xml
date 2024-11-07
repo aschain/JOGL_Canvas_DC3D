@@ -8,7 +8,7 @@
 	<parent>
 		<groupId>org.scijava</groupId>
 		<artifactId>pom-scijava</artifactId>
-		<version>29.2.1</version>
+		<version>37.0.0</version>
 		<relativePath />
 	</parent>
 
@@ -91,15 +91,25 @@
 		<scijava.jvm.build.version>[1.8.0-1,300)</scijava.jvm.build.version>
 		<maven.exec.skip>false</maven.exec.skip>
 	</properties>
+	
+	<repositories>
+		<repository>
+			<id>jogamp</id>
+			<name>Jogamp</name>
+			<url>http://www.jogamp.org/deployment/maven/</url>
+		</repository>
+	</repositories>
 
 	<dependencies>
 		<dependency>
 			<groupId>org.jogamp.gluegen</groupId>
 			<artifactId>gluegen-rt-main</artifactId>
+			<version>2.4.0</version>
 		</dependency>
 		<dependency>
 			<groupId>org.jogamp.jogl</groupId>
 			<artifactId>jogl-all-main</artifactId>
+			<version>2.4.0</version>
 		</dependency>
 		<dependency>
 			<groupId>net.imagej</groupId>

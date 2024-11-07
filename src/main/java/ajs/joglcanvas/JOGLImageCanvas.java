@@ -689,7 +689,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 				for(int i=0;i<chs;i++) {
 					int ccfr=cfr*chs+i;
 					Buffer slicebuffer=sb.getSliceBuffer(i+1, sl+1, fr+1);
-					glos.getPbo("image").updateSubRgbaPBO(ccfr, slicebuffer,0, (isFrameStack?fr:sl)*imageWidth*imageHeight, slicebuffer.capacity(), imageWidth*imageHeight*sls);
+					glos.getPbo("image").updateSubRgbaPBO(ccfr, slicebuffer,0, (isFrameStack?fr:sl)*imageWidth*imageHeight, slicebuffer.capacity(), imageWidth*imageHeight*(isFrameStack?frms:sls));
 					sb.updateSlice(sl, fr);
 				}
 			}
@@ -1593,7 +1593,6 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 		glos.unBindBuffer(GL2GL3.GL_UNIFORM_BUFFER, 1);
 		glos.unBindBuffer(GL2GL3.GL_UNIFORM_BUFFER, 2);
 		drawable.getGL().glLineWidth(1f);
-		
 	}
 
 	/*Called in super()*/

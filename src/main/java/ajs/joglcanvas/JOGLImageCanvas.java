@@ -904,7 +904,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 					if(stereoi==0) {
 						for(int i=0;i<chs;i++) {
 							int ccfr=fr*chs+i;
-							glos.loadTexFromPbo("image", ccfr, "image3d", i, imageWidth/undersample, imageHeight/undersample, sls, 0, bitDepth, COMPS, false, Prefs.interpolateScaledImages);
+							glos.loadTexFromPbo("image", ccfr, "image3d", i, imageWidth/undersample, imageHeight/undersample, sls, 0, bitDepth, COMPS, Prefs.interpolateScaledImages);
 						}
 					}
 					glos.drawToTexture("3d-flat", fr+stereoi*frms, width, height, stereoFramebuffers[0], stereoRenderbuffers[0], bitDepth);
@@ -922,7 +922,7 @@ public class JOGLImageCanvas extends ImageCanvas implements GLEventListener, Ima
 			}else {
 				for(int i=0;i<chs;i++) {
 					int ccfr=cfr*chs+i;
-					glos.loadTexFromPbo("image", ccfr, "image2d", i, imageWidth, imageHeight, 1, isFrameStack?fr:sl, bitDepth, COMPS, false, Prefs.interpolateScaledImages);
+					glos.loadTexFromPbo("image", ccfr, "image2d", i, imageWidth, imageHeight, 1, isFrameStack?fr:sl, bitDepth, COMPS, Prefs.interpolateScaledImages);
 				}
 				glos.glDrawBuffer(GL2GL3.GL_BACK);
 				//int[] vps=glos.getViewport();

@@ -247,11 +247,11 @@ public class JCGLObjects {
 	 * Texture handling loading
 	 */
 	
-	public void loadTexFromPbo(String sameName, int pn,int width, int height, int depth, int offsetSlice, int bitDepth, int COMPS, boolean endian, boolean linear) {
-		loadTexFromPbo(sameName, pn, sameName, 0, width, height, depth, offsetSlice, bitDepth, COMPS, endian, linear);
+	public void loadTexFromPbo(String sameName, int pn,int width, int height, int depth, int offsetSlice, int bitDepth, int COMPS, boolean linear) {
+		loadTexFromPbo(sameName, pn, sameName, 0, width, height, depth, offsetSlice, bitDepth, COMPS, linear);
 	}
 	
-	public void loadTexFromPbo(String pboName, int pn, String texName, int tn, int width, int height, int depth, int offsetSlice, int bitDepth, int COMPS, boolean endian, boolean linear) {
+	public void loadTexFromPbo(String pboName, int pn, String texName, int tn, int width, int height, int depth, int offsetSlice, int bitDepth, int COMPS, boolean linear) {
 			
 		int texHandle=getTextureHandle(texName, tn), pboHandle=getPboHandle(pboName, pn);
 		boolean is3d=getTexture(texName).is3d;
@@ -265,7 +265,7 @@ public class JCGLObjects {
 		gl.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pboHandle);
 		gl.glBindTexture(textype, texHandle); 
 		gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		if(endian)gl.glPixelStorei(GL_UNPACK_SWAP_BYTES, GL_TRUE);
+		//if(endian)gl.glPixelStorei(GL_UNPACK_SWAP_BYTES, GL_TRUE);
 		gl.glTexParameteri(textype, GL_TEXTURE_BASE_LEVEL, 0);
 		gl.glTexParameteri(textype, GL_TEXTURE_MAX_LEVEL, 0);
 		if(is3d)
@@ -281,7 +281,7 @@ public class JCGLObjects {
 		gl.glTexParameteri(textype, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
 		gl.glTexParameterfv(textype, GL_TEXTURE_BORDER_COLOR, new float[] {0f,0f,0f,0f},0);
 		//gl3.glGenerateMipmap(GL_TEXTURE_3D);
-		if(endian)gl.glPixelStorei(GL_UNPACK_SWAP_BYTES, GL_FALSE);
+		//if(endian)gl.glPixelStorei(GL_UNPACK_SWAP_BYTES, GL_FALSE);
 		//gl3.glDisable(GL_TEXTURE_3D);
 		gl.glBindTexture(textype, 0); 
 		gl.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);

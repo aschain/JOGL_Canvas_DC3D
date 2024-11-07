@@ -1,7 +1,7 @@
-# JOGL_Canvas_DC3D
+# JOGL_Canvas
 This is a plugin for ImageJ/Fiji (ImageJ1) that uses OpenGL with its graphics card accelleration to display images rather than java's AWT canvas. It replaces the ImageCanvas's java Canvas with a [JOGL](http://jogamp.org/jogl/www/) opengl GLCanvas instead.
 
-![JOGLCanvas screenshot](https://github.com/aschain/JOGL_Canvas_DC3D/blob/master/images/JOGLCanvas-mirror.jpg?raw=true)
+![JOGLCanvas screenshot](https://github.com/aschain/JOGL_Canvas/blob/master/images/JOGLCanvas-mirror.jpg?raw=true)
 
 This has two major benefits:
 
@@ -10,10 +10,10 @@ This has two major benefits:
 Image stacks are rendered in 3D directly on the canvas, and you can zoom, pan, translate, and rotate. You can also make selections and it will display all selections in the overlay from different slices where appropriate. You can render in an external window (mirror) or within the ImagePlus canvas.
 
 ### HDR High Dynamic Range --  Higher bit depths than 8 bits/color if your monitor supports it (HDR10 etc).
-[More info here](https://github.com/aschain/JOGL_Canvas_DC3D/blob/master/HDR.md)
+[More info here](https://github.com/aschain/JOGL_Canvas/blob/master/HDR.md)
 
 ## Installation
-Copy [JOGL_Canvas_DC3D](https://github.com/aschain/JOGL_Canvas_DC3D/releases/) to the plugins folder in your imagej1 / fiji directory. You must have the JOGL jars installed.  They will be installed if you have the fiji Java-8 update site activated. If you can run **Plugins -> Utilities -> Debugging -> Test Java3D** then you are ok.
+Copy [JOGL_Canvas](https://github.com/aschain/JOGL_Canvas/releases/) to the plugins folder in your imagej1 / fiji directory. You must have the JOGL jars installed.  They will be installed if you have the fiji Java-8 update site activated. If you can run **Plugins -> Utilities -> Debugging -> Test Java3D** then you are ok.
 
 ## How to use
 Open the image or image stack you would like to switch to JOGL Canvas. Open the plugins menu and select ```Plugins -> JOGL Canvas DC3D -> Convert to JOGL Canvas``` to convert the canvas to JOGL Canvas, or ```Plugins -> JOGL Canvas DC3D -> Open JOGL Canvas Mirror``` to open the JOGL Canvas in an external window.  The mirror is especially helpful if you would like to have your 3D rendering next to the 2D stack. Additionally, in the preferences, there is a setting to add shortcuts to these plugins to the ImageJ popup menu, which pops up when you right-click on any image.  

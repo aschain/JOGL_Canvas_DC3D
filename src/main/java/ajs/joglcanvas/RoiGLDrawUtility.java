@@ -10,6 +10,7 @@ import java.awt.image.BufferedImage;
 import java.nio.FloatBuffer;
 import java.nio.ShortBuffer;
 
+import com.jogamp.opengl.GL;
 import com.jogamp.opengl.GL2GL3;
 import com.jogamp.opengl.GLAutoDrawable;
 import com.jogamp.opengl.util.GLBuffers;
@@ -46,7 +47,7 @@ public class RoiGLDrawUtility {
 	private GLAutoDrawable drawable;
 	private JCGLObjects rglos=null;
 	float px=2f/1024f;
-	float w=-1f,h,offx,offy,dw, dh;
+	float w=-1f,h,offx,offy,dw, dh, zf;
 	float mag;
 	boolean go3d;
 	Color anacolor=null;
@@ -79,6 +80,8 @@ public class RoiGLDrawUtility {
 		dw=(int)(mag*w+0.5);
 		dh=(int)(mag*h+0.5);
 		px=2f/(float)(int)(mag*h+0.5);
+		Calibration cal=imp.getCalibration();
+		zf=(float)(cal.pixelDepth/cal.pixelWidth)/w;
 	}
 	
 	private void setGL(GLAutoDrawable drawable) {
@@ -155,8 +158,6 @@ public class RoiGLDrawUtility {
 		//if(isRoi && roi.getState()==Roi.CONSTRUCTING)drawHandles=false;
 
 		float z=0f;
-		Calibration cal=imp.getCalibration();
-		float zf=(float)(cal.pixelDepth/cal.pixelWidth)/w;
 		if(go3d) {
 			z=((float)sls-2f*(rsl==0?(sl-1):(rsl-1)))*zf;
 		}
@@ -469,6 +470,23 @@ public class RoiGLDrawUtility {
 			buffers[1].bindBuffer(2, rglos.getProgram("color"));
 		}
 		rglos.drawVao(toDraw, "roiGL", fb, "color");
+	}
+	
+	
+	public void drawCrosshairs(float oix, float oiy, float z, Color c, boolean isShort, boolean is3d) {
+		int sls=imp.getNSlices();
+		float left=-1f, right=1f, top=-1f, bottom=1f, front=sls*zf, back=(-sls+2)*zf;
+		oix=(oix+0.5f)/dw*2f-1f; oiy=(dh-oiy-0.5f)/dh*2f-1f;
+		if(isShort) {
+			float wpx=13f*2f/dw, hpx=13f*2f/dh;
+			left=oix-wpx; right=oix+wpx; top=oiy+hpx; bottom=oiy-hpx; front=Math.min(z+wpx,front); back=Math.max(z-wpx,back);
+			//constrain
+			//left=Math.max(oix-wpx,-1f); right=Math.min(oix+wpx,1f); top=Math.min(1f,oiy+hpx); bottom=Math.max(-1f,oiy-hpx); front=Math.min(z+wpx,front); back=Math.max(z-wpx,back);
+		}
+		drawGL(new float[] {left,oiy, z, right,oiy,z}, c, GL.GL_LINE_STRIP);
+		drawGL(new float[] {oix,bottom, z, oix, top, z}, c, GL.GL_LINE_STRIP);
+		if(is3d)drawGL(new float[] {oix, oiy, front, oix, oiy, back}, c, GL.GL_LINE_STRIP);
+	
 	}
 	
 	/** draws an Roi handle. x,y, are IMAGEJ subpixel positions
@@ -898,7 +916,7 @@ public class RoiGLDrawUtility {
 	//	return new float[] {(float)color.getRed()/255f,(float)color.getGreen()/255f,(float)color.getBlue()/255f,(float)color.getAlpha()/255f};
 	//}
 	
-	public static float[] getVecSquare(float vx, float vy, float vz, float vw, float vh, float tx, float ty, float tz, float tw, float th) {
+	private static float[] getVecSquare(float vx, float vy, float vz, float vw, float vh, float tx, float ty, float tz, float tw, float th) {
 		return new float[] {
 				vx, vy-vh, vz, tx, ty, tz,
 				vx+vw, vy-vh, vz, tx+tw, ty, tz,
@@ -907,7 +925,7 @@ public class RoiGLDrawUtility {
 		};
 	}
 	
-	protected void drawTextRoiString(TextRoi troi, float x, float y, float z, boolean noscale) {
+	private void drawTextRoiString(TextRoi troi, float x, float y, float z, boolean noscale) {
 		float aa=noscale?1:(float)mag*2f;
 		float magor1=noscale?(float)mag:1f;
 		Rectangle bounds=troi.getBounds();

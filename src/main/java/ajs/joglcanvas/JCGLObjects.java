@@ -41,7 +41,6 @@ import com.jogamp.opengl.util.awt.AWTGLReadBufferUtil;
 import com.jogamp.opengl.util.glsl.ShaderCode;
 import com.jogamp.opengl.util.glsl.ShaderProgram;
 
-import ajs.joglcanvas.JOGLImageCanvas.PixelType;
 import ij.IJ;
 import ij.Prefs;
 
@@ -248,16 +247,16 @@ public class JCGLObjects {
 	 * Texture handling loading
 	 */
 	
-	public void loadTexFromPbo(String sameName, int pn,int width, int height, int depth, int offsetSlice, PixelType type, int COMPS, boolean endian, boolean linear) {
-		loadTexFromPbo(sameName, pn, sameName, 0, width, height, depth, offsetSlice, type, COMPS, endian, linear);
+	public void loadTexFromPbo(String sameName, int pn,int width, int height, int depth, int offsetSlice, int bitDepth, int COMPS, boolean linear) {
+		loadTexFromPbo(sameName, pn, sameName, 0, width, height, depth, offsetSlice, bitDepth, COMPS, linear);
 	}
 	
-	public void loadTexFromPbo(String pboName, int pn, String texName, int tn, int width, int height, int depth, int offsetSlice, PixelType type, int COMPS, boolean endian, boolean linear) {
+	public void loadTexFromPbo(String pboName, int pn, String texName, int tn, int width, int height, int depth, int offsetSlice, int bitDepth, int COMPS, boolean linear) {
 			
 		int texHandle=getTextureHandle(texName, tn), pboHandle=getPboHandle(pboName, pn);
 		boolean is3d=getTexture(texName).is3d;
 		
-		PixelTypeInfo pinfo=new PixelTypeInfo(type, COMPS);
+		PixelTypeInfo pinfo=new PixelTypeInfo(bitDepth, COMPS);
 		
 		int textype=is3d?GL_TEXTURE_3D:GL_TEXTURE_2D;
 		
@@ -266,7 +265,7 @@ public class JCGLObjects {
 		gl.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pboHandle);
 		gl.glBindTexture(textype, texHandle); 
 		gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		if(endian)gl.glPixelStorei(GL_UNPACK_SWAP_BYTES, GL_TRUE);
+		//if(endian)gl.glPixelStorei(GL_UNPACK_SWAP_BYTES, GL_TRUE);
 		gl.glTexParameteri(textype, GL_TEXTURE_BASE_LEVEL, 0);
 		gl.glTexParameteri(textype, GL_TEXTURE_MAX_LEVEL, 0);
 		if(is3d)
@@ -282,7 +281,7 @@ public class JCGLObjects {
 		gl.glTexParameteri(textype, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
 		gl.glTexParameterfv(textype, GL_TEXTURE_BORDER_COLOR, new float[] {0f,0f,0f,0f},0);
 		//gl3.glGenerateMipmap(GL_TEXTURE_3D);
-		if(endian)gl.glPixelStorei(GL_UNPACK_SWAP_BYTES, GL_FALSE);
+		//if(endian)gl.glPixelStorei(GL_UNPACK_SWAP_BYTES, GL_FALSE);
 		//gl3.glDisable(GL_TEXTURE_3D);
 		gl.glBindTexture(textype, 0); 
 		gl.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
@@ -428,7 +427,7 @@ public class JCGLObjects {
 		unBindEBOVBO(name);
 	}
 	
-	public void drawToTexture(String texname, int texn, int width, int height, int framebuffer, int renderbuffer, PixelType pixelType3d){
+	public void drawToTexture(String texname, int texn, int width, int height, int framebuffer, int renderbuffer, int bitDepth){
 		int texture=getTextureHandle(texname,texn);
 		boolean is3d=getTexture(texname).is3d;
 		int gltextype=is3d?GL_TEXTURE_3D:GL_TEXTURE_2D;
@@ -436,7 +435,7 @@ public class JCGLObjects {
 		gl23.glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
 		gl23.glBindRenderbuffer(GL_RENDERBUFFER, renderbuffer);
 		
-		PixelTypeInfo info=new PixelTypeInfo(pixelType3d,4);
+		PixelTypeInfo info=new PixelTypeInfo(bitDepth,4);
 		gl23.glBindTexture(gltextype, texture);
 		if(is3d)
 			gl23.glTexImage3D(gltextype, 0, info.glInternalFormat, width, height, 1, 0, GL_RGBA, info.glPixelSize, null);
@@ -490,7 +489,7 @@ public class JCGLObjects {
 		}
 		
 		public void createRgbaTexture(int index, Buffer buffer, int width, int texheight, int bufferheight, int depth, int COMPS, boolean linear) {
-			initiate(getPixelType(buffer), width, texheight, depth, COMPS);
+			initiate(getBufferBitDepth(buffer), width, texheight, depth, COMPS);
 			subRgbaTexture(handles[index],buffer, 0, width, bufferheight, depth, COMPS, true, linear);
 		}
 		
@@ -498,8 +497,8 @@ public class JCGLObjects {
 			subRgbaTexture(handles[index],buffer, zoffset, width, height, depth, COMPS, false, linear);
 		}
 		
-		public void initiate(PixelType ptype, int width, int height, int depth, int COMPS) {
-			PixelTypeInfo pinfo=new PixelTypeInfo(ptype, COMPS);
+		public void initiate(int bitDepth, int width, int height, int depth, int COMPS) {
+			PixelTypeInfo pinfo=new PixelTypeInfo(bitDepth, COMPS);
 			int[] ths=handles;
 			if(width%4>0) {
 				int n=1;
@@ -584,9 +583,11 @@ public class JCGLObjects {
 	class JCPbo{
 		
 		public int[] pbos;
+		public long[] sizeInBytes;
 		
 		public JCPbo(int size) {
 			pbos=new int[size];
+			sizeInBytes=new long[size];
 		}
 		
 		public boolean hasPbo() {return (pbos!=null && pbos.length>0);}
@@ -596,23 +597,20 @@ public class JCGLObjects {
 				dispose();
 			}
 			pbos=new int[size];
+			sizeInBytes=new long[size];
 		}
 		
 		public int getPbo(int index) {
 			return pbos[index];
 		}
 
-		public int getPboLength(String name) {
+		public int getNPbos() {
 			if(pbos==null)return 0;
 			return pbos.length;
 		}
 		
 		public void dispose() {
 			gl.glDeleteBuffers(pbos.length,pbos,0);
-		}
-		
-		public void updateRgbaPBO(int index, Buffer buffer) {
-			updateSubRgbaPBO(index, buffer, 0, 0, buffer.limit(), buffer.limit());
 		}
 		
 		/**
@@ -625,25 +623,15 @@ public class JCGLObjects {
 		 * @param length
 		 * @param bsize
 		 */
-		public void updateSubRgbaPBO(int index, Buffer buffer, int bufferOffset, int PBOoffset, int length, int bsize) {
-			int[] phs=pbos;
+		public void updateSubRgbaPBO(int index, Buffer buffer, int bufferOffset, int PBOoffset, int length, long bufferSize) {
 			int size=getSizeofType(buffer);
-			
-			boolean isNew=false;
-			if(phs[index]==0) {
-				gl.glGenBuffers(1, phs, index);
-				isNew=true;
+
+			if(pbos[index]==0)gl.glGenBuffers(1, pbos, index);
+			gl.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbos[index]);
+			if(sizeInBytes[index]!=bufferSize*size) {
+				sizeInBytes[index]=bufferSize*size;
+				gl.glBufferData(GL_PIXEL_UNPACK_BUFFER, sizeInBytes[index], null, GL_DYNAMIC_DRAW);
 			}
-			gl.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, phs[index]); 
-			if(!isNew){
-				int[] pbosize=new int[1];
-				gl.glGetBufferParameteriv(GL_PIXEL_UNPACK_BUFFER, GL_BUFFER_SIZE, pbosize, 0);
-				//IJ.log("pbosize: "+pbosize[0]+" des size:"+bsize*size);
-				if(pbosize[0]!=bsize*size) {
-					isNew=true;
-				}
-			}
-			if(isNew)gl.glBufferData(GL_PIXEL_UNPACK_BUFFER, bsize*size, null, GL_DYNAMIC_DRAW);
 			buffer.position(bufferOffset);
 			gl.glBufferSubData(GL_PIXEL_UNPACK_BUFFER, (long)PBOoffset*size, (long)length*size, buffer);
 			gl.glBindBuffer(GL_PIXEL_UNPACK_BUFFER,0);
@@ -1190,28 +1178,22 @@ public class JCGLObjects {
 		public int components;
 		public int glFormat;
 		
-		public PixelTypeInfo(PixelType type, int COMPS) {
+		public PixelTypeInfo(int bitDepth, int COMPS) {
 			glInternalFormat=COMPS==4?GL_RGBA32F:COMPS==3?GL_RGB32F:COMPS==2?GL_RG32F:GL_R32F;
 			glPixelSize=GL_FLOAT;
 			sizeBytes=Buffers.SIZEOF_FLOAT;
 			components=COMPS;
 			glFormat=COMPS==4?GL_RGBA:COMPS==3?GL_RGB:COMPS==2?GL_RG:GL_RED;
 			
-			if(type==PixelType.SHORT) {
+			if(bitDepth==16) {
 				glInternalFormat=COMPS==4?GL_RGBA16:COMPS==3?GL_RGB16:COMPS==2?GL_RG16:GL_R16;
 				glPixelSize=GL_UNSIGNED_SHORT;
 				sizeBytes=Buffers.SIZEOF_SHORT;
-			}else if(type==PixelType.BYTE) {
+			}else if(bitDepth==8) {
 				glInternalFormat=COMPS==4?GL_RGBA8:COMPS==3?GL_RGB8:COMPS==2?GL_RG8:GL_R8;
 				glPixelSize=GL_UNSIGNED_BYTE;
 				sizeBytes=Buffers.SIZEOF_BYTE;
-			}else if(type==PixelType.INT_RGB10A2) {
-				glInternalFormat=GL_RGB10_A2;
-				glPixelSize=GL_UNSIGNED_INT_2_10_10_10_REV;
-				sizeBytes=Buffers.SIZEOF_INT;
-				components=1;
-				glFormat=GL_RGBA;
-			}else if(type==PixelType.INT_RGBA8) {
+			}else if(bitDepth==24) {
 				glInternalFormat=GL_RGBA8;
 				glPixelSize=GL_UNSIGNED_INT_8_8_8_8;
 				sizeBytes=Buffers.SIZEOF_INT;
@@ -1221,20 +1203,20 @@ public class JCGLObjects {
 		}
 		
 		public PixelTypeInfo(Buffer buffer, int COMPS) {
-			this(getPixelType(buffer), COMPS);
+			this(getBufferBitDepth(buffer), COMPS);
 		}
 	}
 	
-	protected static PixelType getPixelType(Buffer buffer) {
-		PixelType type=PixelType.FLOAT;
+	protected static int getBufferBitDepth(Buffer buffer) {
+		int depth=32;
 		if(buffer instanceof ShortBuffer) {
-			type=PixelType.SHORT;
+			depth=16;
 		}else if(buffer instanceof ByteBuffer) {
-			type=PixelType.BYTE;
+			depth=8;
 		}else if(buffer instanceof IntBuffer) {
 			//type=PixelType.INT_RGB10A2;
-			type=PixelType.INT_RGBA8;
+			depth=24;
 		}
-		return type;
+		return depth;
 	}
 }

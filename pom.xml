@@ -8,15 +8,15 @@
 	<parent>
 		<groupId>org.scijava</groupId>
 		<artifactId>pom-scijava</artifactId>
-		<version>29.2.1</version>
+		<version>37.0.0</version>
 		<relativePath />
 	</parent>
 
 	<groupId>ajs.joglcanvas</groupId>
-	<artifactId>JOGL_Canvas_DC3D</artifactId>
+	<artifactId>JOGL_Canvas</artifactId>
 	<version>0.2.3-SNAPSHOT</version>
 
-	<name>JOGL_Canvas_DC3D</name>
+	<name>JOGL_Canvas</name>
 	<description>ImageJ1 Plugin replacing the Java Canvas with an OpenGL JOGL GLCanvas.</description>
 	<url>http://sites.imagej.net/Aschain</url>
 	<inceptionYear>2018</inceptionYear>
@@ -49,16 +49,10 @@
 	
 	<contributors>
 		<contributor>
-			<name>Curtis Rueden</name>
-			<url>http://imagej.net/User:Rueden</url>
-			<roles><role>support</role></roles>
-			<properties><id>ctrueden</id></properties>
-		</contributor>
-		<contributor>
-			<name>Johannes Schindelin</name>
-			<url>http://imagej.net/User:Schindelin</url>
-			<roles><role>support</role></roles>
-			<properties><id>dscho</id></properties>
+			<name>Aaron Schain</name>
+			<url>http://imagej.net/User:JOGL_Canvas_DC3D</url>
+			<roles><role>developer</role></roles>
+			<properties><id>aschain</id></properties>
 		</contributor>
 	</contributors>
 
@@ -91,15 +85,25 @@
 		<scijava.jvm.build.version>[1.8.0-1,300)</scijava.jvm.build.version>
 		<maven.exec.skip>false</maven.exec.skip>
 	</properties>
+	
+	<repositories>
+		<repository>
+			<id>jogamp</id>
+			<name>Jogamp</name>
+			<url>http://www.jogamp.org/deployment/maven/</url>
+		</repository>
+	</repositories>
 
 	<dependencies>
 		<dependency>
 			<groupId>org.jogamp.gluegen</groupId>
 			<artifactId>gluegen-rt-main</artifactId>
+			<version>2.4.0</version>
 		</dependency>
 		<dependency>
 			<groupId>org.jogamp.jogl</groupId>
 			<artifactId>jogl-all-main</artifactId>
+			<version>2.4.0</version>
 		</dependency>
 		<dependency>
 			<groupId>net.imagej</groupId>

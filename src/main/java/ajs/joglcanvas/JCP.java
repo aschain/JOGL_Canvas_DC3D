@@ -71,7 +71,6 @@ public class JCP implements PlugIn {
 	public static int undersample=(int)Prefs.get("ajs.joglcanvas.undersample", 1.0);
 	public static String renderFunction=Prefs.get("ajs.joglcanvas.renderFunction", "MAX");
 	public static boolean openglroi=Prefs.get("ajs.joglcanvas.openglroi", false);
-	public static boolean usePBOforSlices=Prefs.get("ajs.joglcanvas.usePBOforSlices", false);
 	public static Color leftAnaglyphColor=new Color((int) Prefs.get("ajs.joglcanvas.leftAnaglyphColor",Color.RED.getRGB()));
 	public static Color rightAnaglyphColor=new Color((int) Prefs.get("ajs.joglcanvas.rightAnaglyphColor",Color.CYAN.getRGB()));
 	public static boolean dubois=Prefs.get("ajs.joglcanvas.dubois", false);
@@ -82,13 +81,11 @@ public class JCP implements PlugIn {
 	public static float[][] anaColors;
 	public static boolean go3d=Prefs.get("ajs.joglcanvas.go3d", false);
 	public static boolean preferStereo=Prefs.get("ajs.joglcanvas.preferStereo", false);
-	public static boolean wrappedBuffers=Prefs.get("ajs.joglcanvas.wrappedBuffers", true);
 	public static boolean doFrustum=Prefs.get("ajs.joglcanvas.doFrustum", false);
 	public static boolean qbfullscreen=Prefs.get("ajs.joglcanvas.qbfullscreen", false);
 	public static int drawCrosshairs=(int)Prefs.get("ajs.joglcanvas.drawCrosshairs", 0);
 	public static boolean mouseWheelFix=Prefs.get("ajs.joglcanvas.mouseWheelFix", IJ.isMacOSX() || IJ.isLinux());
 	public static boolean quiet=Prefs.get("ajs.joglcanvas.quiet", false);
-	public static int tex4=0;
 	public static boolean debug=false;
 	public static float zNear=-2f, zFar=2f;
 	private static final float[][] duboisColors = new float[][] {
@@ -521,12 +518,8 @@ public class JCP implements PlugIn {
 		gd.addCheckbox("Draw ROI with OpenGL (in progress)", openglroi);
 		String[] cursorChoices=new String[] {"Off", "Short", "Long"};
 		gd.addChoice("Draw cursor crosshairs (requires GL ROI)", cursorChoices, cursorChoices[drawCrosshairs]);
-		gd.addCheckbox("Store whole stack in PBO, even for 2D (more video memory but faster)", usePBOforSlices);
-		gd.addCheckbox("Use image arrays wrapped in a buffer for video memory", wrappedBuffers);
 		gd.addCheckbox("Fix if mouse wheel is not working for converted canvas", mouseWheelFix);
 		gd.addCheckbox("Don't print to log on startup, etc", quiet);
-		String[] texChoices=new String[] {"None", "Multiple of 4", "Power of two"};
-		gd.addChoice("Texture restriction?", texChoices, texChoices[tex4]);
 		gd.addCheckbox("Show some extra debug info", debug);
 		gd.addDialogListener(new ij.gui.DialogListener() {
 			@Override
@@ -589,15 +582,10 @@ public class JCP implements PlugIn {
 		Prefs.set("ajs.joglcanvas.openglroi", openglroi);
 		drawCrosshairs=gd.getNextChoiceIndex();
 		Prefs.set("ajs.joglcanvas.drawCrosshairs", drawCrosshairs);
-		usePBOforSlices=gd.getNextBoolean();
-		Prefs.set("ajs.joglcanvas.usePBOforSlices", usePBOforSlices);
-		wrappedBuffers=gd.getNextBoolean();
-		Prefs.set("ajs.joglcanvas.wrappedBuffers", wrappedBuffers);
 		mouseWheelFix=gd.getNextBoolean();
 		Prefs.set("ajs.joglcanvas.mouseWheelFix", mouseWheelFix);
 		quiet=gd.getNextBoolean();
 		Prefs.set("ajs.joglcanvas.quiet", quiet);
-		tex4=gd.getNextChoiceIndex();
 		debug=gd.getNextBoolean();
 		
 		if(doana) anaglyphSettings();

@@ -161,7 +161,7 @@ public class JCBrightness extends JCAdjuster implements ImageListener {
 				//ip.setLut(lut);
 			}
 		}
-		imp.updateAndDraw();
+		imp.getCanvas().repaint();
 	}
 	
 	public void updateGamma() {
